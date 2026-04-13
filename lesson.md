@@ -27,3 +27,9 @@ Stateful AWS versions have to be tested against the target region, not assumed f
 The first auth-slice deploy looked half-broken because `service-account-access` was healthy while `edge-api-gateway` still returned `504` and then `502`. The lesson is to separate infra readiness from edge readiness: RDS, Redis, and the Django task can be correct while the gateway still carries stale Compose-era assumptions.
 
 ECS service updates can stay `UPDATE_IN_PROGRESS` in CloudFormation after the new task is already serving public traffic. Do not guess; keep checking public smoke, ECS deployment state, and CloudFormation together until all three agree.
+
+Apex cutover can be mostly a config change when the runtime is already proven. For `ev-dashboard.com`, the successful cutover reused the same stable front/gateway/account-access images and changed only `APEX_DOMAIN` and `API_DOMAIN` before rerunning the deploy workflow.
+
+Route53 alias updates can become visible before every local resolver follows along. During this cutover, public DNS already returned the ALB IPs while the local resolver still failed `curl https://ev-dashboard.com`. Use `dig` plus `curl --resolve` to verify the ALB path directly until local caches catch up.
+
+The old runtime was not passive. `test-test-sh` could write the apex record from inside its task lifecycle, so cutting DNS over was only half of the job. The old service had to be scaled to `0` immediately after the new apex/API hosts answered correctly.
