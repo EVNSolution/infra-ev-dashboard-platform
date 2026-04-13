@@ -1,0 +1,146 @@
+name: Deploy ev-dashboard ECS platform
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        description: Target environment
+        required: true
+        default: dev
+        options:
+          - dev
+          - stage
+          - prod
+      front_image_uri:
+        type: string
+        description: Full ECR image URI for front-web-console
+        required: true
+      gateway_image_uri:
+        type: string
+        description: Full ECR image URI for edge-api-gateway
+        required: true
+      account_access_image_uri:
+        type: string
+        description: Full ECR image URI for service-account-access
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    env:
+      DEV_DEPLOY_ROLE_ARN: ${{ secrets.GH_ACTIONS_DEV_DEPLOY_ROLE_ARN }}
+      STAGE_DEPLOY_ROLE_ARN: ${{ secrets.GH_ACTIONS_STAGE_DEPLOY_ROLE_ARN }}
+      PROD_DEPLOY_ROLE_ARN: ${{ secrets.GH_ACTIONS_PROD_DEPLOY_ROLE_ARN }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+      APEX_DOMAIN: ${{ vars.APEX_DOMAIN }}
+      API_DOMAIN: ${{ vars.API_DOMAIN }}
+      CERTIFICATE_ARN: ${{ vars.CERTIFICATE_ARN }}
+      VPC_ID: ${{ vars.VPC_ID }}
+      PUBLIC_SUBNET_IDS: ${{ vars.PUBLIC_SUBNET_IDS }}
+      AVAILABILITY_ZONES: ${{ vars.AVAILABILITY_ZONES }}
+      FRONT_DESIRED_COUNT: ${{ vars.FRONT_DESIRED_COUNT }}
+      GATEWAY_DESIRED_COUNT: ${{ vars.GATEWAY_DESIRED_COUNT }}
+      ACCOUNT_ACCESS_DESIRED_COUNT: ${{ vars.ACCOUNT_ACCESS_DESIRED_COUNT }}
+      FRONT_CPU: ${{ vars.FRONT_CPU }}
+      FRONT_MEMORY_MIB: ${{ vars.FRONT_MEMORY_MIB }}
+      GATEWAY_CPU: ${{ vars.GATEWAY_CPU }}
+      GATEWAY_MEMORY_MIB: ${{ vars.GATEWAY_MEMORY_MIB }}
+      ACCOUNT_ACCESS_CPU: ${{ vars.ACCOUNT_ACCESS_CPU }}
+      ACCOUNT_ACCESS_MEMORY_MIB: ${{ vars.ACCOUNT_ACCESS_MEMORY_MIB }}
+      FRONT_HEALTH_CHECK_PATH: ${{ vars.FRONT_HEALTH_CHECK_PATH }}
+      GATEWAY_HEALTH_CHECK_PATH: ${{ vars.GATEWAY_HEALTH_CHECK_PATH }}
+      ACCOUNT_ACCESS_HEALTH_CHECK_PATH: ${{ vars.ACCOUNT_ACCESS_HEALTH_CHECK_PATH }}
+      FRONT_IMAGE_URI: ${{ github.event.inputs.front_image_uri }}
+      GATEWAY_IMAGE_URI: ${{ github.event.inputs.gateway_image_uri }}
+      ACCOUNT_ACCESS_IMAGE_URI: ${{ github.event.inputs.account_access_image_uri }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve deploy role
+        id: role
+        run: |
+          case "${{ github.event.inputs.environment }}" in
+            dev)
+              role_arn="${DEV_DEPLOY_ROLE_ARN}"
+              ;;
+            stage)
+              role_arn="${STAGE_DEPLOY_ROLE_ARN}"
+              ;;
+            prod)
+              role_arn="${PROD_DEPLOY_ROLE_ARN}"
+              ;;
+            *)
+              echo "Unsupported environment: ${{ github.event.inputs.environment }}" >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$role_arn" ]; then
+            echo "Missing deploy role secret for environment: ${{ github.event.inputs.environment }}" >&2
+            exit 1
+          fi
+
+          echo "role_arn=$role_arn" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          role-to-assume: ${{ steps.role.outputs.role_arn }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: 902837199612
+          role-session-name: ev-dashboard-ecs-deploy-${{ github.run_id }}
+          mask-aws-account-id: true
+          unset-current-credentials: true
+          retry-max-attempts: 4
+          action-timeout-s: 120
+
+      - name: Validate required config
+        run: |
+          set -euo pipefail
+
+          required_vars=(
+            AWS_REGION
+            HOSTED_ZONE_ID
+            APEX_DOMAIN
+            API_DOMAIN
+            CERTIFICATE_ARN
+            VPC_ID
+            PUBLIC_SUBNET_IDS
+            FRONT_IMAGE_URI
+            GATEWAY_IMAGE_URI
+            ACCOUNT_ACCESS_IMAGE_URI
+          )
+
+          for key in "${required_vars[@]}"; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required value: ${key}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Run unit tests
+        run: npm test -- --runInBand
+
+      - name: Synthesize stack
+        run: npx cdk synth
+
+      - name: Deploy stack
+        run: npx cdk deploy --require-approval never
