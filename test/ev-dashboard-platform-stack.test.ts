@@ -10,9 +10,9 @@ describe('EvDashboardPlatformStack', () => {
     const config = buildPlatformConfig({
       region: 'ap-northeast-2',
       hostedZoneId: 'Z0258898ULH367BASCGC',
+      hostedZoneName: 'ev-dashboard.com',
       apexDomain: 'ev-dashboard.com',
       apiDomain: 'api.ev-dashboard.com',
-      certificateArn: 'arn:aws:acm:ap-northeast-2:123456789012:certificate/example',
       vpcId: 'vpc-1234567890abcdef0',
       publicSubnetIds: ['subnet-aaa', 'subnet-bbb'],
       frontImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
@@ -38,9 +38,14 @@ describe('EvDashboardPlatformStack', () => {
     template.resourceCountIs('AWS::ECS::Cluster', 1);
     template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
     template.resourceCountIs('AWS::ECS::Service', 3);
+    template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
       Port: 443,
       Protocol: 'HTTPS'
+    });
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      Port: 5174,
+      Protocol: 'HTTP'
     });
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
       Conditions: Match.arrayWith([
@@ -48,6 +53,12 @@ describe('EvDashboardPlatformStack', () => {
           Field: 'host-header',
           HostHeaderConfig: {
             Values: ['ev-dashboard.com']
+          }
+        }),
+        Match.objectLike({
+          Field: 'path-pattern',
+          PathPatternConfig: {
+            Values: ['/api/*']
           }
         })
       ])
@@ -62,5 +73,39 @@ describe('EvDashboardPlatformStack', () => {
         })
       ])
     });
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'front-web',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'web-console',
+                Port: 5174
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'account-auth',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'account-auth-api',
+                Port: 8000
+              })
+            ])
+          })
+        ])
+      })
+    }));
   });
 });

@@ -1,12 +1,13 @@
 export type PlatformConfigInput = {
   region: string;
   hostedZoneId: string;
+  hostedZoneName: string;
   apexDomain: string;
   apiDomain: string;
-  certificateArn: string;
   vpcId: string;
   publicSubnetIds: string[];
   availabilityZones?: string[];
+  serviceConnectNamespace?: string;
   frontImageUri: string;
   gatewayImageUri: string;
   accountAccessImageUri: string;
@@ -26,11 +27,13 @@ export type PlatformConfigInput = {
 
 export type PlatformConfig = PlatformConfigInput & {
   availabilityZones: string[];
+  serviceConnectNamespace: string;
 };
 
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
   return {
     ...input,
+    serviceConnectNamespace: input.serviceConnectNamespace ?? 'ev-dashboard.internal',
     availabilityZones:
       input.availabilityZones ?? buildDefaultAvailabilityZones(input.region, input.publicSubnetIds.length)
   };
@@ -40,15 +43,16 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   return buildPlatformConfig({
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
     hostedZoneId: required(env.HOSTED_ZONE_ID, 'HOSTED_ZONE_ID'),
+    hostedZoneName: required(env.HOSTED_ZONE_NAME, 'HOSTED_ZONE_NAME'),
     apexDomain: required(env.APEX_DOMAIN, 'APEX_DOMAIN'),
     apiDomain: required(env.API_DOMAIN, 'API_DOMAIN'),
-    certificateArn: required(env.CERTIFICATE_ARN, 'CERTIFICATE_ARN'),
     vpcId: required(env.VPC_ID, 'VPC_ID'),
     publicSubnetIds: required(env.PUBLIC_SUBNET_IDS, 'PUBLIC_SUBNET_IDS')
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean),
     availabilityZones: optionalList(env.AVAILABILITY_ZONES),
+    serviceConnectNamespace: env.SERVICE_CONNECT_NAMESPACE,
     frontImageUri: required(env.FRONT_IMAGE_URI, 'FRONT_IMAGE_URI'),
     gatewayImageUri: required(env.GATEWAY_IMAGE_URI, 'GATEWAY_IMAGE_URI'),
     accountAccessImageUri: required(env.ACCOUNT_ACCESS_IMAGE_URI, 'ACCOUNT_ACCESS_IMAGE_URI'),
@@ -61,7 +65,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     gatewayMemoryMiB: toNumber(env.GATEWAY_MEMORY_MIB, 'GATEWAY_MEMORY_MIB', 512),
     accountAccessCpu: toNumber(env.ACCOUNT_ACCESS_CPU, 'ACCOUNT_ACCESS_CPU', 256),
     accountAccessMemoryMiB: toNumber(env.ACCOUNT_ACCESS_MEMORY_MIB, 'ACCOUNT_ACCESS_MEMORY_MIB', 512),
-    frontHealthCheckPath: env.FRONT_HEALTH_CHECK_PATH ?? '/',
+    frontHealthCheckPath: env.FRONT_HEALTH_CHECK_PATH ?? '/healthz',
     gatewayHealthCheckPath: env.GATEWAY_HEALTH_CHECK_PATH ?? '/healthz',
     accountAccessHealthCheckPath: env.ACCOUNT_ACCESS_HEALTH_CHECK_PATH ?? '/healthz'
   });

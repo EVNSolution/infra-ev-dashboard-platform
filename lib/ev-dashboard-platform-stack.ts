@@ -1,10 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import { aws_certificatemanager as acm } from 'aws-cdk-lib';
 import { aws_ec2 as ec2 } from 'aws-cdk-lib';
+import { aws_ecr as ecr } from 'aws-cdk-lib';
 import { aws_ecs as ecs } from 'aws-cdk-lib';
 import { aws_elasticloadbalancingv2 as elbv2 } from 'aws-cdk-lib';
 import { aws_route53 as route53 } from 'aws-cdk-lib';
 import { aws_route53_targets as route53Targets } from 'aws-cdk-lib';
+import { aws_servicediscovery as servicediscovery } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 import type { PlatformConfig } from './config';
@@ -28,12 +30,21 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     );
     const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
       hostedZoneId: config.hostedZoneId,
-      zoneName: config.apexDomain
+      zoneName: config.hostedZoneName
     });
-    const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', config.certificateArn);
+    const certificate = new acm.Certificate(this, 'Certificate', {
+      domainName: config.apexDomain,
+      subjectAlternativeNames: [config.apiDomain],
+      validation: acm.CertificateValidation.fromDns(hostedZone)
+    });
     const cluster = new ecs.Cluster(this, 'Cluster', {
       clusterName: 'ev-dashboard-platform',
-      vpc
+      vpc,
+      defaultCloudMapNamespace: {
+        name: config.serviceConnectNamespace,
+        type: servicediscovery.NamespaceType.DNS_PRIVATE,
+        useForServiceConnect: true
+      }
     });
 
     const albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
@@ -49,8 +60,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       description: 'Application tasks for ev-dashboard ECS slice',
       allowAllOutbound: true
     });
-    serviceSecurityGroup.addIngressRule(albSecurityGroup, ec2.Port.tcp(80), 'Front traffic');
+    serviceSecurityGroup.addIngressRule(albSecurityGroup, ec2.Port.tcp(5174), 'Front traffic');
     serviceSecurityGroup.addIngressRule(albSecurityGroup, ec2.Port.tcp(8080), 'Gateway traffic');
+    serviceSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(5174), 'Gateway to front web console');
     serviceSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(8000), 'Gateway to account access');
 
     const loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'LoadBalancer', {
@@ -86,8 +98,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       cpu: config.frontCpu,
       memoryMiB: config.frontMemoryMiB,
       desiredCount: config.frontDesiredCount,
-      containerPort: 80,
+      containerPort: 5174,
+      portMappingName: 'front-web',
       serviceName: 'front-web-console',
+      serviceConnectDnsName: 'web-console',
+      serviceConnectNamespace: config.serviceConnectNamespace,
       securityGroup: serviceSecurityGroup,
       subnets: publicSubnets
     });
@@ -99,7 +114,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       memoryMiB: config.gatewayMemoryMiB,
       desiredCount: config.gatewayDesiredCount,
       containerPort: 8080,
+      portMappingName: 'gateway-http',
       serviceName: 'edge-api-gateway',
+      serviceConnectDnsName: 'edge-api-gateway',
+      serviceConnectNamespace: config.serviceConnectNamespace,
       securityGroup: serviceSecurityGroup,
       subnets: publicSubnets
     });
@@ -111,13 +129,16 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       memoryMiB: config.accountAccessMemoryMiB,
       desiredCount: config.accountAccessDesiredCount,
       containerPort: 8000,
+      portMappingName: 'account-auth',
       serviceName: 'service-account-access',
+      serviceConnectDnsName: 'account-auth-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
       securityGroup: serviceSecurityGroup,
       subnets: publicSubnets
     });
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
-      port: 80,
+      port: 5174,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       vpc,
@@ -139,26 +160,35 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     gatewayService.attachToApplicationTargetGroup(gatewayTargetGroup);
 
     httpsListener.addTargetGroups('FrontRule', {
-      priority: 10,
+      priority: 20,
       conditions: [elbv2.ListenerCondition.hostHeaders([config.apexDomain])],
       targetGroups: [frontTargetGroup]
     });
 
+    httpsListener.addTargetGroups('ApexApiRule', {
+      priority: 10,
+      conditions: [
+        elbv2.ListenerCondition.hostHeaders([config.apexDomain]),
+        elbv2.ListenerCondition.pathPatterns(['/api/*'])
+      ],
+      targetGroups: [gatewayTargetGroup]
+    });
+
     httpsListener.addTargetGroups('ApiRule', {
-      priority: 20,
+      priority: 30,
       conditions: [elbv2.ListenerCondition.hostHeaders([config.apiDomain])],
       targetGroups: [gatewayTargetGroup]
     });
 
     new route53.ARecord(this, 'ApexAliasRecord', {
       zone: hostedZone,
-      recordName: config.apexDomain,
+      recordName: this.recordName(config.apexDomain, config.hostedZoneName),
       target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadBalancer))
     });
 
     new route53.ARecord(this, 'ApiAliasRecord', {
       zone: hostedZone,
-      recordName: this.relativeRecordName(config.apiDomain, config.apexDomain),
+      recordName: this.recordName(config.apiDomain, config.hostedZoneName),
       target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadBalancer))
     });
   }
@@ -172,7 +202,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       memoryMiB: number;
       desiredCount: number;
       containerPort: number;
+      portMappingName: string;
       serviceName: string;
+      serviceConnectDnsName: string;
+      serviceConnectNamespace: string;
       securityGroup: ec2.SecurityGroup;
       subnets: ec2.ISubnet[];
     }
@@ -182,9 +215,15 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       memoryLimitMiB: input.memoryMiB
     });
     taskDefinition.addContainer(`${id}Container`, {
-      image: ecs.ContainerImage.fromRegistry(input.imageUri),
+      image: this.buildEcrContainerImage(`${id}Image`, input.imageUri),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: input.serviceName }),
-      portMappings: [{ containerPort: input.containerPort }]
+      portMappings: [
+        {
+          name: input.portMappingName,
+          containerPort: input.containerPort,
+          appProtocol: ecs.AppProtocol.http
+        }
+      ]
     });
 
     return new ecs.FargateService(this, `${id}Service`, {
@@ -194,12 +233,42 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       assignPublicIp: true,
       securityGroups: [input.securityGroup],
       vpcSubnets: { subnets: input.subnets },
-      serviceName: input.serviceName
+      serviceName: input.serviceName,
+      serviceConnectConfiguration: {
+        namespace: input.serviceConnectNamespace,
+        services: [
+          {
+            portMappingName: input.portMappingName,
+            dnsName: input.serviceConnectDnsName,
+            port: input.containerPort
+          }
+        ]
+      }
     });
   }
 
-  private relativeRecordName(fqdn: string, apexDomain: string): string {
-    const suffix = `.${apexDomain}`;
+  private buildEcrContainerImage(id: string, imageUri: string): ecs.ContainerImage {
+    const { repositoryName, tag } = this.parseEcrImageUri(imageUri);
+    const repository = ecr.Repository.fromRepositoryName(this, `${id}Repository`, repositoryName);
+    return ecs.ContainerImage.fromEcrRepository(repository, tag);
+  }
+
+  private parseEcrImageUri(imageUri: string): { repositoryName: string; tag: string } {
+    const match = imageUri.match(/^\d+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com\/(.+):([^:]+)$/);
+    if (!match) {
+      throw new Error(`Unsupported ECR image URI format: ${imageUri}`);
+    }
+
+    const [, repositoryName, tag] = match;
+    return { repositoryName, tag };
+  }
+
+  private recordName(fqdn: string, hostedZoneName: string): string | undefined {
+    if (fqdn === hostedZoneName) {
+      return undefined;
+    }
+
+    const suffix = `.${hostedZoneName}`;
     return fqdn.endsWith(suffix) ? fqdn.slice(0, -suffix.length) : fqdn;
   }
 }

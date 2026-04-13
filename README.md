@@ -7,9 +7,10 @@ ECS/CDK runtime infrastructure for `ev-dashboard.com`.
 This repo owns the shared ECS/CDK runtime for the `ev-dashboard` slice:
 
 - ALB
-- ACM
+- ACM certificate issuance
 - Route53 alias records
 - ECS cluster and services
+- Service Connect namespace
 - deploy workflow
 
 It does not own app code. Application source and image builds stay in:
@@ -34,12 +35,13 @@ Repository or environment variables:
 
 - `AWS_REGION`
 - `HOSTED_ZONE_ID`
+- `HOSTED_ZONE_NAME`
 - `APEX_DOMAIN`
 - `API_DOMAIN`
-- `CERTIFICATE_ARN`
 - `VPC_ID`
 - `PUBLIC_SUBNET_IDS`
 - optional: `AVAILABILITY_ZONES`
+- optional: `SERVICE_CONNECT_NAMESPACE`
 - optional: `FRONT_DESIRED_COUNT`
 - optional: `GATEWAY_DESIRED_COUNT`
 - optional: `ACCOUNT_ACCESS_DESIRED_COUNT`
@@ -60,3 +62,12 @@ Repository secrets:
 - `GH_ACTIONS_PROD_DEPLOY_ROLE_ARN`
 
 The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates, but the role secret names stay aligned with the current CLEVER deploy naming.
+
+## Runtime Notes
+
+- The stack issues its own ACM certificate from the hosted zone instead of importing a pre-created `CERTIFICATE_ARN`.
+- The front service listens on `5174`, matching the existing container contract.
+- The ALB routes `ev-dashboard.com/api/*` to `edge-api-gateway` so the front can keep same-host `/api` calls.
+- ECS Service Connect provides the short names that `edge-api-gateway` already expects:
+  - `web-console:5174`
+  - `account-auth-api:8000`
