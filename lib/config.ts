@@ -6,6 +6,7 @@ export type PlatformConfigInput = {
   apiDomain: string;
   vpcId: string;
   publicSubnetIds: string[];
+  privateSubnetIds?: string[];
   availabilityZones?: string[];
   serviceConnectNamespace?: string;
   frontImageUri: string;
@@ -27,12 +28,19 @@ export type PlatformConfigInput = {
 
 export type PlatformConfig = PlatformConfigInput & {
   availabilityZones: string[];
+  privateSubnetIds: string[];
   serviceConnectNamespace: string;
 };
 
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
+  const privateSubnetIds = input.privateSubnetIds ?? [];
+  if (input.accountAccessDesiredCount > 0 && privateSubnetIds.length === 0) {
+    throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
+  }
+
   return {
     ...input,
+    privateSubnetIds,
     serviceConnectNamespace: input.serviceConnectNamespace ?? 'ev-dashboard.internal',
     availabilityZones:
       input.availabilityZones ?? buildDefaultAvailabilityZones(input.region, input.publicSubnetIds.length)
@@ -56,6 +64,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean),
+    privateSubnetIds: optionalList(env.PRIVATE_SUBNET_IDS),
     availabilityZones: optionalList(env.AVAILABILITY_ZONES),
     serviceConnectNamespace,
     frontImageUri: required(env.FRONT_IMAGE_URI, 'FRONT_IMAGE_URI'),

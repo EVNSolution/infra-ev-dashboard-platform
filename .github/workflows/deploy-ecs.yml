@@ -43,6 +43,7 @@ jobs:
       API_DOMAIN: ${{ vars.API_DOMAIN }}
       VPC_ID: ${{ vars.VPC_ID }}
       PUBLIC_SUBNET_IDS: ${{ vars.PUBLIC_SUBNET_IDS }}
+      PRIVATE_SUBNET_IDS: ${{ vars.PRIVATE_SUBNET_IDS }}
       AVAILABILITY_ZONES: ${{ vars.AVAILABILITY_ZONES }}
       SERVICE_CONNECT_NAMESPACE: ${{ vars.SERVICE_CONNECT_NAMESPACE }}
       FRONT_DESIRED_COUNT: ${{ vars.FRONT_DESIRED_COUNT }}
@@ -109,6 +110,11 @@ jobs:
               exit 1
             fi
           done
+
+          if [ "${ACCOUNT_ACCESS_DESIRED_COUNT:-0}" != "0" ] && [ -z "${PRIVATE_SUBNET_IDS:-}" ]; then
+            echo "Missing required value: PRIVATE_SUBNET_IDS" >&2
+            exit 1
+          fi
 
       - name: Run unit tests
         run: npm test -- --runInBand

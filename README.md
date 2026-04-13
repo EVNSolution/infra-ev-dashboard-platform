@@ -40,6 +40,7 @@ Repository or environment variables:
 - `API_DOMAIN`
 - `VPC_ID`
 - `PUBLIC_SUBNET_IDS`
+- optional: `PRIVATE_SUBNET_IDS`
 - optional: `AVAILABILITY_ZONES`
 - optional: `SERVICE_CONNECT_NAMESPACE`
 - optional: `FRONT_DESIRED_COUNT`
@@ -61,11 +62,14 @@ Repository secrets:
 
 The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates. The actual CDK deploy runs with the shared infra role because the existing `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles remain EC2/SSM deploy roles for `clever-deploy-control`.
 
+When `ACCOUNT_ACCESS_DESIRED_COUNT` is greater than `0`, `PRIVATE_SUBNET_IDS` becomes required. The stack uses those subnets for the dedicated `service-account-access` PostgreSQL and Redis resources.
+
 ## Runtime Notes
 
 - The stack issues its own ACM certificate from the hosted zone instead of importing a pre-created `CERTIFICATE_ARN`.
 - The front service listens on `5174`, matching the existing container contract.
 - The ALB routes `ev-dashboard.com/api/*` to `edge-api-gateway` so the front can keep same-host `/api` calls.
+- When the auth slice is enabled, the stack creates dedicated private PostgreSQL 16 and Redis resources for `service-account-access` and injects the required runtime env/secrets into the task definition.
 - ECS Service Connect provides the short names that `edge-api-gateway` already expects:
   - `web-console:5174`
   - `account-auth-api:8000`

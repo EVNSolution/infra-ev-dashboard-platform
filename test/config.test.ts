@@ -36,4 +36,24 @@ describe('buildPlatformConfigFromEnv', () => {
     expect(config.gatewayHealthCheckPath).toBe('/healthz');
     expect(config.accountAccessHealthCheckPath).toBe('/healthz');
   });
+
+  test('requires private subnets when account-access is enabled', () => {
+    expect(() =>
+      buildPlatformConfigFromEnv({
+        AWS_REGION: 'ap-northeast-2',
+        HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+        HOSTED_ZONE_NAME: 'ev-dashboard.com',
+        APEX_DOMAIN: 'next.ev-dashboard.com',
+        API_DOMAIN: 'api.next.ev-dashboard.com',
+        VPC_ID: 'vpc-015c89247f96e9221',
+        PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+        FRONT_DESIRED_COUNT: '1',
+        GATEWAY_DESIRED_COUNT: '1',
+        ACCOUNT_ACCESS_DESIRED_COUNT: '1',
+        FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+        GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+        ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test'
+      })
+    ).toThrow('PRIVATE_SUBNET_IDS');
+  });
 });

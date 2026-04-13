@@ -1,11 +1,14 @@
 import * as cdk from 'aws-cdk-lib';
 import { aws_certificatemanager as acm } from 'aws-cdk-lib';
 import { aws_ec2 as ec2 } from 'aws-cdk-lib';
+import { aws_elasticache as elasticache } from 'aws-cdk-lib';
 import { aws_ecr as ecr } from 'aws-cdk-lib';
 import { aws_ecs as ecs } from 'aws-cdk-lib';
 import { aws_elasticloadbalancingv2 as elbv2 } from 'aws-cdk-lib';
+import { aws_rds as rds } from 'aws-cdk-lib';
 import { aws_route53 as route53 } from 'aws-cdk-lib';
 import { aws_route53_targets as route53Targets } from 'aws-cdk-lib';
+import { aws_secretsmanager as secretsmanager } from 'aws-cdk-lib';
 import { aws_servicediscovery as servicediscovery } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
@@ -27,6 +30,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     });
     const publicSubnets = config.publicSubnetIds.map((subnetId, index) =>
       ec2.Subnet.fromSubnetId(this, `PublicSubnet${index + 1}`, subnetId)
+    );
+    const privateSubnets = config.privateSubnetIds.map((subnetId, index) =>
+      ec2.Subnet.fromSubnetId(this, `PrivateSubnet${index + 1}`, subnetId)
     );
     const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
       hostedZoneId: config.hostedZoneId,
@@ -64,6 +70,14 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     serviceSecurityGroup.addIngressRule(albSecurityGroup, ec2.Port.tcp(8080), 'Gateway traffic');
     serviceSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(5174), 'Gateway to front web console');
     serviceSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(8000), 'Gateway to account access');
+
+    const dataSecurityGroup = new ec2.SecurityGroup(this, 'DataSecurityGroup', {
+      vpc,
+      description: 'Private data stores for service-account-access',
+      allowAllOutbound: true
+    });
+    dataSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(5432), 'service-account-access postgres');
+    dataSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(6379), 'service-account-access redis');
 
     const loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'LoadBalancer', {
       vpc,
@@ -122,7 +136,83 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       subnets: publicSubnets
     });
 
-    this.createFargateService('ServiceAccountAccess', {
+    let accountAccessEnvironment: Record<string, string> | undefined;
+    let accountAccessSecrets: Record<string, ecs.Secret> | undefined;
+    let accountAccessDependencies: Construct[] = [];
+
+    if (config.accountAccessDesiredCount > 0) {
+      const accountAccessDatabase = new rds.DatabaseInstance(this, 'AccountAccessDatabase', {
+        vpc,
+        vpcSubnets: { subnets: privateSubnets },
+        securityGroups: [dataSecurityGroup],
+        engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.VER_16_4 }),
+        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
+        credentials: rds.Credentials.fromGeneratedSecret('account_auth'),
+        databaseName: 'account_auth',
+        allocatedStorage: 20,
+        maxAllocatedStorage: 100,
+        storageType: rds.StorageType.GP3,
+        publiclyAccessible: false,
+        multiAz: false,
+        deletionProtection: false,
+        deleteAutomatedBackups: true,
+        removalPolicy: cdk.RemovalPolicy.DESTROY
+      });
+
+      const accountAccessDatabaseSecret = accountAccessDatabase.secret;
+      if (!accountAccessDatabaseSecret) {
+        throw new Error('Account access database secret was not created');
+      }
+
+      const accountAccessRedisSubnetGroup = new elasticache.CfnSubnetGroup(this, 'AccountAccessRedisSubnetGroup', {
+        description: 'Private subnets for service-account-access redis',
+        subnetIds: config.privateSubnetIds
+      });
+      const accountAccessRedis = new elasticache.CfnCacheCluster(this, 'AccountAccessRedis', {
+        cacheNodeType: 'cache.t4g.micro',
+        engine: 'redis',
+        numCacheNodes: 1,
+        vpcSecurityGroupIds: [dataSecurityGroup.securityGroupId],
+        cacheSubnetGroupName: accountAccessRedisSubnetGroup.ref
+      });
+
+      const djangoSecretKey = new secretsmanager.Secret(this, 'AccountAccessDjangoSecretKey', {
+        generateSecretString: {
+          passwordLength: 64,
+          excludePunctuation: true
+        }
+      });
+      const jwtSecretKey = new secretsmanager.Secret(this, 'AccountAccessJwtSecretKey', {
+        generateSecretString: {
+          passwordLength: 64,
+          excludePunctuation: true
+        }
+      });
+
+      accountAccessEnvironment = {
+        POSTGRES_HOST: accountAccessDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: accountAccessDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'account_auth',
+        REDIS_URL: cdk.Fn.join('', [
+          'redis://',
+          accountAccessRedis.attrRedisEndpointAddress,
+          ':',
+          accountAccessRedis.attrRedisEndpointPort,
+          '/0'
+        ]),
+        DJANGO_ALLOWED_HOSTS: `${config.apiDomain},account-auth-api,localhost,127.0.0.1`,
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      accountAccessSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(accountAccessDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(accountAccessDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(jwtSecretKey)
+      };
+      accountAccessDependencies = [accountAccessDatabase, accountAccessRedis];
+    }
+
+    const accountAccessService = this.createFargateService('ServiceAccountAccess', {
       cluster,
       imageUri: config.accountAccessImageUri,
       cpu: config.accountAccessCpu,
@@ -134,8 +224,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       serviceConnectDnsName: 'account-auth-api',
       serviceConnectNamespace: config.serviceConnectNamespace,
       securityGroup: serviceSecurityGroup,
-      subnets: publicSubnets
+      subnets: publicSubnets,
+      environment: accountAccessEnvironment,
+      secrets: accountAccessSecrets
     });
+    accountAccessDependencies.forEach((dependency) => accountAccessService.node.addDependency(dependency));
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
       port: 5174,
@@ -208,6 +301,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       serviceConnectNamespace: string;
       securityGroup: ec2.SecurityGroup;
       subnets: ec2.ISubnet[];
+      environment?: Record<string, string>;
+      secrets?: Record<string, ecs.Secret>;
     }
   ): ecs.FargateService {
     const taskDefinition = new ecs.FargateTaskDefinition(this, `${id}TaskDefinition`, {
@@ -216,7 +311,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     });
     taskDefinition.addContainer(`${id}Container`, {
       image: this.buildEcrContainerImage(`${id}Image`, input.imageUri),
+      environment: input.environment,
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: input.serviceName }),
+      secrets: input.secrets,
       portMappings: [
         {
           name: input.portMappingName,
