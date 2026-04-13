@@ -40,6 +40,11 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
 }
 
 export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConfig {
+  const serviceConnectNamespace = emptyToUndefined(env.SERVICE_CONNECT_NAMESPACE);
+  const frontHealthCheckPath = emptyToUndefined(env.FRONT_HEALTH_CHECK_PATH);
+  const gatewayHealthCheckPath = emptyToUndefined(env.GATEWAY_HEALTH_CHECK_PATH);
+  const accountAccessHealthCheckPath = emptyToUndefined(env.ACCOUNT_ACCESS_HEALTH_CHECK_PATH);
+
   return buildPlatformConfig({
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
     hostedZoneId: required(env.HOSTED_ZONE_ID, 'HOSTED_ZONE_ID'),
@@ -52,7 +57,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       .map((value) => value.trim())
       .filter(Boolean),
     availabilityZones: optionalList(env.AVAILABILITY_ZONES),
-    serviceConnectNamespace: env.SERVICE_CONNECT_NAMESPACE,
+    serviceConnectNamespace,
     frontImageUri: required(env.FRONT_IMAGE_URI, 'FRONT_IMAGE_URI'),
     gatewayImageUri: required(env.GATEWAY_IMAGE_URI, 'GATEWAY_IMAGE_URI'),
     accountAccessImageUri: required(env.ACCOUNT_ACCESS_IMAGE_URI, 'ACCOUNT_ACCESS_IMAGE_URI'),
@@ -65,9 +70,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     gatewayMemoryMiB: toNumber(env.GATEWAY_MEMORY_MIB, 'GATEWAY_MEMORY_MIB', 512),
     accountAccessCpu: toNumber(env.ACCOUNT_ACCESS_CPU, 'ACCOUNT_ACCESS_CPU', 256),
     accountAccessMemoryMiB: toNumber(env.ACCOUNT_ACCESS_MEMORY_MIB, 'ACCOUNT_ACCESS_MEMORY_MIB', 512),
-    frontHealthCheckPath: env.FRONT_HEALTH_CHECK_PATH ?? '/healthz',
-    gatewayHealthCheckPath: env.GATEWAY_HEALTH_CHECK_PATH ?? '/healthz',
-    accountAccessHealthCheckPath: env.ACCOUNT_ACCESS_HEALTH_CHECK_PATH ?? '/healthz'
+    frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
+    gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
+    accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz'
   });
 }
 
@@ -102,6 +107,15 @@ function optionalList(value: string | undefined): string[] | undefined {
     .filter(Boolean);
 
   return parsed.length > 0 ? parsed : undefined;
+}
+
+function emptyToUndefined(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
 }
 
 function buildDefaultAvailabilityZones(region: string, count: number): string[] {
