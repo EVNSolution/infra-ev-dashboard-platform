@@ -48,6 +48,7 @@ describe('EvDashboardPlatformStack', () => {
     });
     template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
       Engine: 'postgres',
+      EngineVersion: '16.13',
       PubliclyAccessible: false,
       DBName: 'account_auth'
     }));

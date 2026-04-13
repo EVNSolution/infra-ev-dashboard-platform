@@ -145,7 +145,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         vpc,
         vpcSubnets: { subnets: privateSubnets },
         securityGroups: [dataSecurityGroup],
-        engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.VER_16_4 }),
+        engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.of('16.13', '16') }),
         instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
         credentials: rds.Credentials.fromGeneratedSecret('account_auth'),
         databaseName: 'account_auth',
