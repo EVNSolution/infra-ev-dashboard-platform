@@ -12,18 +12,23 @@ export type PlatformConfigInput = {
   frontImageUri: string;
   gatewayImageUri: string;
   accountAccessImageUri: string;
+  organizationImageUri: string;
   frontDesiredCount: number;
   gatewayDesiredCount: number;
   accountAccessDesiredCount: number;
+  organizationDesiredCount: number;
   frontCpu: number;
   frontMemoryMiB: number;
   gatewayCpu: number;
   gatewayMemoryMiB: number;
   accountAccessCpu: number;
   accountAccessMemoryMiB: number;
+  organizationCpu: number;
+  organizationMemoryMiB: number;
   frontHealthCheckPath: string;
   gatewayHealthCheckPath: string;
   accountAccessHealthCheckPath: string;
+  organizationHealthCheckPath: string;
 };
 
 export type PlatformConfig = PlatformConfigInput & {
@@ -34,7 +39,7 @@ export type PlatformConfig = PlatformConfigInput & {
 
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
   const privateSubnetIds = input.privateSubnetIds ?? [];
-  if (input.accountAccessDesiredCount > 0 && privateSubnetIds.length === 0) {
+  if ((input.accountAccessDesiredCount > 0 || input.organizationDesiredCount > 0) && privateSubnetIds.length === 0) {
     throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
   }
 
@@ -70,18 +75,23 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     frontImageUri: required(env.FRONT_IMAGE_URI, 'FRONT_IMAGE_URI'),
     gatewayImageUri: required(env.GATEWAY_IMAGE_URI, 'GATEWAY_IMAGE_URI'),
     accountAccessImageUri: required(env.ACCOUNT_ACCESS_IMAGE_URI, 'ACCOUNT_ACCESS_IMAGE_URI'),
+    organizationImageUri: required(env.ORGANIZATION_IMAGE_URI, 'ORGANIZATION_IMAGE_URI'),
     frontDesiredCount: toNumber(env.FRONT_DESIRED_COUNT, 'FRONT_DESIRED_COUNT', 1),
     gatewayDesiredCount: toNumber(env.GATEWAY_DESIRED_COUNT, 'GATEWAY_DESIRED_COUNT', 1),
     accountAccessDesiredCount: toNumber(env.ACCOUNT_ACCESS_DESIRED_COUNT, 'ACCOUNT_ACCESS_DESIRED_COUNT', 1),
+    organizationDesiredCount: toNumber(env.ORGANIZATION_DESIRED_COUNT, 'ORGANIZATION_DESIRED_COUNT', 0),
     frontCpu: toNumber(env.FRONT_CPU, 'FRONT_CPU', 256),
     frontMemoryMiB: toNumber(env.FRONT_MEMORY_MIB, 'FRONT_MEMORY_MIB', 512),
     gatewayCpu: toNumber(env.GATEWAY_CPU, 'GATEWAY_CPU', 256),
     gatewayMemoryMiB: toNumber(env.GATEWAY_MEMORY_MIB, 'GATEWAY_MEMORY_MIB', 512),
     accountAccessCpu: toNumber(env.ACCOUNT_ACCESS_CPU, 'ACCOUNT_ACCESS_CPU', 256),
     accountAccessMemoryMiB: toNumber(env.ACCOUNT_ACCESS_MEMORY_MIB, 'ACCOUNT_ACCESS_MEMORY_MIB', 512),
+    organizationCpu: toNumber(env.ORGANIZATION_CPU, 'ORGANIZATION_CPU', 256),
+    organizationMemoryMiB: toNumber(env.ORGANIZATION_MEMORY_MIB, 'ORGANIZATION_MEMORY_MIB', 512),
     frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
     gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
-    accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz'
+    accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz',
+    organizationHealthCheckPath: emptyToUndefined(env.ORGANIZATION_HEALTH_CHECK_PATH) ?? '/health/'
   });
 }
 

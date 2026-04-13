@@ -139,6 +139,18 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     let accountAccessEnvironment: Record<string, string> | undefined;
     let accountAccessSecrets: Record<string, ecs.Secret> | undefined;
     let accountAccessDependencies: Construct[] = [];
+    let organizationEnvironment: Record<string, string> | undefined;
+    let organizationSecrets: Record<string, ecs.Secret> | undefined;
+    let organizationDependencies: Construct[] = [];
+    const platformJwtSecretKey =
+      config.accountAccessDesiredCount > 0 || config.organizationDesiredCount > 0
+        ? new secretsmanager.Secret(this, 'PlatformJwtSecretKey', {
+            generateSecretString: {
+              passwordLength: 64,
+              excludePunctuation: true
+            }
+          })
+        : undefined;
 
     if (config.accountAccessDesiredCount > 0) {
       const accountAccessDatabase = new rds.DatabaseInstance(this, 'AccountAccessDatabase', {
@@ -182,13 +194,6 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           excludePunctuation: true
         }
       });
-      const jwtSecretKey = new secretsmanager.Secret(this, 'AccountAccessJwtSecretKey', {
-        generateSecretString: {
-          passwordLength: 64,
-          excludePunctuation: true
-        }
-      });
-
       accountAccessEnvironment = {
         POSTGRES_HOST: accountAccessDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: accountAccessDatabase.dbInstanceEndpointPort,
@@ -207,9 +212,55 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(accountAccessDatabaseSecret, 'username'),
         POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(accountAccessDatabaseSecret, 'password'),
         DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
-        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(jwtSecretKey)
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
       };
       accountAccessDependencies = [accountAccessDatabase, accountAccessRedis];
+    }
+
+    if (config.organizationDesiredCount > 0) {
+      const organizationDatabase = new rds.DatabaseInstance(this, 'OrganizationDatabase', {
+        vpc,
+        vpcSubnets: { subnets: privateSubnets },
+        securityGroups: [dataSecurityGroup],
+        engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.of('16.13', '16') }),
+        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
+        credentials: rds.Credentials.fromGeneratedSecret('organization_master'),
+        databaseName: 'organization_master',
+        allocatedStorage: 20,
+        maxAllocatedStorage: 100,
+        storageType: rds.StorageType.GP3,
+        publiclyAccessible: false,
+        multiAz: false,
+        deletionProtection: false,
+        deleteAutomatedBackups: true,
+        removalPolicy: cdk.RemovalPolicy.DESTROY
+      });
+
+      const organizationDatabaseSecret = organizationDatabase.secret;
+      if (!organizationDatabaseSecret) {
+        throw new Error('Organization database secret was not created');
+      }
+
+      const djangoSecretKey = new secretsmanager.Secret(this, 'OrganizationDjangoSecretKey', {
+        generateSecretString: {
+          passwordLength: 64,
+          excludePunctuation: true
+        }
+      });
+
+      organizationEnvironment = {
+        POSTGRES_HOST: organizationDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: organizationDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'organization_master',
+        DJANGO_ALLOWED_HOSTS: 'organization-master-api,localhost,127.0.0.1'
+      };
+      organizationSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(organizationDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(organizationDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      organizationDependencies = [organizationDatabase];
     }
 
     const accountAccessService = this.createFargateService('ServiceAccountAccess', {
@@ -229,6 +280,24 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       secrets: accountAccessSecrets
     });
     accountAccessDependencies.forEach((dependency) => accountAccessService.node.addDependency(dependency));
+
+    const organizationService = this.createFargateService('ServiceOrganizationRegistry', {
+      cluster,
+      imageUri: config.organizationImageUri,
+      cpu: config.organizationCpu,
+      memoryMiB: config.organizationMemoryMiB,
+      desiredCount: config.organizationDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'organization-http',
+      serviceName: 'service-organization-registry',
+      serviceConnectDnsName: 'organization-master-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: organizationEnvironment,
+      secrets: organizationSecrets
+    });
+    organizationDependencies.forEach((dependency) => organizationService.node.addDependency(dependency));
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
       port: 5174,

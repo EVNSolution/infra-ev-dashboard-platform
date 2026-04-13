@@ -24,6 +24,10 @@ on:
         type: string
         description: Full ECR image URI for service-account-access
         required: true
+      organization_image_uri:
+        type: string
+        description: Full ECR image URI for service-organization-registry
+        required: true
 
 permissions:
   id-token: write
@@ -49,18 +53,23 @@ jobs:
       FRONT_DESIRED_COUNT: ${{ vars.FRONT_DESIRED_COUNT }}
       GATEWAY_DESIRED_COUNT: ${{ vars.GATEWAY_DESIRED_COUNT }}
       ACCOUNT_ACCESS_DESIRED_COUNT: ${{ vars.ACCOUNT_ACCESS_DESIRED_COUNT }}
+      ORGANIZATION_DESIRED_COUNT: ${{ vars.ORGANIZATION_DESIRED_COUNT }}
       FRONT_CPU: ${{ vars.FRONT_CPU }}
       FRONT_MEMORY_MIB: ${{ vars.FRONT_MEMORY_MIB }}
       GATEWAY_CPU: ${{ vars.GATEWAY_CPU }}
       GATEWAY_MEMORY_MIB: ${{ vars.GATEWAY_MEMORY_MIB }}
       ACCOUNT_ACCESS_CPU: ${{ vars.ACCOUNT_ACCESS_CPU }}
       ACCOUNT_ACCESS_MEMORY_MIB: ${{ vars.ACCOUNT_ACCESS_MEMORY_MIB }}
+      ORGANIZATION_CPU: ${{ vars.ORGANIZATION_CPU }}
+      ORGANIZATION_MEMORY_MIB: ${{ vars.ORGANIZATION_MEMORY_MIB }}
       FRONT_HEALTH_CHECK_PATH: ${{ vars.FRONT_HEALTH_CHECK_PATH }}
       GATEWAY_HEALTH_CHECK_PATH: ${{ vars.GATEWAY_HEALTH_CHECK_PATH }}
       ACCOUNT_ACCESS_HEALTH_CHECK_PATH: ${{ vars.ACCOUNT_ACCESS_HEALTH_CHECK_PATH }}
+      ORGANIZATION_HEALTH_CHECK_PATH: ${{ vars.ORGANIZATION_HEALTH_CHECK_PATH }}
       FRONT_IMAGE_URI: ${{ github.event.inputs.front_image_uri }}
       GATEWAY_IMAGE_URI: ${{ github.event.inputs.gateway_image_uri }}
       ACCOUNT_ACCESS_IMAGE_URI: ${{ github.event.inputs.account_access_image_uri }}
+      ORGANIZATION_IMAGE_URI: ${{ github.event.inputs.organization_image_uri }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -102,6 +111,7 @@ jobs:
             FRONT_IMAGE_URI
             GATEWAY_IMAGE_URI
             ACCOUNT_ACCESS_IMAGE_URI
+            ORGANIZATION_IMAGE_URI
           )
 
           for key in "${required_vars[@]}"; do
@@ -111,7 +121,7 @@ jobs:
             fi
           done
 
-          if [ "${ACCOUNT_ACCESS_DESIRED_COUNT:-0}" != "0" ] && [ -z "${PRIVATE_SUBNET_IDS:-}" ]; then
+          if { [ "${ACCOUNT_ACCESS_DESIRED_COUNT:-0}" != "0" ] || [ "${ORGANIZATION_DESIRED_COUNT:-0}" != "0" ]; } && [ -z "${PRIVATE_SUBNET_IDS:-}" ]; then
             echo "Missing required value: PRIVATE_SUBNET_IDS" >&2
             exit 1
           fi
