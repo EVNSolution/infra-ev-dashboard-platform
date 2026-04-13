@@ -135,6 +135,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       securityGroup: serviceSecurityGroup,
       subnets: publicSubnets
     });
+    gatewayService.node.addDependency(frontService);
 
     let accountAccessEnvironment: Record<string, string> | undefined;
     let accountAccessSecrets: Record<string, ecs.Secret> | undefined;
@@ -280,6 +281,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       secrets: accountAccessSecrets
     });
     accountAccessDependencies.forEach((dependency) => accountAccessService.node.addDependency(dependency));
+    if (config.accountAccessDesiredCount > 0) {
+      gatewayService.node.addDependency(accountAccessService);
+    }
 
     const organizationService = this.createFargateService('ServiceOrganizationRegistry', {
       cluster,
@@ -298,6 +302,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       secrets: organizationSecrets
     });
     organizationDependencies.forEach((dependency) => organizationService.node.addDependency(dependency));
+    if (config.organizationDesiredCount > 0) {
+      gatewayService.node.addDependency(organizationService);
+    }
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
       port: 5174,

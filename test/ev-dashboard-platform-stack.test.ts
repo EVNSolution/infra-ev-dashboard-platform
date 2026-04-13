@@ -191,5 +191,14 @@ describe('EvDashboardPlatformStack', () => {
         })
       ])
     }));
+
+    const services = template.findResources('AWS::ECS::Service');
+    expect(services.EdgeApiGatewayServiceFF03CA41.DependsOn).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^FrontWebConsoleService/),
+        'ServiceAccountAccessServiceA22C9E5C',
+        'ServiceOrganizationRegistryService039B0502'
+      ])
+    );
   });
 });
