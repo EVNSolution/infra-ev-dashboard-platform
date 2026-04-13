@@ -21,3 +21,9 @@ The first successful dev rehearsal was workflow run `24340628586`. It used `GH_A
 ACM DNS validation is slow enough to look like a hung deploy. In this stack, Route53 validation records appeared immediately, but GitHub Actions stayed in `cdk deploy` until ACM flipped the cert to `ISSUED` several minutes later. Check the certificate state before killing the run.
 
 Front-first means only the front should be considered ready. With `front-web-console` desired count `1` and `edge-api-gateway` desired count `0`, `next.ev-dashboard.com` returned `200` while `api.next.ev-dashboard.com` returned `503`. That is the expected state for a front-only rehearsal and should be documented so operators do not chase a fake API outage.
+
+Stateful AWS versions have to be tested against the target region, not assumed from docs or habits. This stack first failed on PostgreSQL `16.4`, then succeeded on `16.13` in `ap-northeast-2`. Pin the version that synth and deploy have actually proven in this account.
+
+The first auth-slice deploy looked half-broken because `service-account-access` was healthy while `edge-api-gateway` still returned `504` and then `502`. The lesson is to separate infra readiness from edge readiness: RDS, Redis, and the Django task can be correct while the gateway still carries stale Compose-era assumptions.
+
+ECS service updates can stay `UPDATE_IN_PROGRESS` in CloudFormation after the new task is already serving public traffic. Do not guess; keep checking public smoke, ECS deployment state, and CloudFormation together until all three agree.
