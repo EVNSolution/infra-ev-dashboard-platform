@@ -11,3 +11,5 @@ Deploy from explicit image URIs. This repo should not infer "the latest front im
 Own the certificate in the stack when the hosted zone is already under our control. Importing a not-yet-created `CERTIFICATE_ARN` adds a manual dependency that blocks the first rehearsal for no gain.
 
 Mirror the live runtime contract exactly. `front-web-console` is not an `80` port app just because it sits behind a browser; it listens on `5174`, and `edge-api-gateway` already expects short upstream names like `web-console` and `account-auth-api`. The ECS slice has to preserve those names and ports or the gateway will fail even if the ALB looks healthy.
+
+Do not reuse the current `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles for CDK/ECS. In this environment those roles are still EC2/SSM deploy roles for `clever-deploy-control`. The ECS platform workflow needs a dedicated infra-capable role, even if the GitHub Environment names stay `dev`, `stage`, and `prod`.

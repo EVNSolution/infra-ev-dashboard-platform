@@ -35,9 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     env:
-      DEV_DEPLOY_ROLE_ARN: ${{ secrets.GH_ACTIONS_DEV_DEPLOY_ROLE_ARN }}
-      STAGE_DEPLOY_ROLE_ARN: ${{ secrets.GH_ACTIONS_STAGE_DEPLOY_ROLE_ARN }}
-      PROD_DEPLOY_ROLE_ARN: ${{ secrets.GH_ACTIONS_PROD_DEPLOY_ROLE_ARN }}
+      INFRA_ROLE_ARN: ${{ secrets.GH_ACTIONS_INFRA_ROLE_ARN }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
       HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
@@ -75,39 +73,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Resolve deploy role
-        id: role
-        run: |
-          case "${{ github.event.inputs.environment }}" in
-            dev)
-              role_arn="${DEV_DEPLOY_ROLE_ARN}"
-              ;;
-            stage)
-              role_arn="${STAGE_DEPLOY_ROLE_ARN}"
-              ;;
-            prod)
-              role_arn="${PROD_DEPLOY_ROLE_ARN}"
-              ;;
-            *)
-              echo "Unsupported environment: ${{ github.event.inputs.environment }}" >&2
-              exit 1
-              ;;
-          esac
-
-          if [ -z "$role_arn" ]; then
-            echo "Missing deploy role secret for environment: ${{ github.event.inputs.environment }}" >&2
-            exit 1
-          fi
-
-          echo "role_arn=$role_arn" >> "$GITHUB_OUTPUT"
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
-          role-to-assume: ${{ steps.role.outputs.role_arn }}
+          role-to-assume: ${{ env.INFRA_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           allowed-account-ids: 902837199612
-          role-session-name: ev-dashboard-ecs-deploy-${{ github.run_id }}
+          role-session-name: ev-dashboard-ecs-infra-${{ github.run_id }}
           mask-aws-account-id: true
           unset-current-credentials: true
           retry-max-attempts: 4
@@ -118,6 +90,7 @@ jobs:
           set -euo pipefail
 
           required_vars=(
+            INFRA_ROLE_ARN
             AWS_REGION
             HOSTED_ZONE_ID
             HOSTED_ZONE_NAME

@@ -57,11 +57,9 @@ Repository or environment variables:
 
 Repository secrets:
 
-- `GH_ACTIONS_DEV_DEPLOY_ROLE_ARN`
-- `GH_ACTIONS_STAGE_DEPLOY_ROLE_ARN`
-- `GH_ACTIONS_PROD_DEPLOY_ROLE_ARN`
+- `GH_ACTIONS_INFRA_ROLE_ARN`
 
-The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates, but the role secret names stay aligned with the current CLEVER deploy naming.
+The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates. The actual CDK deploy runs with the shared infra role because the existing `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles remain EC2/SSM deploy roles for `clever-deploy-control`.
 
 ## Runtime Notes
 
