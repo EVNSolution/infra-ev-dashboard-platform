@@ -12,110 +12,6 @@ on:
           - dev
           - stage
           - prod
-      front_image_uri:
-        type: string
-        description: Full ECR image URI for front-web-console
-        required: true
-      gateway_image_uri:
-        type: string
-        description: Full ECR image URI for edge-api-gateway
-        required: true
-      account_access_image_uri:
-        type: string
-        description: Full ECR image URI for service-account-access
-        required: true
-      organization_image_uri:
-        type: string
-        description: Full ECR image URI for service-organization-registry
-        required: true
-      driver_profile_image_uri:
-        type: string
-        description: Full ECR image URI for service-driver-profile
-        required: true
-      personnel_document_image_uri:
-        type: string
-        description: Full ECR image URI for service-personnel-document-registry
-        required: true
-      vehicle_asset_image_uri:
-        type: string
-        description: Full ECR image URI for service-vehicle-registry
-        required: true
-      driver_vehicle_assignment_image_uri:
-        type: string
-        description: Full ECR image URI for service-vehicle-assignment
-        required: true
-      dispatch_registry_image_uri:
-        type: string
-        description: Full ECR image URI for service-dispatch-registry
-        required: true
-      delivery_record_image_uri:
-        type: string
-        description: Full ECR image URI for service-delivery-record
-        required: true
-      attendance_registry_image_uri:
-        type: string
-        description: Full ECR image URI for service-attendance-registry
-        required: true
-      dispatch_ops_image_uri:
-        type: string
-        description: Full ECR image URI for service-dispatch-operations-view
-        required: true
-      driver_ops_image_uri:
-        type: string
-        description: Full ECR image URI for service-driver-operations-view
-        required: true
-      vehicle_ops_image_uri:
-        type: string
-        description: Full ECR image URI for service-vehicle-operations-view
-        required: true
-      settlement_registry_image_uri:
-        type: string
-        description: Full ECR image URI for service-settlement-registry
-        required: true
-      settlement_payroll_image_uri:
-        type: string
-        description: Full ECR image URI for service-settlement-payroll
-        required: true
-      settlement_ops_image_uri:
-        type: string
-        description: Full ECR image URI for service-settlement-operations-view
-        required: true
-      region_registry_image_uri:
-        type: string
-        description: Full ECR image URI for service-region-registry
-        required: true
-      region_analytics_image_uri:
-        type: string
-        description: Full ECR image URI for service-region-analytics
-        required: true
-      announcement_registry_image_uri:
-        type: string
-        description: Full ECR image URI for service-announcement-registry
-        required: true
-      support_registry_image_uri:
-        type: string
-        description: Full ECR image URI for service-support-registry
-        required: true
-      notification_hub_image_uri:
-        type: string
-        description: Full ECR image URI for service-notification-hub
-        required: true
-      terminal_registry_image_uri:
-        type: string
-        description: Full ECR image URI for service-terminal-registry
-        required: true
-      telemetry_hub_image_uri:
-        type: string
-        description: Full ECR image URI for service-telemetry-hub
-        required: true
-      telemetry_dead_letter_image_uri:
-        type: string
-        description: Full ECR image URI for service-telemetry-dead-letter
-        required: true
-      telemetry_listener_image_uri:
-        type: string
-        description: Full ECR image URI for service-telemetry-listener
-        required: true
 
 permissions:
   id-token: write
@@ -252,32 +148,32 @@ jobs:
       TELEMETRY_LISTENER_RETRY_COUNT: ${{ vars.TELEMETRY_LISTENER_RETRY_COUNT }}
       TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS: ${{ vars.TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS }}
       TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS: ${{ vars.TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS }}
-      FRONT_IMAGE_URI: ${{ github.event.inputs.front_image_uri }}
-      GATEWAY_IMAGE_URI: ${{ github.event.inputs.gateway_image_uri }}
-      ACCOUNT_ACCESS_IMAGE_URI: ${{ github.event.inputs.account_access_image_uri }}
-      ORGANIZATION_IMAGE_URI: ${{ github.event.inputs.organization_image_uri }}
-      DRIVER_PROFILE_IMAGE_URI: ${{ github.event.inputs.driver_profile_image_uri }}
-      PERSONNEL_DOCUMENT_IMAGE_URI: ${{ github.event.inputs.personnel_document_image_uri }}
-      VEHICLE_ASSET_IMAGE_URI: ${{ github.event.inputs.vehicle_asset_image_uri }}
-      DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI: ${{ github.event.inputs.driver_vehicle_assignment_image_uri }}
-      DISPATCH_REGISTRY_IMAGE_URI: ${{ github.event.inputs.dispatch_registry_image_uri }}
-      DELIVERY_RECORD_IMAGE_URI: ${{ github.event.inputs.delivery_record_image_uri }}
-      ATTENDANCE_REGISTRY_IMAGE_URI: ${{ github.event.inputs.attendance_registry_image_uri }}
-      DISPATCH_OPS_IMAGE_URI: ${{ github.event.inputs.dispatch_ops_image_uri }}
-      DRIVER_OPS_IMAGE_URI: ${{ github.event.inputs.driver_ops_image_uri }}
-      VEHICLE_OPS_IMAGE_URI: ${{ github.event.inputs.vehicle_ops_image_uri }}
-      SETTLEMENT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.settlement_registry_image_uri }}
-      SETTLEMENT_PAYROLL_IMAGE_URI: ${{ github.event.inputs.settlement_payroll_image_uri }}
-      SETTLEMENT_OPS_IMAGE_URI: ${{ github.event.inputs.settlement_ops_image_uri }}
-      REGION_REGISTRY_IMAGE_URI: ${{ github.event.inputs.region_registry_image_uri }}
-      REGION_ANALYTICS_IMAGE_URI: ${{ github.event.inputs.region_analytics_image_uri }}
-      ANNOUNCEMENT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.announcement_registry_image_uri }}
-      SUPPORT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.support_registry_image_uri }}
-      NOTIFICATION_HUB_IMAGE_URI: ${{ github.event.inputs.notification_hub_image_uri }}
-      TERMINAL_REGISTRY_IMAGE_URI: ${{ github.event.inputs.terminal_registry_image_uri }}
-      TELEMETRY_HUB_IMAGE_URI: ${{ github.event.inputs.telemetry_hub_image_uri }}
-      TELEMETRY_DEAD_LETTER_IMAGE_URI: ${{ github.event.inputs.telemetry_dead_letter_image_uri }}
-      TELEMETRY_LISTENER_IMAGE_URI: ${{ github.event.inputs.telemetry_listener_image_uri }}
+      FRONT_IMAGE_URI: ${{ vars.FRONT_IMAGE_URI }}
+      GATEWAY_IMAGE_URI: ${{ vars.GATEWAY_IMAGE_URI }}
+      ACCOUNT_ACCESS_IMAGE_URI: ${{ vars.ACCOUNT_ACCESS_IMAGE_URI }}
+      ORGANIZATION_IMAGE_URI: ${{ vars.ORGANIZATION_IMAGE_URI }}
+      DRIVER_PROFILE_IMAGE_URI: ${{ vars.DRIVER_PROFILE_IMAGE_URI }}
+      PERSONNEL_DOCUMENT_IMAGE_URI: ${{ vars.PERSONNEL_DOCUMENT_IMAGE_URI }}
+      VEHICLE_ASSET_IMAGE_URI: ${{ vars.VEHICLE_ASSET_IMAGE_URI }}
+      DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI }}
+      DISPATCH_REGISTRY_IMAGE_URI: ${{ vars.DISPATCH_REGISTRY_IMAGE_URI }}
+      DELIVERY_RECORD_IMAGE_URI: ${{ vars.DELIVERY_RECORD_IMAGE_URI }}
+      ATTENDANCE_REGISTRY_IMAGE_URI: ${{ vars.ATTENDANCE_REGISTRY_IMAGE_URI }}
+      DISPATCH_OPS_IMAGE_URI: ${{ vars.DISPATCH_OPS_IMAGE_URI }}
+      DRIVER_OPS_IMAGE_URI: ${{ vars.DRIVER_OPS_IMAGE_URI }}
+      VEHICLE_OPS_IMAGE_URI: ${{ vars.VEHICLE_OPS_IMAGE_URI }}
+      SETTLEMENT_REGISTRY_IMAGE_URI: ${{ vars.SETTLEMENT_REGISTRY_IMAGE_URI }}
+      SETTLEMENT_PAYROLL_IMAGE_URI: ${{ vars.SETTLEMENT_PAYROLL_IMAGE_URI }}
+      SETTLEMENT_OPS_IMAGE_URI: ${{ vars.SETTLEMENT_OPS_IMAGE_URI }}
+      REGION_REGISTRY_IMAGE_URI: ${{ vars.REGION_REGISTRY_IMAGE_URI }}
+      REGION_ANALYTICS_IMAGE_URI: ${{ vars.REGION_ANALYTICS_IMAGE_URI }}
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI: ${{ vars.ANNOUNCEMENT_REGISTRY_IMAGE_URI }}
+      SUPPORT_REGISTRY_IMAGE_URI: ${{ vars.SUPPORT_REGISTRY_IMAGE_URI }}
+      NOTIFICATION_HUB_IMAGE_URI: ${{ vars.NOTIFICATION_HUB_IMAGE_URI }}
+      TERMINAL_REGISTRY_IMAGE_URI: ${{ vars.TERMINAL_REGISTRY_IMAGE_URI }}
+      TELEMETRY_HUB_IMAGE_URI: ${{ vars.TELEMETRY_HUB_IMAGE_URI }}
+      TELEMETRY_DEAD_LETTER_IMAGE_URI: ${{ vars.TELEMETRY_DEAD_LETTER_IMAGE_URI }}
+      TELEMETRY_LISTENER_IMAGE_URI: ${{ vars.TELEMETRY_LISTENER_IMAGE_URI }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2

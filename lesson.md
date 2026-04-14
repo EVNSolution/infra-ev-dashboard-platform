@@ -34,6 +34,8 @@ Route53 alias updates can become visible before every local resolver follows alo
 
 The old runtime was not passive. `test-test-sh` could write the apex record from inside its task lifecycle, so cutting DNS over was only half of the job. The old service had to be scaled to `0` immediately after the new apex/API hosts answered correctly.
 
+GitHub `workflow_dispatch` has a hard property cap. Once this repo crossed 25 inputs, manual deploys started failing with `HTTP 422: No more than 25 properties are allowed`. The deploy contract has to keep runtime images in repo vars and keep workflow inputs small, or the run never starts.
+
 CloudFormation success is not a substitute for public slice smoke. Run `24372474821` finished `success` while `/api/org/*` still returned `502`. The root cause was gateway rollout semantics, not a failed stack resource.
 
 When a gateway uses direct Service Connect upstreams, the stack should make the gateway wait for the backend services it depends on. The follow-up fix in `24373001123` added explicit dependencies on `front-web-console`, `service-account-access`, and `service-organization-registry` before rolling `edge-api-gateway`.

@@ -38,7 +38,7 @@ It does not own app code. Application source and image builds stay in:
 
 ## Deploy Contract
 
-The deploy workflow expects explicit image URIs for all current slice services:
+The deploy workflow now reads immutable image URIs from repository variables for all current slice services:
 
 - `front-web-console`
 - `edge-api-gateway`
@@ -61,7 +61,7 @@ The deploy workflow expects explicit image URIs for all current slice services:
 - `service-telemetry-dead-letter`
 - `service-telemetry-listener`
 
-Image tags are SHA-only. This repo should not guess or discover a `latest` image on its own.
+Image tags are SHA-only. This repo should not guess or discover a `latest` image on its own. Before a deploy, update the repo variables to the exact SHAs that belong to the rollout.
 
 ## Mandatory Preflight Gate
 
@@ -93,6 +93,32 @@ Repository or environment variables:
 - `HOSTED_ZONE_NAME`
 - `APEX_DOMAIN`
 - `API_DOMAIN`
+- `FRONT_IMAGE_URI`
+- `GATEWAY_IMAGE_URI`
+- `ACCOUNT_ACCESS_IMAGE_URI`
+- `ORGANIZATION_IMAGE_URI`
+- `DRIVER_PROFILE_IMAGE_URI`
+- `PERSONNEL_DOCUMENT_IMAGE_URI`
+- `VEHICLE_ASSET_IMAGE_URI`
+- `DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI`
+- `DISPATCH_REGISTRY_IMAGE_URI`
+- `DELIVERY_RECORD_IMAGE_URI`
+- `ATTENDANCE_REGISTRY_IMAGE_URI`
+- `DISPATCH_OPS_IMAGE_URI`
+- `DRIVER_OPS_IMAGE_URI`
+- `VEHICLE_OPS_IMAGE_URI`
+- `SETTLEMENT_REGISTRY_IMAGE_URI`
+- `SETTLEMENT_PAYROLL_IMAGE_URI`
+- `SETTLEMENT_OPS_IMAGE_URI`
+- `REGION_REGISTRY_IMAGE_URI`
+- `REGION_ANALYTICS_IMAGE_URI`
+- `ANNOUNCEMENT_REGISTRY_IMAGE_URI`
+- `SUPPORT_REGISTRY_IMAGE_URI`
+- `NOTIFICATION_HUB_IMAGE_URI`
+- `TERMINAL_REGISTRY_IMAGE_URI`
+- `TELEMETRY_HUB_IMAGE_URI`
+- `TELEMETRY_DEAD_LETTER_IMAGE_URI`
+- `TELEMETRY_LISTENER_IMAGE_URI`
 - `VPC_ID`
 - `PUBLIC_SUBNET_IDS`
 - optional: `PRIVATE_SUBNET_IDS`
