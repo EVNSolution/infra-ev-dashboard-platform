@@ -208,5 +208,28 @@ jobs:
       - name: Synthesize stack
         run: npx cdk synth
 
+      - name: Write operator summary
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## Deploy operator loop
+
+          - Preflight, unit tests, and synth already passed in this run.
+          - Typical prod hotfix deploy: about `10-15m`
+          - Typical new backend slice deploy: about `20-30m`
+          - Wait phases: `CloudFormation start -> stateful quiet period -> backend registration -> late gateway rollout -> ALB draining`
+          - `502` before the new ECS service exists usually means `wait`
+          - `502` after the backend exists but `edge-api-gateway` is still rolling usually means `wait, then inspect gateway logs if it stays stuck`
+          - Protected route `401` is often the first honest proof that the route is alive
+          - Post-deploy public smoke runs after `cdk deploy` and fails this job if the public edge still answers incorrectly
+          - A deploy is only done when the GitHub run is `success`, the stack is `UPDATE_COMPLETE`, and the public smoke passes
+
+          Runbook: `/Users/jiin/Documents/Files/02_EVnSolution/00_Source_code/CLEVER/clever-msa-platform/docs/runbooks/ev-dashboard-ecs-deploy-operator-loop.md`
+          EOF
+
       - name: Deploy stack
         run: npx cdk deploy --require-approval never
+
+      - name: Run post-deploy public smoke
+        run: |
+          set -o pipefail
+          npm run smoke:postdeploy | tee -a "$GITHUB_STEP_SUMMARY"

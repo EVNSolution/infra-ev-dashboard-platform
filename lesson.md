@@ -128,3 +128,13 @@ Telemetry proof also needs real endpoints, not just the prefix name. The honest 
 - `/api/telemetry/terminals/<uuid>/latest-location/` -> `401`
 - `/api/telemetry-dead-letters/health/` -> `200`
 - `/api/telemetry-dead-letters/` -> `401`
+
+Deploy docs have to behave like an operator loop, not a history log. If a production rollout still requires jumping between repo lessons, root lessons, and rollout notes just to decide whether to wait or debug, the docs are not finished. The live operator path for this repo is now:
+
+- preflight gate
+- deploy operator loop
+- UI smoke and decommission
+
+Keep the timing baseline, wait signals, and stop-versus-debug rules in that runbook path, not only in retrospective lessons.
+
+`cdk deploy` success is not enough for this repo. The same workflow has to run a post-deploy public smoke step and fail if the public edge still answers with the wrong status. Otherwise the operator is forced back into manual curl checks and the deploy loop becomes slow again.

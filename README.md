@@ -74,6 +74,18 @@ npm test -- --runInBand
 npx cdk synth
 ```
 
+After `cdk deploy`, the workflow now runs `npm run smoke:postdeploy` automatically. A green deploy requires both:
+
+- stack deploy success
+- post-deploy public smoke success
+
+You can run the same smoke locally if needed:
+
+```bash
+cd /Users/jiin/Documents/Files/02_EVnSolution/00_Source_code/CLEVER/clever-msa-platform/development/infra-ev-dashboard-platform
+npm run smoke:postdeploy
+```
+
 `npm run preflight` is the contract gate for this repo. It fails fast when:
 
 - a required deploy env value is missing
