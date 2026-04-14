@@ -58,6 +58,10 @@ During step 3, `502` from new gateway routes is expected and usually means "back
 
 The second `502` window is a different signal. In Slice 2, `service-driver-profile`, `service-vehicle-registry`, `service-personnel-document-registry`, and `service-vehicle-assignment` all reached steady state before `edge-api-gateway` finished its own rollout. In that short period, edge logs showed `could not be resolved` for the new Service Connect names and then flipped to `401` once the new gateway task settled. If the backend services already exist, check `edge-api-gateway` deployment state and edge logs before changing config.
 
+Slice 4 added one more wait pattern. Even after the new gateway task was serving good public smoke, the workflow and stack still stayed open because the old ALB target was draining. In this stack, `deregistration_delay.timeout_seconds` is `300`, so target draining can be the last long pole after the new tasks are already healthy. When the public endpoints have flipped to the expected `200/404` shape, check target-group draining before firing another redeploy.
+
+Temporary bridge envs are runtime compatibility, not trust compatibility. `SETTLEMENT_OPS_BASE_URL`, `TELEMETRY_HUB_BASE_URL`, and `TERMINAL_REGISTRY_BASE_URL` can keep a Slice 4 task graph alive while later slices are still on the old public hub, but the old hub does not automatically trust the new platform JWT. If a bridge remains optional, the service code must degrade gracefully instead of expecting those upstream calls to succeed.
+
 Public repo workflows are not a guaranteed build path in this account. Slice 3 hit a billing block where `service-dispatch-registry`, `service-delivery-record`, and `service-attendance-registry` image jobs never started. The practical fallback was local `docker buildx` plus ECR push, followed by the usual infra workflow with explicit image URIs.
 
 For local Docker fallback builds, always push `linux/amd64`. The first local push failed only at ECS pull time because the manifest did not match the Fargate platform.
