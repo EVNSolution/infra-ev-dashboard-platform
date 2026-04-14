@@ -74,3 +74,14 @@ Slice 3 also proved that a new task definition is not the same as an honest slic
 The prefix roots returned `404` once routing was correct. That was expected and should not be treated as slice failure.
 
 When one backend service depends on another, the CDK dependency ordering shows up as quiet wait time in CloudFormation. In Slice 3, `service-attendance-registry` rolled first, then `service-delivery-record` updated only after attendance completed. That delay was intentional, not ignored image input.
+
+Slice 5 added a more specific dependency lesson for direct gateway upstreams. CloudFormation created the new settlement services in the right order, but the first usable public proof still waited for `EdgeApiGatewayService` itself to roll after the settlement services were already present. Before that happened, gateway logs kept showing `settlement-*-api could not be resolved (3: Host not found)` even though the backend task definitions and databases were already created.
+
+Treat that as a separate phase boundary:
+
+1. settlement RDS instances `CREATE_COMPLETE`
+2. settlement ECS services `running=1`
+3. `EdgeApiGatewayService UPDATE_IN_PROGRESS`
+4. public settlement health routes flip from `502` to `200`
+
+Do not misread the earlier `502` as a bad gateway route when the real issue is late name availability for newly introduced Service Connect upstreams.
