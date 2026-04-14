@@ -197,6 +197,18 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     let notificationHubEnvironment: Record<string, string> | undefined;
     let notificationHubSecrets: Record<string, ecs.Secret> | undefined;
     let notificationHubDependencies: Construct[] = [];
+    let terminalRegistryEnvironment: Record<string, string> | undefined;
+    let terminalRegistrySecrets: Record<string, ecs.Secret> | undefined;
+    let terminalRegistryDependencies: Construct[] = [];
+    let telemetryHubEnvironment: Record<string, string> | undefined;
+    let telemetryHubSecrets: Record<string, ecs.Secret> | undefined;
+    let telemetryHubDependencies: Construct[] = [];
+    let telemetryDeadLetterEnvironment: Record<string, string> | undefined;
+    let telemetryDeadLetterSecrets: Record<string, ecs.Secret> | undefined;
+    let telemetryDeadLetterDependencies: Construct[] = [];
+    let telemetryListenerEnvironment: Record<string, string> | undefined;
+    let telemetryListenerSecrets: Record<string, ecs.Secret> | undefined;
+    let telemetryListenerDependencies: Construct[] = [];
     const platformJwtSecretKey =
       config.accountAccessDesiredCount > 0 ||
       config.organizationDesiredCount > 0 ||
@@ -217,7 +229,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       config.regionAnalyticsDesiredCount > 0 ||
       config.announcementRegistryDesiredCount > 0 ||
       config.supportRegistryDesiredCount > 0 ||
-      config.notificationHubDesiredCount > 0
+      config.notificationHubDesiredCount > 0 ||
+      (config.terminalRegistryDesiredCount ?? 0) > 0 ||
+      (config.telemetryHubDesiredCount ?? 0) > 0 ||
+      (config.telemetryDeadLetterDesiredCount ?? 0) > 0
         ? new secretsmanager.Secret(this, 'PlatformJwtSecretKey', {
             generateSecretString: {
               passwordLength: 64,
@@ -804,6 +819,139 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       supportRegistryDependencies = [supportRegistryDatabase];
     }
 
+    let telemetryHubIngestKeySecret: secretsmanager.Secret | undefined;
+    let telemetryDeadLetterHubKeySecret: secretsmanager.Secret | undefined;
+    let telemetryDeadLetterListenerKeySecret: secretsmanager.Secret | undefined;
+
+    if ((config.terminalRegistryDesiredCount ?? 0) > 0) {
+      const terminalRegistryDatabase = this.createPostgresDatabaseInstance('TerminalRegistryDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'terminal_registry',
+        databaseName: 'terminal_registry'
+      });
+      const terminalRegistryDatabaseSecret = terminalRegistryDatabase.secret;
+      if (!terminalRegistryDatabaseSecret) {
+        throw new Error('Terminal registry database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('TerminalRegistryDjangoSecretKey');
+      terminalRegistryEnvironment = {
+        POSTGRES_HOST: terminalRegistryDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: terminalRegistryDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'terminal_registry',
+        VEHICLE_REGISTRY_BASE_URL: 'http://vehicle-asset-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'terminal-registry-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      terminalRegistrySecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(terminalRegistryDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(terminalRegistryDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      terminalRegistryDependencies = [terminalRegistryDatabase];
+    }
+
+    if ((config.telemetryHubDesiredCount ?? 0) > 0) {
+      const telemetryHubDatabase = this.createPostgresDatabaseInstance('TelemetryHubDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'telemetry_hub',
+        databaseName: 'telemetry_hub'
+      });
+      const telemetryHubDatabaseSecret = telemetryHubDatabase.secret;
+      if (!telemetryHubDatabaseSecret) {
+        throw new Error('Telemetry hub database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('TelemetryHubDjangoSecretKey');
+      telemetryHubIngestKeySecret = this.createGeneratedSecret('TelemetryHubIngestKey');
+      telemetryHubEnvironment = {
+        POSTGRES_HOST: telemetryHubDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: telemetryHubDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'telemetry_hub',
+        DJANGO_ALLOWED_HOSTS: 'telemetry-hub-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      telemetryHubSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(telemetryHubDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(telemetryHubDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!),
+        TELEMETRY_HUB_INGEST_KEY: ecs.Secret.fromSecretsManager(telemetryHubIngestKeySecret)
+      };
+      telemetryHubDependencies = [telemetryHubDatabase];
+    }
+
+    if ((config.telemetryDeadLetterDesiredCount ?? 0) > 0) {
+      const telemetryDeadLetterDatabase = this.createPostgresDatabaseInstance('TelemetryDeadLetterDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'telemetry_dead_letter',
+        databaseName: 'telemetry_dead_letter'
+      });
+      const telemetryDeadLetterDatabaseSecret = telemetryDeadLetterDatabase.secret;
+      if (!telemetryDeadLetterDatabaseSecret) {
+        throw new Error('Telemetry dead-letter database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('TelemetryDeadLetterDjangoSecretKey');
+      telemetryDeadLetterListenerKeySecret = this.createGeneratedSecret(
+        'TelemetryDeadLetterKeyServiceTelemetryListener'
+      );
+      telemetryDeadLetterHubKeySecret = this.createGeneratedSecret('TelemetryDeadLetterKeyServiceTelemetryHub');
+      telemetryDeadLetterEnvironment = {
+        POSTGRES_HOST: telemetryDeadLetterDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: telemetryDeadLetterDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'telemetry_dead_letter',
+        DJANGO_ALLOWED_HOSTS: 'telemetry-dead-letter-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      telemetryDeadLetterSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(telemetryDeadLetterDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(telemetryDeadLetterDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!),
+        TELEMETRY_DEAD_LETTER_KEY_SERVICE_TELEMETRY_LISTENER: ecs.Secret.fromSecretsManager(
+          telemetryDeadLetterListenerKeySecret
+        ),
+        TELEMETRY_DEAD_LETTER_KEY_SERVICE_TELEMETRY_HUB: ecs.Secret.fromSecretsManager(
+          telemetryDeadLetterHubKeySecret
+        )
+      };
+      telemetryDeadLetterDependencies = [telemetryDeadLetterDatabase];
+    }
+
+    if ((config.telemetryListenerDesiredCount ?? 0) > 0) {
+      if (!telemetryHubIngestKeySecret || !telemetryDeadLetterListenerKeySecret) {
+        throw new Error('Telemetry listener requires telemetry hub and dead-letter secrets to exist');
+      }
+
+      telemetryListenerEnvironment = {
+        TELEMETRY_HUB_BASE_URL: 'http://telemetry-hub-api:8000',
+        TELEMETRY_DEAD_LETTER_BASE_URL: 'http://telemetry-dead-letter-api:8000',
+        TELEMETRY_DEAD_LETTER_SOURCE_SERVICE: 'service-telemetry-listener',
+        TELEMETRY_LISTENER_MQTT_HOST: config.telemetryListenerMqttHost!,
+        TELEMETRY_LISTENER_MQTT_PORT: String(config.telemetryListenerMqttPort ?? 1883),
+        TELEMETRY_LISTENER_MQTT_TOPICS: (config.telemetryListenerMqttTopics ?? ['telemetry/#']).join(','),
+        TELEMETRY_LISTENER_CLIENT_ID: config.telemetryListenerClientId ?? 'service-telemetry-listener',
+        TELEMETRY_LISTENER_RETRY_COUNT: String(config.telemetryListenerRetryCount ?? 3),
+        TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS: String(config.telemetryListenerRetryBackoffSeconds ?? 1),
+        TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS: String(config.telemetryListenerIdleSleepSeconds ?? 5)
+      };
+      telemetryListenerSecrets = {
+        TELEMETRY_HUB_INGEST_KEY: ecs.Secret.fromSecretsManager(telemetryHubIngestKeySecret),
+        TELEMETRY_DEAD_LETTER_KEY_SERVICE_TELEMETRY_LISTENER: ecs.Secret.fromSecretsManager(
+          telemetryDeadLetterListenerKeySecret
+        )
+      };
+      telemetryListenerDependencies = [];
+    }
+
     const accountAccessService = this.createFargateService('ServiceAccountAccess', {
       cluster,
       imageUri: config.accountAccessImageUri,
@@ -1307,6 +1455,102 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       gatewayService.node.addDependency(supportRegistryService);
     }
 
+    if (config.terminalRegistryImageUri) {
+      const terminalRegistryService = this.createFargateService('ServiceTerminalRegistry', {
+        cluster,
+        imageUri: config.terminalRegistryImageUri,
+        cpu: config.terminalRegistryCpu ?? 256,
+        memoryMiB: config.terminalRegistryMemoryMiB ?? 512,
+        desiredCount: config.terminalRegistryDesiredCount ?? 0,
+        containerPort: 8000,
+        portMappingName: 'terminal-registry-http',
+        serviceName: 'service-terminal-registry',
+        serviceConnectDnsName: 'terminal-registry-api',
+        serviceConnectNamespace: config.serviceConnectNamespace,
+        securityGroup: serviceSecurityGroup,
+        subnets: publicSubnets,
+        environment: terminalRegistryEnvironment,
+        secrets: terminalRegistrySecrets
+      });
+      terminalRegistryDependencies.forEach((dependency) => terminalRegistryService.node.addDependency(dependency));
+      if (config.vehicleAssetDesiredCount > 0) {
+        terminalRegistryService.node.addDependency(vehicleAssetService);
+      }
+      if ((config.terminalRegistryDesiredCount ?? 0) > 0) {
+        gatewayService.node.addDependency(terminalRegistryService);
+      }
+    }
+
+    let telemetryHubService: ecs.FargateService | undefined;
+    if (config.telemetryHubImageUri) {
+      telemetryHubService = this.createFargateService('ServiceTelemetryHub', {
+        cluster,
+        imageUri: config.telemetryHubImageUri,
+        cpu: config.telemetryHubCpu ?? 256,
+        memoryMiB: config.telemetryHubMemoryMiB ?? 512,
+        desiredCount: config.telemetryHubDesiredCount ?? 0,
+        containerPort: 8000,
+        portMappingName: 'telemetry-hub-http',
+        serviceName: 'service-telemetry-hub',
+        serviceConnectDnsName: 'telemetry-hub-api',
+        serviceConnectNamespace: config.serviceConnectNamespace,
+        securityGroup: serviceSecurityGroup,
+        subnets: publicSubnets,
+        environment: telemetryHubEnvironment,
+        secrets: telemetryHubSecrets
+      });
+      telemetryHubDependencies.forEach((dependency) => telemetryHubService!.node.addDependency(dependency));
+      if ((config.telemetryHubDesiredCount ?? 0) > 0) {
+        gatewayService.node.addDependency(telemetryHubService);
+      }
+    }
+
+    let telemetryDeadLetterService: ecs.FargateService | undefined;
+    if (config.telemetryDeadLetterImageUri) {
+      telemetryDeadLetterService = this.createFargateService('ServiceTelemetryDeadLetter', {
+        cluster,
+        imageUri: config.telemetryDeadLetterImageUri,
+        cpu: config.telemetryDeadLetterCpu ?? 256,
+        memoryMiB: config.telemetryDeadLetterMemoryMiB ?? 512,
+        desiredCount: config.telemetryDeadLetterDesiredCount ?? 0,
+        containerPort: 8000,
+        portMappingName: 'telemetry-dead-letter-http',
+        serviceName: 'service-telemetry-dead-letter',
+        serviceConnectDnsName: 'telemetry-dead-letter-api',
+        serviceConnectNamespace: config.serviceConnectNamespace,
+        securityGroup: serviceSecurityGroup,
+        subnets: publicSubnets,
+        environment: telemetryDeadLetterEnvironment,
+        secrets: telemetryDeadLetterSecrets
+      });
+      telemetryDeadLetterDependencies.forEach((dependency) => telemetryDeadLetterService!.node.addDependency(dependency));
+      if ((config.telemetryDeadLetterDesiredCount ?? 0) > 0) {
+        gatewayService.node.addDependency(telemetryDeadLetterService);
+      }
+    }
+
+    if (config.telemetryListenerImageUri) {
+      const telemetryListenerService = this.createFargateWorkerService('ServiceTelemetryListener', {
+        cluster,
+        imageUri: config.telemetryListenerImageUri,
+        cpu: config.telemetryListenerCpu ?? 256,
+        memoryMiB: config.telemetryListenerMemoryMiB ?? 512,
+        desiredCount: config.telemetryListenerDesiredCount ?? 0,
+        serviceName: 'service-telemetry-listener',
+        securityGroup: serviceSecurityGroup,
+        subnets: publicSubnets,
+        environment: telemetryListenerEnvironment,
+        secrets: telemetryListenerSecrets
+      });
+      telemetryListenerDependencies.forEach((dependency) => telemetryListenerService.node.addDependency(dependency));
+      if (telemetryHubService) {
+        telemetryListenerService.node.addDependency(telemetryHubService);
+      }
+      if (telemetryDeadLetterService) {
+        telemetryListenerService.node.addDependency(telemetryDeadLetterService);
+      }
+    }
+
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
       port: 5174,
       protocol: elbv2.ApplicationProtocol.HTTP,
@@ -1418,6 +1662,43 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           }
         ]
       }
+    });
+  }
+
+  private createFargateWorkerService(
+    id: string,
+    input: {
+      cluster: ecs.Cluster;
+      imageUri: string;
+      cpu: number;
+      memoryMiB: number;
+      desiredCount: number;
+      serviceName: string;
+      securityGroup: ec2.SecurityGroup;
+      subnets: ec2.ISubnet[];
+      environment?: Record<string, string>;
+      secrets?: Record<string, ecs.Secret>;
+    }
+  ): ecs.FargateService {
+    const taskDefinition = new ecs.FargateTaskDefinition(this, `${id}TaskDefinition`, {
+      cpu: input.cpu,
+      memoryLimitMiB: input.memoryMiB
+    });
+    taskDefinition.addContainer(`${id}Container`, {
+      image: this.buildEcrContainerImage(`${id}Image`, input.imageUri),
+      environment: input.environment,
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: input.serviceName }),
+      secrets: input.secrets
+    });
+
+    return new ecs.FargateService(this, `${id}Service`, {
+      cluster: input.cluster,
+      taskDefinition,
+      desiredCount: input.desiredCount,
+      assignPublicIp: true,
+      securityGroups: [input.securityGroup],
+      vpcSubnets: { subnets: input.subnets },
+      serviceName: input.serviceName
     });
   }
 

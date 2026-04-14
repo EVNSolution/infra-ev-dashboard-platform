@@ -31,6 +31,10 @@ It does not own app code. Application source and image builds stay in:
 - `service-announcement-registry`
 - `service-support-registry`
 - `service-notification-hub`
+- `service-terminal-registry`
+- `service-telemetry-hub`
+- `service-telemetry-dead-letter`
+- `service-telemetry-listener`
 
 ## Deploy Contract
 
@@ -52,6 +56,10 @@ The deploy workflow expects explicit image URIs for all current slice services:
 - `service-announcement-registry`
 - `service-support-registry`
 - `service-notification-hub`
+- `service-terminal-registry`
+- `service-telemetry-hub`
+- `service-telemetry-dead-letter`
+- `service-telemetry-listener`
 
 Image tags are SHA-only. This repo should not guess or discover a `latest` image on its own.
 
@@ -106,6 +114,10 @@ Repository or environment variables:
 - optional: `ANNOUNCEMENT_REGISTRY_DESIRED_COUNT`
 - optional: `SUPPORT_REGISTRY_DESIRED_COUNT`
 - optional: `NOTIFICATION_HUB_DESIRED_COUNT`
+- optional: `TERMINAL_REGISTRY_DESIRED_COUNT`
+- optional: `TELEMETRY_HUB_DESIRED_COUNT`
+- optional: `TELEMETRY_DEAD_LETTER_DESIRED_COUNT`
+- optional: `TELEMETRY_LISTENER_DESIRED_COUNT`
 - optional: `FRONT_CPU`
 - optional: `FRONT_MEMORY_MIB`
 - optional: `GATEWAY_CPU`
@@ -138,6 +150,14 @@ Repository or environment variables:
 - optional: `SUPPORT_REGISTRY_MEMORY_MIB`
 - optional: `NOTIFICATION_HUB_CPU`
 - optional: `NOTIFICATION_HUB_MEMORY_MIB`
+- optional: `TERMINAL_REGISTRY_CPU`
+- optional: `TERMINAL_REGISTRY_MEMORY_MIB`
+- optional: `TELEMETRY_HUB_CPU`
+- optional: `TELEMETRY_HUB_MEMORY_MIB`
+- optional: `TELEMETRY_DEAD_LETTER_CPU`
+- optional: `TELEMETRY_DEAD_LETTER_MEMORY_MIB`
+- optional: `TELEMETRY_LISTENER_CPU`
+- optional: `TELEMETRY_LISTENER_MEMORY_MIB`
 - optional: `FRONT_HEALTH_CHECK_PATH`
 - optional: `GATEWAY_HEALTH_CHECK_PATH`
 - optional: `ACCOUNT_ACCESS_HEALTH_CHECK_PATH`
@@ -154,6 +174,16 @@ Repository or environment variables:
 - optional: `ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH`
 - optional: `SUPPORT_REGISTRY_HEALTH_CHECK_PATH`
 - optional: `NOTIFICATION_HUB_HEALTH_CHECK_PATH`
+- optional: `TERMINAL_REGISTRY_HEALTH_CHECK_PATH`
+- optional: `TELEMETRY_HUB_HEALTH_CHECK_PATH`
+- optional: `TELEMETRY_DEAD_LETTER_HEALTH_CHECK_PATH`
+- optional: `TELEMETRY_LISTENER_MQTT_HOST`
+- optional: `TELEMETRY_LISTENER_MQTT_PORT`
+- optional: `TELEMETRY_LISTENER_MQTT_TOPICS`
+- optional: `TELEMETRY_LISTENER_CLIENT_ID`
+- optional: `TELEMETRY_LISTENER_RETRY_COUNT`
+- optional: `TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS`
+- optional: `TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS`
 
 Repository secrets:
 
@@ -208,7 +238,10 @@ When any backend slice desired count is greater than `0`, `PRIVATE_SUBNET_IDS` b
   - `region-analytics-api:8000`
   - `announcement-registry-api:8000`
   - `support-registry-api:8000`
-  - `notification-hub-api:8000`
+- `notification-hub-api:8000`
+- `terminal-registry-api:8000`
+- `telemetry-hub-api:8000`
+- `telemetry-dead-letter-api:8000`
 - When the support-surface slice is enabled, the stack creates dedicated private PostgreSQL 16 instances for:
   - `service-region-registry`
   - `service-region-analytics`
@@ -217,3 +250,14 @@ When any backend slice desired count is greater than `0`, `PRIVATE_SUBNET_IDS` b
   - `service-notification-hub`
 - `service-support-registry` receives:
   - `NOTIFICATION_HUB_BASE_URL=http://notification-hub-api:8000`
+- When the terminal-and-telemetry slice is enabled, the stack creates dedicated private PostgreSQL 16 instances for:
+  - `service-terminal-registry`
+  - `service-telemetry-hub`
+  - `service-telemetry-dead-letter`
+- `service-terminal-registry` receives:
+  - `VEHICLE_REGISTRY_BASE_URL=http://vehicle-asset-api:8000`
+- `service-telemetry-listener` runs as an internal worker service without an ALB target group and receives:
+  - `TELEMETRY_HUB_BASE_URL=http://telemetry-hub-api:8000`
+  - `TELEMETRY_DEAD_LETTER_BASE_URL=http://telemetry-dead-letter-api:8000`
+  - `TELEMETRY_DEAD_LETTER_SOURCE_SERVICE=service-telemetry-listener`
+  - `TELEMETRY_LISTENER_MQTT_*` worker settings from environment variables

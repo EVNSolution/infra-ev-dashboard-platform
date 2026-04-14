@@ -100,6 +100,22 @@ on:
         type: string
         description: Full ECR image URI for service-notification-hub
         required: true
+      terminal_registry_image_uri:
+        type: string
+        description: Full ECR image URI for service-terminal-registry
+        required: true
+      telemetry_hub_image_uri:
+        type: string
+        description: Full ECR image URI for service-telemetry-hub
+        required: true
+      telemetry_dead_letter_image_uri:
+        type: string
+        description: Full ECR image URI for service-telemetry-dead-letter
+        required: true
+      telemetry_listener_image_uri:
+        type: string
+        description: Full ECR image URI for service-telemetry-listener
+        required: true
 
 permissions:
   id-token: write
@@ -145,6 +161,10 @@ jobs:
       ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: ${{ vars.ANNOUNCEMENT_REGISTRY_DESIRED_COUNT }}
       SUPPORT_REGISTRY_DESIRED_COUNT: ${{ vars.SUPPORT_REGISTRY_DESIRED_COUNT }}
       NOTIFICATION_HUB_DESIRED_COUNT: ${{ vars.NOTIFICATION_HUB_DESIRED_COUNT }}
+      TERMINAL_REGISTRY_DESIRED_COUNT: ${{ vars.TERMINAL_REGISTRY_DESIRED_COUNT }}
+      TELEMETRY_HUB_DESIRED_COUNT: ${{ vars.TELEMETRY_HUB_DESIRED_COUNT }}
+      TELEMETRY_DEAD_LETTER_DESIRED_COUNT: ${{ vars.TELEMETRY_DEAD_LETTER_DESIRED_COUNT }}
+      TELEMETRY_LISTENER_DESIRED_COUNT: ${{ vars.TELEMETRY_LISTENER_DESIRED_COUNT }}
       FRONT_CPU: ${{ vars.FRONT_CPU }}
       FRONT_MEMORY_MIB: ${{ vars.FRONT_MEMORY_MIB }}
       GATEWAY_CPU: ${{ vars.GATEWAY_CPU }}
@@ -189,6 +209,14 @@ jobs:
       SUPPORT_REGISTRY_MEMORY_MIB: ${{ vars.SUPPORT_REGISTRY_MEMORY_MIB }}
       NOTIFICATION_HUB_CPU: ${{ vars.NOTIFICATION_HUB_CPU }}
       NOTIFICATION_HUB_MEMORY_MIB: ${{ vars.NOTIFICATION_HUB_MEMORY_MIB }}
+      TERMINAL_REGISTRY_CPU: ${{ vars.TERMINAL_REGISTRY_CPU }}
+      TERMINAL_REGISTRY_MEMORY_MIB: ${{ vars.TERMINAL_REGISTRY_MEMORY_MIB }}
+      TELEMETRY_HUB_CPU: ${{ vars.TELEMETRY_HUB_CPU }}
+      TELEMETRY_HUB_MEMORY_MIB: ${{ vars.TELEMETRY_HUB_MEMORY_MIB }}
+      TELEMETRY_DEAD_LETTER_CPU: ${{ vars.TELEMETRY_DEAD_LETTER_CPU }}
+      TELEMETRY_DEAD_LETTER_MEMORY_MIB: ${{ vars.TELEMETRY_DEAD_LETTER_MEMORY_MIB }}
+      TELEMETRY_LISTENER_CPU: ${{ vars.TELEMETRY_LISTENER_CPU }}
+      TELEMETRY_LISTENER_MEMORY_MIB: ${{ vars.TELEMETRY_LISTENER_MEMORY_MIB }}
       FRONT_HEALTH_CHECK_PATH: ${{ vars.FRONT_HEALTH_CHECK_PATH }}
       GATEWAY_HEALTH_CHECK_PATH: ${{ vars.GATEWAY_HEALTH_CHECK_PATH }}
       ACCOUNT_ACCESS_HEALTH_CHECK_PATH: ${{ vars.ACCOUNT_ACCESS_HEALTH_CHECK_PATH }}
@@ -211,9 +239,19 @@ jobs:
       ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH }}
       SUPPORT_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.SUPPORT_REGISTRY_HEALTH_CHECK_PATH }}
       NOTIFICATION_HUB_HEALTH_CHECK_PATH: ${{ vars.NOTIFICATION_HUB_HEALTH_CHECK_PATH }}
+      TERMINAL_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.TERMINAL_REGISTRY_HEALTH_CHECK_PATH }}
+      TELEMETRY_HUB_HEALTH_CHECK_PATH: ${{ vars.TELEMETRY_HUB_HEALTH_CHECK_PATH }}
+      TELEMETRY_DEAD_LETTER_HEALTH_CHECK_PATH: ${{ vars.TELEMETRY_DEAD_LETTER_HEALTH_CHECK_PATH }}
       SETTLEMENT_OPS_BASE_URL: ${{ vars.SETTLEMENT_OPS_BASE_URL }}
       TELEMETRY_HUB_BASE_URL: ${{ vars.TELEMETRY_HUB_BASE_URL }}
       TERMINAL_REGISTRY_BASE_URL: ${{ vars.TERMINAL_REGISTRY_BASE_URL }}
+      TELEMETRY_LISTENER_MQTT_HOST: ${{ vars.TELEMETRY_LISTENER_MQTT_HOST }}
+      TELEMETRY_LISTENER_MQTT_PORT: ${{ vars.TELEMETRY_LISTENER_MQTT_PORT }}
+      TELEMETRY_LISTENER_MQTT_TOPICS: ${{ vars.TELEMETRY_LISTENER_MQTT_TOPICS }}
+      TELEMETRY_LISTENER_CLIENT_ID: ${{ vars.TELEMETRY_LISTENER_CLIENT_ID }}
+      TELEMETRY_LISTENER_RETRY_COUNT: ${{ vars.TELEMETRY_LISTENER_RETRY_COUNT }}
+      TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS: ${{ vars.TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS }}
+      TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS: ${{ vars.TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS }}
       FRONT_IMAGE_URI: ${{ github.event.inputs.front_image_uri }}
       GATEWAY_IMAGE_URI: ${{ github.event.inputs.gateway_image_uri }}
       ACCOUNT_ACCESS_IMAGE_URI: ${{ github.event.inputs.account_access_image_uri }}
@@ -236,6 +274,10 @@ jobs:
       ANNOUNCEMENT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.announcement_registry_image_uri }}
       SUPPORT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.support_registry_image_uri }}
       NOTIFICATION_HUB_IMAGE_URI: ${{ github.event.inputs.notification_hub_image_uri }}
+      TERMINAL_REGISTRY_IMAGE_URI: ${{ github.event.inputs.terminal_registry_image_uri }}
+      TELEMETRY_HUB_IMAGE_URI: ${{ github.event.inputs.telemetry_hub_image_uri }}
+      TELEMETRY_DEAD_LETTER_IMAGE_URI: ${{ github.event.inputs.telemetry_dead_letter_image_uri }}
+      TELEMETRY_LISTENER_IMAGE_URI: ${{ github.event.inputs.telemetry_listener_image_uri }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2

@@ -31,6 +31,10 @@ export type PlatformConfigInput = {
   announcementRegistryImageUri: string;
   supportRegistryImageUri: string;
   notificationHubImageUri: string;
+  terminalRegistryImageUri?: string;
+  telemetryHubImageUri?: string;
+  telemetryDeadLetterImageUri?: string;
+  telemetryListenerImageUri?: string;
   frontDesiredCount: number;
   gatewayDesiredCount: number;
   accountAccessDesiredCount: number;
@@ -53,6 +57,10 @@ export type PlatformConfigInput = {
   announcementRegistryDesiredCount: number;
   supportRegistryDesiredCount: number;
   notificationHubDesiredCount: number;
+  terminalRegistryDesiredCount?: number;
+  telemetryHubDesiredCount?: number;
+  telemetryDeadLetterDesiredCount?: number;
+  telemetryListenerDesiredCount?: number;
   frontCpu: number;
   frontMemoryMiB: number;
   gatewayCpu: number;
@@ -97,6 +105,14 @@ export type PlatformConfigInput = {
   supportRegistryMemoryMiB: number;
   notificationHubCpu: number;
   notificationHubMemoryMiB: number;
+  terminalRegistryCpu?: number;
+  terminalRegistryMemoryMiB?: number;
+  telemetryHubCpu?: number;
+  telemetryHubMemoryMiB?: number;
+  telemetryDeadLetterCpu?: number;
+  telemetryDeadLetterMemoryMiB?: number;
+  telemetryListenerCpu?: number;
+  telemetryListenerMemoryMiB?: number;
   frontHealthCheckPath: string;
   gatewayHealthCheckPath: string;
   accountAccessHealthCheckPath: string;
@@ -119,9 +135,19 @@ export type PlatformConfigInput = {
   announcementRegistryHealthCheckPath: string;
   supportRegistryHealthCheckPath: string;
   notificationHubHealthCheckPath: string;
+  terminalRegistryHealthCheckPath?: string;
+  telemetryHubHealthCheckPath?: string;
+  telemetryDeadLetterHealthCheckPath?: string;
   settlementOpsBaseUrl: string;
   telemetryHubBaseUrl: string;
   terminalRegistryBaseUrl: string;
+  telemetryListenerMqttHost?: string;
+  telemetryListenerMqttPort?: number;
+  telemetryListenerMqttTopics?: string[];
+  telemetryListenerClientId?: string;
+  telemetryListenerRetryCount?: number;
+  telemetryListenerRetryBackoffSeconds?: number;
+  telemetryListenerIdleSleepSeconds?: number;
 };
 
 export type PlatformConfig = PlatformConfigInput & {
@@ -148,7 +174,10 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     input.regionAnalyticsDesiredCount > 0 ||
     input.announcementRegistryDesiredCount > 0 ||
     input.supportRegistryDesiredCount > 0 ||
-    input.notificationHubDesiredCount > 0;
+    input.notificationHubDesiredCount > 0 ||
+    (input.terminalRegistryDesiredCount ?? 0) > 0 ||
+    (input.telemetryHubDesiredCount ?? 0) > 0 ||
+    (input.telemetryDeadLetterDesiredCount ?? 0) > 0;
   if (requiresPrivateSubnets && privateSubnetIds.length === 0) {
     throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
   }
@@ -186,6 +215,26 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const announcementRegistryHealthCheckPath = emptyToUndefined(env.ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH);
   const supportRegistryHealthCheckPath = emptyToUndefined(env.SUPPORT_REGISTRY_HEALTH_CHECK_PATH);
   const notificationHubHealthCheckPath = emptyToUndefined(env.NOTIFICATION_HUB_HEALTH_CHECK_PATH);
+  const terminalRegistryHealthCheckPath = emptyToUndefined(env.TERMINAL_REGISTRY_HEALTH_CHECK_PATH);
+  const telemetryHubHealthCheckPath = emptyToUndefined(env.TELEMETRY_HUB_HEALTH_CHECK_PATH);
+  const telemetryDeadLetterHealthCheckPath = emptyToUndefined(env.TELEMETRY_DEAD_LETTER_HEALTH_CHECK_PATH);
+  const terminalRegistryDesiredCount = toNumber(
+    env.TERMINAL_REGISTRY_DESIRED_COUNT,
+    'TERMINAL_REGISTRY_DESIRED_COUNT',
+    0
+  );
+  const telemetryHubDesiredCount = toNumber(env.TELEMETRY_HUB_DESIRED_COUNT, 'TELEMETRY_HUB_DESIRED_COUNT', 0);
+  const telemetryDeadLetterDesiredCount = toNumber(
+    env.TELEMETRY_DEAD_LETTER_DESIRED_COUNT,
+    'TELEMETRY_DEAD_LETTER_DESIRED_COUNT',
+    0
+  );
+  const telemetryListenerDesiredCount = toNumber(
+    env.TELEMETRY_LISTENER_DESIRED_COUNT,
+    'TELEMETRY_LISTENER_DESIRED_COUNT',
+    0
+  );
+  const telemetryListenerMqttTopics = optionalList(env.TELEMETRY_LISTENER_MQTT_TOPICS) ?? ['telemetry/#'];
 
   return buildPlatformConfig({
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
@@ -229,6 +278,26 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     ),
     supportRegistryImageUri: required(env.SUPPORT_REGISTRY_IMAGE_URI, 'SUPPORT_REGISTRY_IMAGE_URI'),
     notificationHubImageUri: required(env.NOTIFICATION_HUB_IMAGE_URI, 'NOTIFICATION_HUB_IMAGE_URI'),
+    terminalRegistryImageUri: requiredWhenEnabled(
+      env.TERMINAL_REGISTRY_IMAGE_URI,
+      'TERMINAL_REGISTRY_IMAGE_URI',
+      terminalRegistryDesiredCount
+    ),
+    telemetryHubImageUri: requiredWhenEnabled(
+      env.TELEMETRY_HUB_IMAGE_URI,
+      'TELEMETRY_HUB_IMAGE_URI',
+      telemetryHubDesiredCount
+    ),
+    telemetryDeadLetterImageUri: requiredWhenEnabled(
+      env.TELEMETRY_DEAD_LETTER_IMAGE_URI,
+      'TELEMETRY_DEAD_LETTER_IMAGE_URI',
+      telemetryDeadLetterDesiredCount
+    ),
+    telemetryListenerImageUri: requiredWhenEnabled(
+      env.TELEMETRY_LISTENER_IMAGE_URI,
+      'TELEMETRY_LISTENER_IMAGE_URI',
+      telemetryListenerDesiredCount
+    ),
     frontDesiredCount: toNumber(env.FRONT_DESIRED_COUNT, 'FRONT_DESIRED_COUNT', 1),
     gatewayDesiredCount: toNumber(env.GATEWAY_DESIRED_COUNT, 'GATEWAY_DESIRED_COUNT', 1),
     accountAccessDesiredCount: toNumber(env.ACCOUNT_ACCESS_DESIRED_COUNT, 'ACCOUNT_ACCESS_DESIRED_COUNT', 1),
@@ -267,11 +336,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     ),
     settlementOpsDesiredCount: toNumber(env.SETTLEMENT_OPS_DESIRED_COUNT, 'SETTLEMENT_OPS_DESIRED_COUNT', 0),
     regionRegistryDesiredCount: toNumber(env.REGION_REGISTRY_DESIRED_COUNT, 'REGION_REGISTRY_DESIRED_COUNT', 0),
-    regionAnalyticsDesiredCount: toNumber(
-      env.REGION_ANALYTICS_DESIRED_COUNT,
-      'REGION_ANALYTICS_DESIRED_COUNT',
-      0
-    ),
+    regionAnalyticsDesiredCount: toNumber(env.REGION_ANALYTICS_DESIRED_COUNT, 'REGION_ANALYTICS_DESIRED_COUNT', 0),
     announcementRegistryDesiredCount: toNumber(
       env.ANNOUNCEMENT_REGISTRY_DESIRED_COUNT,
       'ANNOUNCEMENT_REGISTRY_DESIRED_COUNT',
@@ -283,6 +348,10 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       'NOTIFICATION_HUB_DESIRED_COUNT',
       0
     ),
+    terminalRegistryDesiredCount,
+    telemetryHubDesiredCount,
+    telemetryDeadLetterDesiredCount,
+    telemetryListenerDesiredCount,
     frontCpu: toNumber(env.FRONT_CPU, 'FRONT_CPU', 256),
     frontMemoryMiB: toNumber(env.FRONT_MEMORY_MIB, 'FRONT_MEMORY_MIB', 512),
     gatewayCpu: toNumber(env.GATEWAY_CPU, 'GATEWAY_CPU', 256),
@@ -363,6 +432,18 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       'NOTIFICATION_HUB_MEMORY_MIB',
       512
     ),
+    terminalRegistryCpu: toNumber(env.TERMINAL_REGISTRY_CPU, 'TERMINAL_REGISTRY_CPU', 256),
+    terminalRegistryMemoryMiB: toNumber(env.TERMINAL_REGISTRY_MEMORY_MIB, 'TERMINAL_REGISTRY_MEMORY_MIB', 512),
+    telemetryHubCpu: toNumber(env.TELEMETRY_HUB_CPU, 'TELEMETRY_HUB_CPU', 256),
+    telemetryHubMemoryMiB: toNumber(env.TELEMETRY_HUB_MEMORY_MIB, 'TELEMETRY_HUB_MEMORY_MIB', 512),
+    telemetryDeadLetterCpu: toNumber(env.TELEMETRY_DEAD_LETTER_CPU, 'TELEMETRY_DEAD_LETTER_CPU', 256),
+    telemetryDeadLetterMemoryMiB: toNumber(
+      env.TELEMETRY_DEAD_LETTER_MEMORY_MIB,
+      'TELEMETRY_DEAD_LETTER_MEMORY_MIB',
+      512
+    ),
+    telemetryListenerCpu: toNumber(env.TELEMETRY_LISTENER_CPU, 'TELEMETRY_LISTENER_CPU', 256),
+    telemetryListenerMemoryMiB: toNumber(env.TELEMETRY_LISTENER_MEMORY_MIB, 'TELEMETRY_LISTENER_MEMORY_MIB', 512),
     frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
     gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
     accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz',
@@ -385,9 +466,36 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     announcementRegistryHealthCheckPath: announcementRegistryHealthCheckPath ?? '/health/',
     supportRegistryHealthCheckPath: supportRegistryHealthCheckPath ?? '/health/',
     notificationHubHealthCheckPath: notificationHubHealthCheckPath ?? '/health/',
+    terminalRegistryHealthCheckPath: terminalRegistryHealthCheckPath ?? '/health/',
+    telemetryHubHealthCheckPath: telemetryHubHealthCheckPath ?? '/health/',
+    telemetryDeadLetterHealthCheckPath: telemetryDeadLetterHealthCheckPath ?? '/health/',
     settlementOpsBaseUrl: env.SETTLEMENT_OPS_BASE_URL || 'http://settlement-ops-api:8000',
     telemetryHubBaseUrl: env.TELEMETRY_HUB_BASE_URL || 'http://telemetry-hub-api:8000',
-    terminalRegistryBaseUrl: env.TERMINAL_REGISTRY_BASE_URL || 'http://terminal-registry-api:8000'
+    terminalRegistryBaseUrl: env.TERMINAL_REGISTRY_BASE_URL || 'http://terminal-registry-api:8000',
+    telemetryListenerMqttHost: emptyToUndefined(env.TELEMETRY_LISTENER_MQTT_HOST),
+    telemetryListenerMqttPort: toNumber(
+      env.TELEMETRY_LISTENER_MQTT_PORT,
+      'TELEMETRY_LISTENER_MQTT_PORT',
+      1883
+    ),
+    telemetryListenerMqttTopics,
+    telemetryListenerClientId:
+      emptyToUndefined(env.TELEMETRY_LISTENER_CLIENT_ID) ?? 'service-telemetry-listener',
+    telemetryListenerRetryCount: toNumber(
+      env.TELEMETRY_LISTENER_RETRY_COUNT,
+      'TELEMETRY_LISTENER_RETRY_COUNT',
+      3
+    ),
+    telemetryListenerRetryBackoffSeconds: toNumber(
+      env.TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS,
+      'TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS',
+      1
+    ),
+    telemetryListenerIdleSleepSeconds: toNumber(
+      env.TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS,
+      'TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS',
+      5
+    )
   });
 }
 
@@ -396,6 +504,14 @@ function required(value: string | undefined, name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
+}
+
+function requiredWhenEnabled(value: string | undefined, name: string, desiredCount: number): string | undefined {
+  if (desiredCount > 0) {
+    return required(value, name);
+  }
+
+  return emptyToUndefined(value);
 }
 
 function toNumber(value: string | undefined, name: string, fallback: number): number {

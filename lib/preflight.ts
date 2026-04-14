@@ -16,6 +16,7 @@ type SliceState = {
   dispatchReadModels: boolean;
   settlement: boolean;
   supportSurface: boolean;
+  terminalAndTelemetry: boolean;
 };
 
 const IMAGE_ENV_KEYS: Array<keyof NodeJS.ProcessEnv> = [
@@ -40,7 +41,11 @@ const IMAGE_ENV_KEYS: Array<keyof NodeJS.ProcessEnv> = [
   'REGION_ANALYTICS_IMAGE_URI',
   'ANNOUNCEMENT_REGISTRY_IMAGE_URI',
   'SUPPORT_REGISTRY_IMAGE_URI',
-  'NOTIFICATION_HUB_IMAGE_URI'
+  'NOTIFICATION_HUB_IMAGE_URI',
+  'TERMINAL_REGISTRY_IMAGE_URI',
+  'TELEMETRY_HUB_IMAGE_URI',
+  'TELEMETRY_DEAD_LETTER_IMAGE_URI',
+  'TELEMETRY_LISTENER_IMAGE_URI'
 ];
 
 export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPreflightReport {
@@ -165,8 +170,9 @@ function validateSliceDependencies(
   warnings: string[]
 ): void {
   const anyApiSliceEnabled = Object.values(slices).some(Boolean);
+  const listenerEnabled = (config.telemetryListenerDesiredCount ?? 0) > 0;
 
-  if (anyApiSliceEnabled && config.gatewayDesiredCount === 0) {
+  if ((anyApiSliceEnabled || listenerEnabled) && config.gatewayDesiredCount === 0) {
     errors.push('Gateway desired count must stay above zero when any API slice is enabled.');
   }
 
@@ -204,8 +210,39 @@ function validateSliceDependencies(
     errors.push('Support Surface slice requires Settlement to stay enabled.');
   }
 
+  if (slices.terminalAndTelemetry && !slices.supportSurface) {
+    errors.push('Terminal And Telemetry slice requires Support Surface to stay enabled.');
+  }
+
+  if (
+    slices.terminalAndTelemetry &&
+    (config.terminalRegistryBaseUrl !== 'http://terminal-registry-api:8000' ||
+      config.telemetryHubBaseUrl !== 'http://telemetry-hub-api:8000')
+  ) {
+    errors.push(
+      'Terminal And Telemetry slice requires internal bridge URLs: TERMINAL_REGISTRY_BASE_URL=http://terminal-registry-api:8000 and TELEMETRY_HUB_BASE_URL=http://telemetry-hub-api:8000.'
+    );
+  }
+
+  if ((config.telemetryListenerDesiredCount ?? 0) > 0 && !config.telemetryListenerMqttHost) {
+    errors.push('TELEMETRY_LISTENER_MQTT_HOST is required when telemetry listener desired count is above zero.');
+  }
+
+  if (
+    (config.telemetryListenerDesiredCount ?? 0) > 0 &&
+    ((config.telemetryHubDesiredCount ?? 0) === 0 || (config.telemetryDeadLetterDesiredCount ?? 0) === 0)
+  ) {
+    errors.push('Telemetry listener requires telemetry hub and telemetry dead-letter services to stay enabled.');
+  }
+
   if (config.frontDesiredCount === 0) {
     warnings.push('front-web-console desired count is zero. Public apex smoke will not prove the full user path.');
+  }
+
+  if (slices.terminalAndTelemetry && (config.telemetryListenerDesiredCount ?? 0) === 0) {
+    warnings.push(
+      'Telemetry listener desired count is zero. Terminal and telemetry APIs can migrate, but live MQTT ingest remains disabled until a broker endpoint is known.'
+    );
   }
 }
 
@@ -254,7 +291,12 @@ function getSliceState(config: PlatformConfig): SliceState {
       config.regionAnalyticsDesiredCount > 0 ||
       config.announcementRegistryDesiredCount > 0 ||
       config.supportRegistryDesiredCount > 0 ||
-      config.notificationHubDesiredCount > 0
+      config.notificationHubDesiredCount > 0,
+    terminalAndTelemetry:
+      (config.terminalRegistryDesiredCount ?? 0) > 0 ||
+      (config.telemetryHubDesiredCount ?? 0) > 0 ||
+      (config.telemetryDeadLetterDesiredCount ?? 0) > 0 ||
+      (config.telemetryListenerDesiredCount ?? 0) > 0
   };
 }
 
@@ -282,6 +324,9 @@ function formatEnabledSlices(slices: SliceState): string[] {
   if (slices.supportSurface) {
     labels.push('Support Surface');
   }
+  if (slices.terminalAndTelemetry) {
+    labels.push('Terminal And Telemetry');
+  }
 
   return labels;
 }
@@ -293,7 +338,8 @@ function hasStatefulSlices(slices: SliceState): boolean {
     slices.peopleAndAssets ||
     slices.dispatchInputs ||
     slices.settlement ||
-    slices.supportSurface
+    slices.supportSurface ||
+    slices.terminalAndTelemetry
   );
 }
 
@@ -305,7 +351,8 @@ function hasDirectUpstreamSlices(slices: SliceState): boolean {
     slices.dispatchInputs ||
     slices.dispatchReadModels ||
     slices.settlement ||
-    slices.supportSurface
+    slices.supportSurface ||
+    slices.terminalAndTelemetry
   );
 }
 

@@ -3,6 +3,7 @@ import { buildDeployPreflightReport, formatDeployPreflightReport } from '../lib/
 function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     DEPLOY_ENVIRONMENT: 'prod',
+    INFRA_ROLE_ARN: 'arn:aws:iam::902837199612:role/GitHubActionsRole',
     AWS_REGION: 'ap-northeast-2',
     HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
     HOSTED_ZONE_NAME: 'ev-dashboard.com',
@@ -99,6 +100,86 @@ describe('deploy preflight', () => {
 
     expect(report.errors).toContain(
       'Dispatch read-model slice requires the full dispatch-inputs slice to stay enabled.'
+    );
+  });
+
+  test('rejects terminal and telemetry slice when support surface is not enabled', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        TERMINAL_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-terminal-registry:sha-terminal',
+        TELEMETRY_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-hub:sha-telemetry-hub',
+        TELEMETRY_DEAD_LETTER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-dead-letter:sha-dead-letter',
+        TELEMETRY_LISTENER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-listener:sha-listener',
+        TERMINAL_REGISTRY_DESIRED_COUNT: '1',
+        TELEMETRY_HUB_DESIRED_COUNT: '1',
+        TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '1',
+        TELEMETRY_LISTENER_DESIRED_COUNT: '1',
+        TELEMETRY_LISTENER_MQTT_HOST: 'mqtt-prod.example.internal'
+      })
+    );
+
+    expect(report.errors).toContain('Terminal And Telemetry slice requires Support Surface to stay enabled.');
+  });
+
+  test('rejects telemetry listener when required worker connectivity config is missing', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        REGION_REGISTRY_DESIRED_COUNT: '1',
+        REGION_ANALYTICS_DESIRED_COUNT: '1',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+        NOTIFICATION_HUB_DESIRED_COUNT: '1',
+        TERMINAL_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-terminal-registry:sha-terminal',
+        TELEMETRY_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-hub:sha-telemetry-hub',
+        TELEMETRY_DEAD_LETTER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-dead-letter:sha-dead-letter',
+        TELEMETRY_LISTENER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-listener:sha-listener',
+        TERMINAL_REGISTRY_DESIRED_COUNT: '1',
+        TELEMETRY_HUB_DESIRED_COUNT: '1',
+        TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '1',
+        TELEMETRY_LISTENER_DESIRED_COUNT: '1'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'TELEMETRY_LISTENER_MQTT_HOST is required when telemetry listener desired count is above zero.'
+    );
+  });
+
+  test('rejects terminal and telemetry slice when bridge base URLs still point to the old public hub', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        REGION_REGISTRY_DESIRED_COUNT: '1',
+        REGION_ANALYTICS_DESIRED_COUNT: '1',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+        NOTIFICATION_HUB_DESIRED_COUNT: '1',
+        TERMINAL_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-terminal-registry:sha-terminal',
+        TELEMETRY_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-hub:sha-telemetry-hub',
+        TELEMETRY_DEAD_LETTER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-dead-letter:sha-dead-letter',
+        TELEMETRY_LISTENER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-listener:sha-listener',
+        TERMINAL_REGISTRY_DESIRED_COUNT: '1',
+        TELEMETRY_HUB_DESIRED_COUNT: '1',
+        TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '1',
+        TELEMETRY_LISTENER_DESIRED_COUNT: '0',
+        TERMINAL_REGISTRY_BASE_URL: 'https://hub.evnlogistics.com/api/terminals',
+        TELEMETRY_HUB_BASE_URL: 'https://hub.evnlogistics.com/api/telemetry'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Terminal And Telemetry slice requires internal bridge URLs: TERMINAL_REGISTRY_BASE_URL=http://terminal-registry-api:8000 and TELEMETRY_HUB_BASE_URL=http://telemetry-hub-api:8000.'
     );
   });
 
