@@ -1,3 +1,9 @@
+jest.mock('node:child_process', () => ({
+  execFileSync: jest.fn()
+}));
+
+import * as childProcess from 'node:child_process';
+
 import { buildDeployPreflightReport, formatDeployPreflightReport } from '../lib/preflight';
 
 function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
@@ -72,11 +78,16 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
     SUPPORT_REGISTRY_DESIRED_COUNT: '0',
     NOTIFICATION_HUB_DESIRED_COUNT: '0',
+    PREFLIGHT_SKIP_ECR_IMAGE_LOOKUP: '1',
     ...overrides
   };
 }
 
 describe('deploy preflight', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
   test('rejects mutable latest image tags', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
@@ -192,6 +203,22 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).toContain('prod deploys must target ev-dashboard.com and api.ev-dashboard.com.');
+  });
+
+  test('rejects image tags that do not exist in ECR', () => {
+    (childProcess.execFileSync as jest.Mock).mockImplementation(() => {
+      throw new Error('Image not found');
+    });
+
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        PREFLIGHT_SKIP_ECR_IMAGE_LOOKUP: '0'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'VEHICLE_ASSET_IMAGE_URI points to an ECR tag that does not exist: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:sha-vehicle'
+    );
   });
 
   test('summarizes enabled slices and wait signals', () => {

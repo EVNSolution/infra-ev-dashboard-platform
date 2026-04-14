@@ -1,3 +1,5 @@
+import * as childProcess from 'node:child_process';
+
 import { buildPlatformConfigFromEnv, PlatformConfig } from './config';
 
 export type DeployPreflightReport = {
@@ -79,6 +81,7 @@ export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPrefli
   }
 
   validateImageUris(env, errors);
+  validateEcrImageAvailability(env, errors);
   validateEnvironmentDomains(environment, config, errors);
 
   const slices = getSliceState(config);
@@ -138,6 +141,62 @@ function validateImageUris(env: NodeJS.ProcessEnv, errors: string[]): void {
 
     if (!hasTagOrDigest(value)) {
       errors.push(`${key} must include an explicit image tag or digest.`);
+    }
+  }
+}
+
+function validateEcrImageAvailability(env: NodeJS.ProcessEnv, errors: string[]): void {
+  if (env.PREFLIGHT_SKIP_ECR_IMAGE_LOOKUP === '1') {
+    return;
+  }
+
+  const region = env.AWS_REGION ?? env.CDK_DEFAULT_REGION;
+  if (!region) {
+    errors.push('AWS_REGION is required to validate ECR image availability.');
+    return;
+  }
+
+  for (const key of IMAGE_ENV_KEYS) {
+    const imageUri = env[key];
+    if (!imageUri || !hasTagOrDigest(imageUri) || imageUri.includes('@sha256:') || imageUri.endsWith(':latest')) {
+      continue;
+    }
+
+    const parsedImage = parseTaggedEcrImageUri(imageUri);
+    if (!parsedImage) {
+      continue;
+    }
+
+    try {
+      const digest = childProcess
+        .execFileSync(
+          'aws',
+          [
+            'ecr',
+            'describe-images',
+            '--region',
+            region,
+            '--repository-name',
+            parsedImage.repositoryName,
+            '--image-ids',
+            `imageTag=${parsedImage.tag}`,
+            '--query',
+            'imageDetails[0].imageDigest',
+            '--output',
+            'text'
+          ],
+          {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe']
+          }
+        )
+        .trim();
+
+      if (!digest || digest === 'None' || digest === 'null') {
+        errors.push(`${key} points to an ECR tag that does not exist: ${imageUri}`);
+      }
+    } catch {
+      errors.push(`${key} points to an ECR tag that does not exist: ${imageUri}`);
     }
   }
 }
@@ -359,6 +418,18 @@ function hasDirectUpstreamSlices(slices: SliceState): boolean {
 function hasTagOrDigest(imageUri: string): boolean {
   const afterSlash = imageUri.substring(imageUri.lastIndexOf('/') + 1);
   return afterSlash.includes(':') || imageUri.includes('@sha256:');
+}
+
+function parseTaggedEcrImageUri(imageUri: string): { repositoryName: string; tag: string } | undefined {
+  const match = imageUri.match(/^\d+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com\/(.+):([^:]+)$/);
+  if (!match) {
+    return undefined;
+  }
+
+  return {
+    repositoryName: match[1],
+    tag: match[2]
+  };
 }
 
 function trimDot(value: string): string {
