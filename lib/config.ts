@@ -26,6 +26,11 @@ export type PlatformConfigInput = {
   settlementRegistryImageUri: string;
   settlementPayrollImageUri: string;
   settlementOpsImageUri: string;
+  regionRegistryImageUri: string;
+  regionAnalyticsImageUri: string;
+  announcementRegistryImageUri: string;
+  supportRegistryImageUri: string;
+  notificationHubImageUri: string;
   frontDesiredCount: number;
   gatewayDesiredCount: number;
   accountAccessDesiredCount: number;
@@ -43,6 +48,11 @@ export type PlatformConfigInput = {
   settlementRegistryDesiredCount: number;
   settlementPayrollDesiredCount: number;
   settlementOpsDesiredCount: number;
+  regionRegistryDesiredCount: number;
+  regionAnalyticsDesiredCount: number;
+  announcementRegistryDesiredCount: number;
+  supportRegistryDesiredCount: number;
+  notificationHubDesiredCount: number;
   frontCpu: number;
   frontMemoryMiB: number;
   gatewayCpu: number;
@@ -77,6 +87,16 @@ export type PlatformConfigInput = {
   settlementPayrollMemoryMiB: number;
   settlementOpsCpu: number;
   settlementOpsMemoryMiB: number;
+  regionRegistryCpu: number;
+  regionRegistryMemoryMiB: number;
+  regionAnalyticsCpu: number;
+  regionAnalyticsMemoryMiB: number;
+  announcementRegistryCpu: number;
+  announcementRegistryMemoryMiB: number;
+  supportRegistryCpu: number;
+  supportRegistryMemoryMiB: number;
+  notificationHubCpu: number;
+  notificationHubMemoryMiB: number;
   frontHealthCheckPath: string;
   gatewayHealthCheckPath: string;
   accountAccessHealthCheckPath: string;
@@ -94,6 +114,11 @@ export type PlatformConfigInput = {
   settlementRegistryHealthCheckPath: string;
   settlementPayrollHealthCheckPath: string;
   settlementOpsHealthCheckPath: string;
+  regionRegistryHealthCheckPath: string;
+  regionAnalyticsHealthCheckPath: string;
+  announcementRegistryHealthCheckPath: string;
+  supportRegistryHealthCheckPath: string;
+  notificationHubHealthCheckPath: string;
   settlementOpsBaseUrl: string;
   telemetryHubBaseUrl: string;
   terminalRegistryBaseUrl: string;
@@ -118,7 +143,12 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     input.deliveryRecordDesiredCount > 0 ||
     input.attendanceRegistryDesiredCount > 0 ||
     input.settlementRegistryDesiredCount > 0 ||
-    input.settlementPayrollDesiredCount > 0;
+    input.settlementPayrollDesiredCount > 0 ||
+    input.regionRegistryDesiredCount > 0 ||
+    input.regionAnalyticsDesiredCount > 0 ||
+    input.announcementRegistryDesiredCount > 0 ||
+    input.supportRegistryDesiredCount > 0 ||
+    input.notificationHubDesiredCount > 0;
   if (requiresPrivateSubnets && privateSubnetIds.length === 0) {
     throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
   }
@@ -151,6 +181,11 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const settlementRegistryHealthCheckPath = emptyToUndefined(env.SETTLEMENT_REGISTRY_HEALTH_CHECK_PATH);
   const settlementPayrollHealthCheckPath = emptyToUndefined(env.SETTLEMENT_PAYROLL_HEALTH_CHECK_PATH);
   const settlementOpsHealthCheckPath = emptyToUndefined(env.SETTLEMENT_OPS_HEALTH_CHECK_PATH);
+  const regionRegistryHealthCheckPath = emptyToUndefined(env.REGION_REGISTRY_HEALTH_CHECK_PATH);
+  const regionAnalyticsHealthCheckPath = emptyToUndefined(env.REGION_ANALYTICS_HEALTH_CHECK_PATH);
+  const announcementRegistryHealthCheckPath = emptyToUndefined(env.ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH);
+  const supportRegistryHealthCheckPath = emptyToUndefined(env.SUPPORT_REGISTRY_HEALTH_CHECK_PATH);
+  const notificationHubHealthCheckPath = emptyToUndefined(env.NOTIFICATION_HUB_HEALTH_CHECK_PATH);
 
   return buildPlatformConfig({
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
@@ -186,6 +221,14 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     settlementRegistryImageUri: required(env.SETTLEMENT_REGISTRY_IMAGE_URI, 'SETTLEMENT_REGISTRY_IMAGE_URI'),
     settlementPayrollImageUri: required(env.SETTLEMENT_PAYROLL_IMAGE_URI, 'SETTLEMENT_PAYROLL_IMAGE_URI'),
     settlementOpsImageUri: required(env.SETTLEMENT_OPS_IMAGE_URI, 'SETTLEMENT_OPS_IMAGE_URI'),
+    regionRegistryImageUri: required(env.REGION_REGISTRY_IMAGE_URI, 'REGION_REGISTRY_IMAGE_URI'),
+    regionAnalyticsImageUri: required(env.REGION_ANALYTICS_IMAGE_URI, 'REGION_ANALYTICS_IMAGE_URI'),
+    announcementRegistryImageUri: required(
+      env.ANNOUNCEMENT_REGISTRY_IMAGE_URI,
+      'ANNOUNCEMENT_REGISTRY_IMAGE_URI'
+    ),
+    supportRegistryImageUri: required(env.SUPPORT_REGISTRY_IMAGE_URI, 'SUPPORT_REGISTRY_IMAGE_URI'),
+    notificationHubImageUri: required(env.NOTIFICATION_HUB_IMAGE_URI, 'NOTIFICATION_HUB_IMAGE_URI'),
     frontDesiredCount: toNumber(env.FRONT_DESIRED_COUNT, 'FRONT_DESIRED_COUNT', 1),
     gatewayDesiredCount: toNumber(env.GATEWAY_DESIRED_COUNT, 'GATEWAY_DESIRED_COUNT', 1),
     accountAccessDesiredCount: toNumber(env.ACCOUNT_ACCESS_DESIRED_COUNT, 'ACCOUNT_ACCESS_DESIRED_COUNT', 1),
@@ -223,6 +266,23 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       0
     ),
     settlementOpsDesiredCount: toNumber(env.SETTLEMENT_OPS_DESIRED_COUNT, 'SETTLEMENT_OPS_DESIRED_COUNT', 0),
+    regionRegistryDesiredCount: toNumber(env.REGION_REGISTRY_DESIRED_COUNT, 'REGION_REGISTRY_DESIRED_COUNT', 0),
+    regionAnalyticsDesiredCount: toNumber(
+      env.REGION_ANALYTICS_DESIRED_COUNT,
+      'REGION_ANALYTICS_DESIRED_COUNT',
+      0
+    ),
+    announcementRegistryDesiredCount: toNumber(
+      env.ANNOUNCEMENT_REGISTRY_DESIRED_COUNT,
+      'ANNOUNCEMENT_REGISTRY_DESIRED_COUNT',
+      0
+    ),
+    supportRegistryDesiredCount: toNumber(env.SUPPORT_REGISTRY_DESIRED_COUNT, 'SUPPORT_REGISTRY_DESIRED_COUNT', 0),
+    notificationHubDesiredCount: toNumber(
+      env.NOTIFICATION_HUB_DESIRED_COUNT,
+      'NOTIFICATION_HUB_DESIRED_COUNT',
+      0
+    ),
     frontCpu: toNumber(env.FRONT_CPU, 'FRONT_CPU', 256),
     frontMemoryMiB: toNumber(env.FRONT_MEMORY_MIB, 'FRONT_MEMORY_MIB', 512),
     gatewayCpu: toNumber(env.GATEWAY_CPU, 'GATEWAY_CPU', 256),
@@ -281,6 +341,28 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     ),
     settlementOpsCpu: toNumber(env.SETTLEMENT_OPS_CPU, 'SETTLEMENT_OPS_CPU', 256),
     settlementOpsMemoryMiB: toNumber(env.SETTLEMENT_OPS_MEMORY_MIB, 'SETTLEMENT_OPS_MEMORY_MIB', 512),
+    regionRegistryCpu: toNumber(env.REGION_REGISTRY_CPU, 'REGION_REGISTRY_CPU', 256),
+    regionRegistryMemoryMiB: toNumber(env.REGION_REGISTRY_MEMORY_MIB, 'REGION_REGISTRY_MEMORY_MIB', 512),
+    regionAnalyticsCpu: toNumber(env.REGION_ANALYTICS_CPU, 'REGION_ANALYTICS_CPU', 256),
+    regionAnalyticsMemoryMiB: toNumber(
+      env.REGION_ANALYTICS_MEMORY_MIB,
+      'REGION_ANALYTICS_MEMORY_MIB',
+      512
+    ),
+    announcementRegistryCpu: toNumber(env.ANNOUNCEMENT_REGISTRY_CPU, 'ANNOUNCEMENT_REGISTRY_CPU', 256),
+    announcementRegistryMemoryMiB: toNumber(
+      env.ANNOUNCEMENT_REGISTRY_MEMORY_MIB,
+      'ANNOUNCEMENT_REGISTRY_MEMORY_MIB',
+      512
+    ),
+    supportRegistryCpu: toNumber(env.SUPPORT_REGISTRY_CPU, 'SUPPORT_REGISTRY_CPU', 256),
+    supportRegistryMemoryMiB: toNumber(env.SUPPORT_REGISTRY_MEMORY_MIB, 'SUPPORT_REGISTRY_MEMORY_MIB', 512),
+    notificationHubCpu: toNumber(env.NOTIFICATION_HUB_CPU, 'NOTIFICATION_HUB_CPU', 256),
+    notificationHubMemoryMiB: toNumber(
+      env.NOTIFICATION_HUB_MEMORY_MIB,
+      'NOTIFICATION_HUB_MEMORY_MIB',
+      512
+    ),
     frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
     gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
     accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz',
@@ -298,6 +380,11 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     settlementRegistryHealthCheckPath: settlementRegistryHealthCheckPath ?? '/health/',
     settlementPayrollHealthCheckPath: settlementPayrollHealthCheckPath ?? '/health/',
     settlementOpsHealthCheckPath: settlementOpsHealthCheckPath ?? '/health/',
+    regionRegistryHealthCheckPath: regionRegistryHealthCheckPath ?? '/health/',
+    regionAnalyticsHealthCheckPath: regionAnalyticsHealthCheckPath ?? '/health/',
+    announcementRegistryHealthCheckPath: announcementRegistryHealthCheckPath ?? '/health/',
+    supportRegistryHealthCheckPath: supportRegistryHealthCheckPath ?? '/health/',
+    notificationHubHealthCheckPath: notificationHubHealthCheckPath ?? '/health/',
     settlementOpsBaseUrl: env.SETTLEMENT_OPS_BASE_URL || 'http://settlement-ops-api:8000',
     telemetryHubBaseUrl: env.TELEMETRY_HUB_BASE_URL || 'http://telemetry-hub-api:8000',
     terminalRegistryBaseUrl: env.TERMINAL_REGISTRY_BASE_URL || 'http://terminal-registry-api:8000'

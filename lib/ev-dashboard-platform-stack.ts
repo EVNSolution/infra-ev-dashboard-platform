@@ -182,6 +182,21 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     let settlementOpsEnvironment: Record<string, string> | undefined;
     let settlementOpsSecrets: Record<string, ecs.Secret> | undefined;
     let settlementOpsDependencies: Construct[] = [];
+    let regionRegistryEnvironment: Record<string, string> | undefined;
+    let regionRegistrySecrets: Record<string, ecs.Secret> | undefined;
+    let regionRegistryDependencies: Construct[] = [];
+    let regionAnalyticsEnvironment: Record<string, string> | undefined;
+    let regionAnalyticsSecrets: Record<string, ecs.Secret> | undefined;
+    let regionAnalyticsDependencies: Construct[] = [];
+    let announcementRegistryEnvironment: Record<string, string> | undefined;
+    let announcementRegistrySecrets: Record<string, ecs.Secret> | undefined;
+    let announcementRegistryDependencies: Construct[] = [];
+    let supportRegistryEnvironment: Record<string, string> | undefined;
+    let supportRegistrySecrets: Record<string, ecs.Secret> | undefined;
+    let supportRegistryDependencies: Construct[] = [];
+    let notificationHubEnvironment: Record<string, string> | undefined;
+    let notificationHubSecrets: Record<string, ecs.Secret> | undefined;
+    let notificationHubDependencies: Construct[] = [];
     const platformJwtSecretKey =
       config.accountAccessDesiredCount > 0 ||
       config.organizationDesiredCount > 0 ||
@@ -197,7 +212,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       config.vehicleOpsDesiredCount > 0 ||
       config.settlementRegistryDesiredCount > 0 ||
       config.settlementPayrollDesiredCount > 0 ||
-      config.settlementOpsDesiredCount > 0
+      config.settlementOpsDesiredCount > 0 ||
+      config.regionRegistryDesiredCount > 0 ||
+      config.regionAnalyticsDesiredCount > 0 ||
+      config.announcementRegistryDesiredCount > 0 ||
+      config.supportRegistryDesiredCount > 0 ||
+      config.notificationHubDesiredCount > 0
         ? new secretsmanager.Secret(this, 'PlatformJwtSecretKey', {
             generateSecretString: {
               passwordLength: 64,
@@ -633,6 +653,157 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       };
     }
 
+    if (config.regionRegistryDesiredCount > 0) {
+      const regionRegistryDatabase = this.createPostgresDatabaseInstance('RegionRegistryDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'region_registry',
+        databaseName: 'region_registry'
+      });
+      const regionRegistryDatabaseSecret = regionRegistryDatabase.secret;
+      if (!regionRegistryDatabaseSecret) {
+        throw new Error('Region registry database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('RegionRegistryDjangoSecretKey');
+      regionRegistryEnvironment = {
+        POSTGRES_HOST: regionRegistryDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: regionRegistryDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'region_registry',
+        DJANGO_ALLOWED_HOSTS: 'region-registry-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      regionRegistrySecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(regionRegistryDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(regionRegistryDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      regionRegistryDependencies = [regionRegistryDatabase];
+    }
+
+    if (config.regionAnalyticsDesiredCount > 0) {
+      const regionAnalyticsDatabase = this.createPostgresDatabaseInstance('RegionAnalyticsDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'region_analytics',
+        databaseName: 'region_analytics'
+      });
+      const regionAnalyticsDatabaseSecret = regionAnalyticsDatabase.secret;
+      if (!regionAnalyticsDatabaseSecret) {
+        throw new Error('Region analytics database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('RegionAnalyticsDjangoSecretKey');
+      regionAnalyticsEnvironment = {
+        POSTGRES_HOST: regionAnalyticsDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: regionAnalyticsDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'region_analytics',
+        DJANGO_ALLOWED_HOSTS: 'region-analytics-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      regionAnalyticsSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(regionAnalyticsDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(regionAnalyticsDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      regionAnalyticsDependencies = [regionAnalyticsDatabase];
+    }
+
+    if (config.announcementRegistryDesiredCount > 0) {
+      const announcementRegistryDatabase = this.createPostgresDatabaseInstance('AnnouncementRegistryDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'announcement_registry',
+        databaseName: 'announcement_registry'
+      });
+      const announcementRegistryDatabaseSecret = announcementRegistryDatabase.secret;
+      if (!announcementRegistryDatabaseSecret) {
+        throw new Error('Announcement registry database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('AnnouncementRegistryDjangoSecretKey');
+      announcementRegistryEnvironment = {
+        POSTGRES_HOST: announcementRegistryDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: announcementRegistryDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'announcement_registry',
+        DJANGO_ALLOWED_HOSTS: 'announcement-registry-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      announcementRegistrySecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(announcementRegistryDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(announcementRegistryDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      announcementRegistryDependencies = [announcementRegistryDatabase];
+    }
+
+    if (config.notificationHubDesiredCount > 0) {
+      const notificationHubDatabase = this.createPostgresDatabaseInstance('NotificationHubDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'notification_hub',
+        databaseName: 'notification_hub'
+      });
+      const notificationHubDatabaseSecret = notificationHubDatabase.secret;
+      if (!notificationHubDatabaseSecret) {
+        throw new Error('Notification hub database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('NotificationHubDjangoSecretKey');
+      notificationHubEnvironment = {
+        POSTGRES_HOST: notificationHubDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: notificationHubDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'notification_hub',
+        DJANGO_ALLOWED_HOSTS: 'notification-hub-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      notificationHubSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(notificationHubDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(notificationHubDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      notificationHubDependencies = [notificationHubDatabase];
+    }
+
+    if (config.supportRegistryDesiredCount > 0) {
+      const supportRegistryDatabase = this.createPostgresDatabaseInstance('SupportRegistryDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'support_registry',
+        databaseName: 'support_registry'
+      });
+      const supportRegistryDatabaseSecret = supportRegistryDatabase.secret;
+      if (!supportRegistryDatabaseSecret) {
+        throw new Error('Support registry database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('SupportRegistryDjangoSecretKey');
+      supportRegistryEnvironment = {
+        POSTGRES_HOST: supportRegistryDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: supportRegistryDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'support_registry',
+        NOTIFICATION_HUB_BASE_URL: 'http://notification-hub-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'support-registry-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      supportRegistrySecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(supportRegistryDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(supportRegistryDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      supportRegistryDependencies = [supportRegistryDatabase];
+    }
+
     const accountAccessService = this.createFargateService('ServiceAccountAccess', {
       cluster,
       imageUri: config.accountAccessImageUri,
@@ -1024,6 +1195,116 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     }
     if (config.settlementOpsDesiredCount > 0) {
       gatewayService.node.addDependency(settlementOpsService);
+    }
+
+    const regionRegistryService = this.createFargateService('ServiceRegionRegistry', {
+      cluster,
+      imageUri: config.regionRegistryImageUri,
+      cpu: config.regionRegistryCpu,
+      memoryMiB: config.regionRegistryMemoryMiB,
+      desiredCount: config.regionRegistryDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'region-registry-http',
+      serviceName: 'service-region-registry',
+      serviceConnectDnsName: 'region-registry-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: regionRegistryEnvironment,
+      secrets: regionRegistrySecrets
+    });
+    regionRegistryDependencies.forEach((dependency) => regionRegistryService.node.addDependency(dependency));
+    if (config.regionRegistryDesiredCount > 0) {
+      gatewayService.node.addDependency(regionRegistryService);
+    }
+
+    const regionAnalyticsService = this.createFargateService('ServiceRegionAnalytics', {
+      cluster,
+      imageUri: config.regionAnalyticsImageUri,
+      cpu: config.regionAnalyticsCpu,
+      memoryMiB: config.regionAnalyticsMemoryMiB,
+      desiredCount: config.regionAnalyticsDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'region-analytics-http',
+      serviceName: 'service-region-analytics',
+      serviceConnectDnsName: 'region-analytics-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: regionAnalyticsEnvironment,
+      secrets: regionAnalyticsSecrets
+    });
+    regionAnalyticsDependencies.forEach((dependency) => regionAnalyticsService.node.addDependency(dependency));
+    if (config.regionAnalyticsDesiredCount > 0) {
+      gatewayService.node.addDependency(regionAnalyticsService);
+    }
+
+    const announcementRegistryService = this.createFargateService('ServiceAnnouncementRegistry', {
+      cluster,
+      imageUri: config.announcementRegistryImageUri,
+      cpu: config.announcementRegistryCpu,
+      memoryMiB: config.announcementRegistryMemoryMiB,
+      desiredCount: config.announcementRegistryDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'announcement-registry-http',
+      serviceName: 'service-announcement-registry',
+      serviceConnectDnsName: 'announcement-registry-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: announcementRegistryEnvironment,
+      secrets: announcementRegistrySecrets
+    });
+    announcementRegistryDependencies.forEach((dependency) =>
+      announcementRegistryService.node.addDependency(dependency)
+    );
+    if (config.announcementRegistryDesiredCount > 0) {
+      gatewayService.node.addDependency(announcementRegistryService);
+    }
+
+    const notificationHubService = this.createFargateService('ServiceNotificationHub', {
+      cluster,
+      imageUri: config.notificationHubImageUri,
+      cpu: config.notificationHubCpu,
+      memoryMiB: config.notificationHubMemoryMiB,
+      desiredCount: config.notificationHubDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'notification-hub-http',
+      serviceName: 'service-notification-hub',
+      serviceConnectDnsName: 'notification-hub-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: notificationHubEnvironment,
+      secrets: notificationHubSecrets
+    });
+    notificationHubDependencies.forEach((dependency) => notificationHubService.node.addDependency(dependency));
+    if (config.notificationHubDesiredCount > 0) {
+      gatewayService.node.addDependency(notificationHubService);
+    }
+
+    const supportRegistryService = this.createFargateService('ServiceSupportRegistry', {
+      cluster,
+      imageUri: config.supportRegistryImageUri,
+      cpu: config.supportRegistryCpu,
+      memoryMiB: config.supportRegistryMemoryMiB,
+      desiredCount: config.supportRegistryDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'support-registry-http',
+      serviceName: 'service-support-registry',
+      serviceConnectDnsName: 'support-registry-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: supportRegistryEnvironment,
+      secrets: supportRegistrySecrets
+    });
+    supportRegistryDependencies.forEach((dependency) => supportRegistryService.node.addDependency(dependency));
+    if (config.notificationHubDesiredCount > 0) {
+      supportRegistryService.node.addDependency(notificationHubService);
+    }
+    if (config.supportRegistryDesiredCount > 0) {
+      gatewayService.node.addDependency(supportRegistryService);
     }
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {

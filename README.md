@@ -26,6 +26,11 @@ It does not own app code. Application source and image builds stay in:
 - `service-dispatch-registry`
 - `service-delivery-record`
 - `service-attendance-registry`
+- `service-region-registry`
+- `service-region-analytics`
+- `service-announcement-registry`
+- `service-support-registry`
+- `service-notification-hub`
 
 ## Deploy Contract
 
@@ -42,6 +47,11 @@ The deploy workflow expects explicit image URIs for all current slice services:
 - `service-dispatch-registry`
 - `service-delivery-record`
 - `service-attendance-registry`
+- `service-region-registry`
+- `service-region-analytics`
+- `service-announcement-registry`
+- `service-support-registry`
+- `service-notification-hub`
 
 Image tags are SHA-only. This repo should not guess or discover a `latest` image on its own.
 
@@ -91,6 +101,11 @@ Repository or environment variables:
 - optional: `DISPATCH_REGISTRY_DESIRED_COUNT`
 - optional: `DELIVERY_RECORD_DESIRED_COUNT`
 - optional: `ATTENDANCE_REGISTRY_DESIRED_COUNT`
+- optional: `REGION_REGISTRY_DESIRED_COUNT`
+- optional: `REGION_ANALYTICS_DESIRED_COUNT`
+- optional: `ANNOUNCEMENT_REGISTRY_DESIRED_COUNT`
+- optional: `SUPPORT_REGISTRY_DESIRED_COUNT`
+- optional: `NOTIFICATION_HUB_DESIRED_COUNT`
 - optional: `FRONT_CPU`
 - optional: `FRONT_MEMORY_MIB`
 - optional: `GATEWAY_CPU`
@@ -113,6 +128,16 @@ Repository or environment variables:
 - optional: `DELIVERY_RECORD_MEMORY_MIB`
 - optional: `ATTENDANCE_REGISTRY_CPU`
 - optional: `ATTENDANCE_REGISTRY_MEMORY_MIB`
+- optional: `REGION_REGISTRY_CPU`
+- optional: `REGION_REGISTRY_MEMORY_MIB`
+- optional: `REGION_ANALYTICS_CPU`
+- optional: `REGION_ANALYTICS_MEMORY_MIB`
+- optional: `ANNOUNCEMENT_REGISTRY_CPU`
+- optional: `ANNOUNCEMENT_REGISTRY_MEMORY_MIB`
+- optional: `SUPPORT_REGISTRY_CPU`
+- optional: `SUPPORT_REGISTRY_MEMORY_MIB`
+- optional: `NOTIFICATION_HUB_CPU`
+- optional: `NOTIFICATION_HUB_MEMORY_MIB`
 - optional: `FRONT_HEALTH_CHECK_PATH`
 - optional: `GATEWAY_HEALTH_CHECK_PATH`
 - optional: `ACCOUNT_ACCESS_HEALTH_CHECK_PATH`
@@ -124,6 +149,11 @@ Repository or environment variables:
 - optional: `DISPATCH_REGISTRY_HEALTH_CHECK_PATH`
 - optional: `DELIVERY_RECORD_HEALTH_CHECK_PATH`
 - optional: `ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH`
+- optional: `REGION_REGISTRY_HEALTH_CHECK_PATH`
+- optional: `REGION_ANALYTICS_HEALTH_CHECK_PATH`
+- optional: `ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH`
+- optional: `SUPPORT_REGISTRY_HEALTH_CHECK_PATH`
+- optional: `NOTIFICATION_HUB_HEALTH_CHECK_PATH`
 
 Repository secrets:
 
@@ -174,3 +204,16 @@ When any backend slice desired count is greater than `0`, `PRIVATE_SUBNET_IDS` b
   - `dispatch-registry-api:8000`
   - `delivery-record-api:8000`
   - `attendance-registry-api:8000`
+  - `region-registry-api:8000`
+  - `region-analytics-api:8000`
+  - `announcement-registry-api:8000`
+  - `support-registry-api:8000`
+  - `notification-hub-api:8000`
+- When the support-surface slice is enabled, the stack creates dedicated private PostgreSQL 16 instances for:
+  - `service-region-registry`
+  - `service-region-analytics`
+  - `service-announcement-registry`
+  - `service-support-registry`
+  - `service-notification-hub`
+- `service-support-registry` receives:
+  - `NOTIFICATION_HUB_BASE_URL=http://notification-hub-api:8000`

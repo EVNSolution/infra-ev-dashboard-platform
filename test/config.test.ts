@@ -95,7 +95,17 @@ describe('buildPlatformConfigFromEnv', () => {
       SETTLEMENT_PAYROLL_IMAGE_URI:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
       SETTLEMENT_OPS_IMAGE_URI:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+      REGION_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+      REGION_ANALYTICS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+      SUPPORT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+      NOTIFICATION_HUB_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
     });
 
     expect(config.serviceConnectNamespace).toBe('ev-dashboard.internal');
@@ -174,8 +184,18 @@ describe('buildPlatformConfigFromEnv', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
         SETTLEMENT_PAYROLL_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
-        SETTLEMENT_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
+      SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+        REGION_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+        REGION_ANALYTICS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+        ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+        SUPPORT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+        NOTIFICATION_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -230,8 +250,18 @@ describe('buildPlatformConfigFromEnv', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
         SETTLEMENT_PAYROLL_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
-        SETTLEMENT_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
+      SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+        REGION_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+        REGION_ANALYTICS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+        ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+        SUPPORT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+        NOTIFICATION_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -286,8 +316,18 @@ describe('buildPlatformConfigFromEnv', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
         SETTLEMENT_PAYROLL_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
-        SETTLEMENT_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
+      SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+        REGION_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+        REGION_ANALYTICS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+        ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+        SUPPORT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+        NOTIFICATION_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -342,8 +382,18 @@ describe('buildPlatformConfigFromEnv', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
         SETTLEMENT_PAYROLL_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
-        SETTLEMENT_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
+      SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+        REGION_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+        REGION_ANALYTICS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+        ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+        SUPPORT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+        NOTIFICATION_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -386,6 +436,16 @@ describe('buildPlatformConfigFromEnv', () => {
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
       SETTLEMENT_OPS_IMAGE_URI:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+      REGION_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+      REGION_ANALYTICS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+      SUPPORT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+      NOTIFICATION_HUB_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test',
       SETTLEMENT_OPS_BASE_URL: 'https://hub.evnlogistics.com/api/settlement-ops',
       TELEMETRY_HUB_BASE_URL: 'https://hub.evnlogistics.com/api/telemetry',
       TERMINAL_REGISTRY_BASE_URL: 'https://hub.evnlogistics.com/api/terminals'

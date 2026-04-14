@@ -39,6 +39,16 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
       '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:sha-settlement-payroll',
     SETTLEMENT_OPS_IMAGE_URI:
       '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:sha-settlement-ops',
+    REGION_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:sha-region-registry',
+    REGION_ANALYTICS_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:sha-region-analytics',
+    ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:sha-announcement',
+    SUPPORT_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:sha-support',
+    NOTIFICATION_HUB_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:sha-notification',
     FRONT_DESIRED_COUNT: '1',
     GATEWAY_DESIRED_COUNT: '1',
     ACCOUNT_ACCESS_DESIRED_COUNT: '1',
@@ -56,6 +66,11 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
     SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
     SETTLEMENT_OPS_DESIRED_COUNT: '1',
+    REGION_REGISTRY_DESIRED_COUNT: '0',
+    REGION_ANALYTICS_DESIRED_COUNT: '0',
+    ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
+    SUPPORT_REGISTRY_DESIRED_COUNT: '0',
+    NOTIFICATION_HUB_DESIRED_COUNT: '0',
     ...overrides
   };
 }

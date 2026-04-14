@@ -44,6 +44,16 @@ describe('EvDashboardPlatformStack', () => {
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:sha-settlement-payroll',
       settlementOpsImageUri:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:sha-settlement-ops',
+      regionRegistryImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:sha-region-registry',
+      regionAnalyticsImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:sha-region-analytics',
+      announcementRegistryImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:sha-announcement',
+      supportRegistryImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:sha-support',
+      notificationHubImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:sha-notification',
       frontDesiredCount: 1,
       gatewayDesiredCount: 1,
       accountAccessDesiredCount: 1,
@@ -61,6 +71,11 @@ describe('EvDashboardPlatformStack', () => {
       settlementRegistryDesiredCount: 0,
       settlementPayrollDesiredCount: 0,
       settlementOpsDesiredCount: 0,
+      regionRegistryDesiredCount: 0,
+      regionAnalyticsDesiredCount: 0,
+      announcementRegistryDesiredCount: 0,
+      supportRegistryDesiredCount: 0,
+      notificationHubDesiredCount: 0,
       frontCpu: 256,
       frontMemoryMiB: 512,
       gatewayCpu: 256,
@@ -95,6 +110,16 @@ describe('EvDashboardPlatformStack', () => {
       settlementPayrollMemoryMiB: 512,
       settlementOpsCpu: 256,
       settlementOpsMemoryMiB: 512,
+      regionRegistryCpu: 256,
+      regionRegistryMemoryMiB: 512,
+      regionAnalyticsCpu: 256,
+      regionAnalyticsMemoryMiB: 512,
+      announcementRegistryCpu: 256,
+      announcementRegistryMemoryMiB: 512,
+      supportRegistryCpu: 256,
+      supportRegistryMemoryMiB: 512,
+      notificationHubCpu: 256,
+      notificationHubMemoryMiB: 512,
       frontHealthCheckPath: '/',
       gatewayHealthCheckPath: '/healthz',
       accountAccessHealthCheckPath: '/healthz',
@@ -112,6 +137,11 @@ describe('EvDashboardPlatformStack', () => {
       settlementRegistryHealthCheckPath: '/health/',
       settlementPayrollHealthCheckPath: '/health/',
       settlementOpsHealthCheckPath: '/health/',
+      regionRegistryHealthCheckPath: '/health/',
+      regionAnalyticsHealthCheckPath: '/health/',
+      announcementRegistryHealthCheckPath: '/health/',
+      supportRegistryHealthCheckPath: '/health/',
+      notificationHubHealthCheckPath: '/health/',
       settlementOpsBaseUrl: 'https://hub.evnlogistics.com/api/settlement-ops',
       telemetryHubBaseUrl: 'https://hub.evnlogistics.com/api/telemetry',
       terminalRegistryBaseUrl: 'https://hub.evnlogistics.com/api/terminals'
@@ -122,7 +152,7 @@ describe('EvDashboardPlatformStack', () => {
 
     template.resourceCountIs('AWS::ECS::Cluster', 1);
     template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
-    template.resourceCountIs('AWS::ECS::Service', 17);
+    template.resourceCountIs('AWS::ECS::Service', 22);
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
     template.resourceCountIs('AWS::RDS::DBInstance', 9);
     template.resourceCountIs('AWS::ElastiCache::CacheCluster', 1);

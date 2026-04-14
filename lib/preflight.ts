@@ -15,6 +15,7 @@ type SliceState = {
   dispatchInputs: boolean;
   dispatchReadModels: boolean;
   settlement: boolean;
+  supportSurface: boolean;
 };
 
 const IMAGE_ENV_KEYS: Array<keyof NodeJS.ProcessEnv> = [
@@ -34,7 +35,12 @@ const IMAGE_ENV_KEYS: Array<keyof NodeJS.ProcessEnv> = [
   'VEHICLE_OPS_IMAGE_URI',
   'SETTLEMENT_REGISTRY_IMAGE_URI',
   'SETTLEMENT_PAYROLL_IMAGE_URI',
-  'SETTLEMENT_OPS_IMAGE_URI'
+  'SETTLEMENT_OPS_IMAGE_URI',
+  'REGION_REGISTRY_IMAGE_URI',
+  'REGION_ANALYTICS_IMAGE_URI',
+  'ANNOUNCEMENT_REGISTRY_IMAGE_URI',
+  'SUPPORT_REGISTRY_IMAGE_URI',
+  'NOTIFICATION_HUB_IMAGE_URI'
 ];
 
 export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPreflightReport {
@@ -164,7 +170,17 @@ function validateSliceDependencies(
     errors.push('Gateway desired count must stay above zero when any API slice is enabled.');
   }
 
-  if ((slices.companyGovernance || slices.peopleAndAssets || slices.dispatchInputs || slices.dispatchReadModels || slices.settlement) && !slices.authSurface) {
+  if (
+    (
+      slices.companyGovernance ||
+      slices.peopleAndAssets ||
+      slices.dispatchInputs ||
+      slices.dispatchReadModels ||
+      slices.settlement ||
+      slices.supportSurface
+    ) &&
+    !slices.authSurface
+  ) {
     errors.push('Auth Surface must stay enabled before any later slice can deploy.');
   }
 
@@ -182,6 +198,10 @@ function validateSliceDependencies(
 
   if (slices.settlement && !slices.dispatchInputs) {
     errors.push('Settlement slice requires the full dispatch-inputs slice to stay enabled.');
+  }
+
+  if (slices.supportSurface && !slices.settlement) {
+    errors.push('Support Surface slice requires Settlement to stay enabled.');
   }
 
   if (config.frontDesiredCount === 0) {
@@ -228,7 +248,13 @@ function getSliceState(config: PlatformConfig): SliceState {
     settlement:
       config.settlementRegistryDesiredCount > 0 ||
       config.settlementPayrollDesiredCount > 0 ||
-      config.settlementOpsDesiredCount > 0
+      config.settlementOpsDesiredCount > 0,
+    supportSurface:
+      config.regionRegistryDesiredCount > 0 ||
+      config.regionAnalyticsDesiredCount > 0 ||
+      config.announcementRegistryDesiredCount > 0 ||
+      config.supportRegistryDesiredCount > 0 ||
+      config.notificationHubDesiredCount > 0
   };
 }
 
@@ -253,6 +279,9 @@ function formatEnabledSlices(slices: SliceState): string[] {
   if (slices.settlement) {
     labels.push('Settlement');
   }
+  if (slices.supportSurface) {
+    labels.push('Support Surface');
+  }
 
   return labels;
 }
@@ -263,7 +292,8 @@ function hasStatefulSlices(slices: SliceState): boolean {
     slices.companyGovernance ||
     slices.peopleAndAssets ||
     slices.dispatchInputs ||
-    slices.settlement
+    slices.settlement ||
+    slices.supportSurface
   );
 }
 
@@ -274,7 +304,8 @@ function hasDirectUpstreamSlices(slices: SliceState): boolean {
     slices.peopleAndAssets ||
     slices.dispatchInputs ||
     slices.dispatchReadModels ||
-    slices.settlement
+    slices.settlement ||
+    slices.supportSurface
   );
 }
 

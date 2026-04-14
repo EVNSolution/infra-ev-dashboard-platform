@@ -39,9 +39,24 @@ describe('Settlement slice config', () => {
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
       SETTLEMENT_OPS_IMAGE_URI:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+      REGION_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+      REGION_ANALYTICS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+      SUPPORT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+      NOTIFICATION_HUB_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test',
       SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
       SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
       SETTLEMENT_OPS_DESIRED_COUNT: '1',
+      REGION_REGISTRY_DESIRED_COUNT: '0',
+      REGION_ANALYTICS_DESIRED_COUNT: '0',
+      ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
+      SUPPORT_REGISTRY_DESIRED_COUNT: '0',
+      NOTIFICATION_HUB_DESIRED_COUNT: '0',
       SETTLEMENT_REGISTRY_CPU: '512',
       SETTLEMENT_REGISTRY_MEMORY_MIB: '1024',
       SETTLEMENT_PAYROLL_CPU: '512',
@@ -114,9 +129,24 @@ describe('Settlement slice config', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
         SETTLEMENT_OPS_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+        REGION_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+        REGION_ANALYTICS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+        ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+        SUPPORT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+        NOTIFICATION_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test',
         SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
         SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
-        SETTLEMENT_OPS_DESIRED_COUNT: '1'
+        SETTLEMENT_OPS_DESIRED_COUNT: '1',
+        REGION_REGISTRY_DESIRED_COUNT: '0',
+        REGION_ANALYTICS_DESIRED_COUNT: '0',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '0',
+        NOTIFICATION_HUB_DESIRED_COUNT: '0'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });

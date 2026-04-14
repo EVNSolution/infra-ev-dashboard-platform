@@ -4,8 +4,8 @@ import { Match, Template } from 'aws-cdk-lib/assertions';
 import { buildPlatformConfig } from '../lib/config';
 import { EvDashboardPlatformStack } from '../lib/ev-dashboard-platform-stack';
 
-describe('Settlement slice stack', () => {
-  test('adds settlement registry, payroll, and ops services with runtime dependencies', () => {
+describe('Support slice stack', () => {
+  test('adds support-surface services, databases, and support to notification dependency', () => {
     const app = new App();
     const config = buildPlatformConfig({
       region: 'ap-northeast-2',
@@ -71,11 +71,11 @@ describe('Settlement slice stack', () => {
       settlementRegistryDesiredCount: 1,
       settlementPayrollDesiredCount: 1,
       settlementOpsDesiredCount: 1,
-      regionRegistryDesiredCount: 0,
-      regionAnalyticsDesiredCount: 0,
-      announcementRegistryDesiredCount: 0,
-      supportRegistryDesiredCount: 0,
-      notificationHubDesiredCount: 0,
+      regionRegistryDesiredCount: 1,
+      regionAnalyticsDesiredCount: 1,
+      announcementRegistryDesiredCount: 1,
+      supportRegistryDesiredCount: 1,
+      notificationHubDesiredCount: 1,
       frontCpu: 256,
       frontMemoryMiB: 512,
       gatewayCpu: 256,
@@ -147,18 +147,18 @@ describe('Settlement slice stack', () => {
       terminalRegistryBaseUrl: 'https://hub.evnlogistics.com/api/terminals'
     } as any);
 
-    const stack = new EvDashboardPlatformStack(app, 'SettlementSliceStack', { config });
+    const stack = new EvDashboardPlatformStack(app, 'SupportSliceStack', { config });
     const template = Template.fromStack(stack);
 
     template.resourceCountIs('AWS::ECS::Service', 22);
-    template.resourceCountIs('AWS::RDS::DBInstance', 11);
+    template.resourceCountIs('AWS::RDS::DBInstance', 16);
 
     template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
       ServiceConnectConfiguration: Match.objectLike({
         Services: Match.arrayWith([
           Match.objectLike({
-            PortName: 'settlement-registry-http',
-            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'settlement-registry-api', Port: 8000 })])
+            PortName: 'region-registry-http',
+            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'region-registry-api', Port: 8000 })])
           })
         ])
       })
@@ -167,8 +167,8 @@ describe('Settlement slice stack', () => {
       ServiceConnectConfiguration: Match.objectLike({
         Services: Match.arrayWith([
           Match.objectLike({
-            PortName: 'settlement-payroll-http',
-            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'settlement-payroll-api', Port: 8000 })])
+            PortName: 'region-analytics-http',
+            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'region-analytics-api', Port: 8000 })])
           })
         ])
       })
@@ -177,8 +177,28 @@ describe('Settlement slice stack', () => {
       ServiceConnectConfiguration: Match.objectLike({
         Services: Match.arrayWith([
           Match.objectLike({
-            PortName: 'settlement-ops-http',
-            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'settlement-ops-api', Port: 8000 })])
+            PortName: 'announcement-registry-http',
+            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'announcement-registry-api', Port: 8000 })])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'support-registry-http',
+            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'support-registry-api', Port: 8000 })])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'notification-hub-http',
+            ClientAliases: Match.arrayWith([Match.objectLike({ DnsName: 'notification-hub-api', Port: 8000 })])
           })
         ])
       })
@@ -188,23 +208,41 @@ describe('Settlement slice stack', () => {
       Engine: 'postgres',
       EngineVersion: '16.13',
       PubliclyAccessible: false,
-      DBName: 'settlement_registry'
+      DBName: 'region_registry'
     }));
     template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
       Engine: 'postgres',
       EngineVersion: '16.13',
       PubliclyAccessible: false,
-      DBName: 'settlement_payroll'
+      DBName: 'region_analytics'
+    }));
+    template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
+      Engine: 'postgres',
+      EngineVersion: '16.13',
+      PubliclyAccessible: false,
+      DBName: 'announcement_registry'
+    }));
+    template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
+      Engine: 'postgres',
+      EngineVersion: '16.13',
+      PubliclyAccessible: false,
+      DBName: 'support_registry'
+    }));
+    template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
+      Engine: 'postgres',
+      EngineVersion: '16.13',
+      PubliclyAccessible: false,
+      DBName: 'notification_hub'
     }));
 
     template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
       ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
-          Name: 'ServiceSettlementRegistryContainer',
+          Name: 'ServiceSupportRegistryContainer',
           Environment: Match.arrayWith([
-            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'settlement_registry' }),
-            Match.objectLike({ Name: 'ORGANIZATION_MASTER_BASE_URL', Value: 'http://organization-master-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'settlement-registry-api,localhost,127.0.0.1' })
+            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'support_registry' }),
+            Match.objectLike({ Name: 'NOTIFICATION_HUB_BASE_URL', Value: 'http://notification-hub-api:8000' }),
+            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'support-registry-api,localhost,127.0.0.1' })
           ])
         })
       ])
@@ -212,29 +250,10 @@ describe('Settlement slice stack', () => {
     template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
       ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
-          Name: 'ServiceSettlementPayrollContainer',
+          Name: 'ServiceNotificationHubContainer',
           Environment: Match.arrayWith([
-            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'settlement_payroll' }),
-            Match.objectLike({ Name: 'SETTLEMENT_ORG_BASE_URL', Value: 'http://organization-master-api:8000' }),
-            Match.objectLike({ Name: 'SETTLEMENT_DRIVER_BASE_URL', Value: 'http://driver-profile-api:8000' }),
-            Match.objectLike({ Name: 'SETTLEMENT_REGISTRY_BASE_URL', Value: 'http://settlement-registry-api:8000' }),
-            Match.objectLike({ Name: 'DELIVERY_RECORD_BASE_URL', Value: 'http://delivery-record-api:8000' }),
-            Match.objectLike({ Name: 'DISPATCH_REGISTRY_BASE_URL', Value: 'http://dispatch-registry-api:8000' }),
-            Match.objectLike({ Name: 'ATTENDANCE_REGISTRY_BASE_URL', Value: 'http://attendance-registry-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'settlement-payroll-api,localhost,127.0.0.1' })
-          ])
-        })
-      ])
-    }));
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
-      ContainerDefinitions: Match.arrayWith([
-        Match.objectLike({
-          Name: 'ServiceSettlementOperationsViewContainer',
-          Environment: Match.arrayWith([
-            Match.objectLike({ Name: 'SETTLEMENT_PAYROLL_BASE_URL', Value: 'http://settlement-payroll-api:8000' }),
-            Match.objectLike({ Name: 'DELIVERY_RECORD_BASE_URL', Value: 'http://delivery-record-api:8000' }),
-            Match.objectLike({ Name: 'DRIVER_PROFILE_BASE_URL', Value: 'http://driver-profile-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'settlement-ops-api,localhost,127.0.0.1' })
+            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'notification_hub' }),
+            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'notification-hub-api,localhost,127.0.0.1' })
           ])
         })
       ])

@@ -80,6 +80,26 @@ on:
         type: string
         description: Full ECR image URI for service-settlement-operations-view
         required: true
+      region_registry_image_uri:
+        type: string
+        description: Full ECR image URI for service-region-registry
+        required: true
+      region_analytics_image_uri:
+        type: string
+        description: Full ECR image URI for service-region-analytics
+        required: true
+      announcement_registry_image_uri:
+        type: string
+        description: Full ECR image URI for service-announcement-registry
+        required: true
+      support_registry_image_uri:
+        type: string
+        description: Full ECR image URI for service-support-registry
+        required: true
+      notification_hub_image_uri:
+        type: string
+        description: Full ECR image URI for service-notification-hub
+        required: true
 
 permissions:
   id-token: write
@@ -120,6 +140,11 @@ jobs:
       SETTLEMENT_REGISTRY_DESIRED_COUNT: ${{ vars.SETTLEMENT_REGISTRY_DESIRED_COUNT }}
       SETTLEMENT_PAYROLL_DESIRED_COUNT: ${{ vars.SETTLEMENT_PAYROLL_DESIRED_COUNT }}
       SETTLEMENT_OPS_DESIRED_COUNT: ${{ vars.SETTLEMENT_OPS_DESIRED_COUNT }}
+      REGION_REGISTRY_DESIRED_COUNT: ${{ vars.REGION_REGISTRY_DESIRED_COUNT }}
+      REGION_ANALYTICS_DESIRED_COUNT: ${{ vars.REGION_ANALYTICS_DESIRED_COUNT }}
+      ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: ${{ vars.ANNOUNCEMENT_REGISTRY_DESIRED_COUNT }}
+      SUPPORT_REGISTRY_DESIRED_COUNT: ${{ vars.SUPPORT_REGISTRY_DESIRED_COUNT }}
+      NOTIFICATION_HUB_DESIRED_COUNT: ${{ vars.NOTIFICATION_HUB_DESIRED_COUNT }}
       FRONT_CPU: ${{ vars.FRONT_CPU }}
       FRONT_MEMORY_MIB: ${{ vars.FRONT_MEMORY_MIB }}
       GATEWAY_CPU: ${{ vars.GATEWAY_CPU }}
@@ -154,6 +179,16 @@ jobs:
       SETTLEMENT_PAYROLL_MEMORY_MIB: ${{ vars.SETTLEMENT_PAYROLL_MEMORY_MIB }}
       SETTLEMENT_OPS_CPU: ${{ vars.SETTLEMENT_OPS_CPU }}
       SETTLEMENT_OPS_MEMORY_MIB: ${{ vars.SETTLEMENT_OPS_MEMORY_MIB }}
+      REGION_REGISTRY_CPU: ${{ vars.REGION_REGISTRY_CPU }}
+      REGION_REGISTRY_MEMORY_MIB: ${{ vars.REGION_REGISTRY_MEMORY_MIB }}
+      REGION_ANALYTICS_CPU: ${{ vars.REGION_ANALYTICS_CPU }}
+      REGION_ANALYTICS_MEMORY_MIB: ${{ vars.REGION_ANALYTICS_MEMORY_MIB }}
+      ANNOUNCEMENT_REGISTRY_CPU: ${{ vars.ANNOUNCEMENT_REGISTRY_CPU }}
+      ANNOUNCEMENT_REGISTRY_MEMORY_MIB: ${{ vars.ANNOUNCEMENT_REGISTRY_MEMORY_MIB }}
+      SUPPORT_REGISTRY_CPU: ${{ vars.SUPPORT_REGISTRY_CPU }}
+      SUPPORT_REGISTRY_MEMORY_MIB: ${{ vars.SUPPORT_REGISTRY_MEMORY_MIB }}
+      NOTIFICATION_HUB_CPU: ${{ vars.NOTIFICATION_HUB_CPU }}
+      NOTIFICATION_HUB_MEMORY_MIB: ${{ vars.NOTIFICATION_HUB_MEMORY_MIB }}
       FRONT_HEALTH_CHECK_PATH: ${{ vars.FRONT_HEALTH_CHECK_PATH }}
       GATEWAY_HEALTH_CHECK_PATH: ${{ vars.GATEWAY_HEALTH_CHECK_PATH }}
       ACCOUNT_ACCESS_HEALTH_CHECK_PATH: ${{ vars.ACCOUNT_ACCESS_HEALTH_CHECK_PATH }}
@@ -171,6 +206,11 @@ jobs:
       SETTLEMENT_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.SETTLEMENT_REGISTRY_HEALTH_CHECK_PATH }}
       SETTLEMENT_PAYROLL_HEALTH_CHECK_PATH: ${{ vars.SETTLEMENT_PAYROLL_HEALTH_CHECK_PATH }}
       SETTLEMENT_OPS_HEALTH_CHECK_PATH: ${{ vars.SETTLEMENT_OPS_HEALTH_CHECK_PATH }}
+      REGION_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.REGION_REGISTRY_HEALTH_CHECK_PATH }}
+      REGION_ANALYTICS_HEALTH_CHECK_PATH: ${{ vars.REGION_ANALYTICS_HEALTH_CHECK_PATH }}
+      ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH }}
+      SUPPORT_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.SUPPORT_REGISTRY_HEALTH_CHECK_PATH }}
+      NOTIFICATION_HUB_HEALTH_CHECK_PATH: ${{ vars.NOTIFICATION_HUB_HEALTH_CHECK_PATH }}
       SETTLEMENT_OPS_BASE_URL: ${{ vars.SETTLEMENT_OPS_BASE_URL }}
       TELEMETRY_HUB_BASE_URL: ${{ vars.TELEMETRY_HUB_BASE_URL }}
       TERMINAL_REGISTRY_BASE_URL: ${{ vars.TERMINAL_REGISTRY_BASE_URL }}
@@ -191,6 +231,11 @@ jobs:
       SETTLEMENT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.settlement_registry_image_uri }}
       SETTLEMENT_PAYROLL_IMAGE_URI: ${{ github.event.inputs.settlement_payroll_image_uri }}
       SETTLEMENT_OPS_IMAGE_URI: ${{ github.event.inputs.settlement_ops_image_uri }}
+      REGION_REGISTRY_IMAGE_URI: ${{ github.event.inputs.region_registry_image_uri }}
+      REGION_ANALYTICS_IMAGE_URI: ${{ github.event.inputs.region_analytics_image_uri }}
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.announcement_registry_image_uri }}
+      SUPPORT_REGISTRY_IMAGE_URI: ${{ github.event.inputs.support_registry_image_uri }}
+      NOTIFICATION_HUB_IMAGE_URI: ${{ github.event.inputs.notification_hub_image_uri }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
