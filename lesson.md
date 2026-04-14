@@ -45,3 +45,15 @@ For the `Company Governance` slice, the honest production proof stayed read-only
 - `/api/org/fleets/` with admin JWT -> `200`
 
 That closed the routing and auth path without mutating live data.
+
+Do not poll deploys as if every signal means the same thing. In this stack, the useful wait order is:
+
+1. GitHub Actions clears install, tests, and synth.
+2. CloudFormation flips to `UPDATE_IN_PROGRESS`.
+3. New `AWS::RDS::DBInstance` resources spend several minutes creating.
+4. Only after that do new ECS services appear in `list-services`.
+5. Only after that should repeated public smoke matter.
+
+During step 3, `502` from new gateway routes is expected and usually means "backend service resource not created yet", not "nginx route is wrong". Use a slower `60-90s` polling cadence while DB resources are provisioning.
+
+The second `502` window is a different signal. In Slice 2, `service-driver-profile`, `service-vehicle-registry`, `service-personnel-document-registry`, and `service-vehicle-assignment` all reached steady state before `edge-api-gateway` finished its own rollout. In that short period, edge logs showed `could not be resolved` for the new Service Connect names and then flipped to `401` once the new gateway task settled. If the backend services already exist, check `edge-api-gateway` deployment state and edge logs before changing config.
