@@ -33,3 +33,15 @@ Apex cutover can be mostly a config change when the runtime is already proven. F
 Route53 alias updates can become visible before every local resolver follows along. During this cutover, public DNS already returned the ALB IPs while the local resolver still failed `curl https://ev-dashboard.com`. Use `dig` plus `curl --resolve` to verify the ALB path directly until local caches catch up.
 
 The old runtime was not passive. `test-test-sh` could write the apex record from inside its task lifecycle, so cutting DNS over was only half of the job. The old service had to be scaled to `0` immediately after the new apex/API hosts answered correctly.
+
+CloudFormation success is not a substitute for public slice smoke. Run `24372474821` finished `success` while `/api/org/*` still returned `502`. The root cause was gateway rollout semantics, not a failed stack resource.
+
+When a gateway uses direct Service Connect upstreams, the stack should make the gateway wait for the backend services it depends on. The follow-up fix in `24373001123` added explicit dependencies on `front-web-console`, `service-account-access`, and `service-organization-registry` before rolling `edge-api-gateway`.
+
+For the `Company Governance` slice, the honest production proof stayed read-only:
+
+- `/api/org/companies/public/` -> `200`
+- `/api/org/companies/` with admin JWT -> `200`
+- `/api/org/fleets/` with admin JWT -> `200`
+
+That closed the routing and auth path without mutating live data.
