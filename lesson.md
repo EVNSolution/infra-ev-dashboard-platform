@@ -105,3 +105,11 @@ npx cdk synth
 - API slices enabled without `edge-api-gateway`
 
 If the same class of prod surprise appears twice, add it to the preflight gate instead of only expanding `lesson.md`.
+
+Support Surface added one more concrete wait pattern. The five new backend services all reached `running=1` before the stack closed, but public health still briefly split between `200` and `502` while `edge-api-gateway` was replacing its old task. The slice only became honestly closed when all three were true at the same time:
+
+- GitHub Actions run `24384039348` reached `completed/success`
+- `EvDashboardPlatformStack` returned to `UPDATE_COMPLETE`
+- support health routes were all `200` and protected list routes were all `401`
+
+Treat that as the final closure rule for direct-upstream slices with new Service Connect names. Service steady state alone is not enough, and public smoke alone is not enough.
