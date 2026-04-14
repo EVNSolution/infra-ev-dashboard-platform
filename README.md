@@ -45,6 +45,27 @@ The deploy workflow expects explicit image URIs for all current slice services:
 
 Image tags are SHA-only. This repo should not guess or discover a `latest` image on its own.
 
+## Mandatory Preflight Gate
+
+Before every `workflow_dispatch` deploy, run the same gate locally that the workflow now enforces in CI:
+
+```bash
+cd /Users/jiin/Documents/Files/02_EVnSolution/00_Source_code/CLEVER/clever-msa-platform/development/infra-ev-dashboard-platform
+npm run preflight
+npm test -- --runInBand
+npx cdk synth
+```
+
+`npm run preflight` is the contract gate for this repo. It fails fast when:
+
+- a required deploy env value is missing
+- a mutable image tag such as `:latest` is used
+- the selected environment and domains do not match
+- a later backend slice is enabled without the earlier slices it depends on
+- `edge-api-gateway` is disabled while API slices are still enabled
+
+The command also prints the expected deploy wait signals so operators do not overreact to normal `UPDATE_IN_PROGRESS` windows.
+
 ## Required GitHub Configuration
 
 Repository or environment variables:

@@ -85,3 +85,23 @@ Treat that as a separate phase boundary:
 4. public settlement health routes flip from `502` to `200`
 
 Do not misread the earlier `502` as a bad gateway route when the real issue is late name availability for newly introduced Service Connect upstreams.
+
+## Preflight Must Enforce The Repeated Lessons
+
+This repo now owns the deploy gate as code, not just as prose. Before every slice deploy, run:
+
+```bash
+npm run preflight
+npm test -- --runInBand
+npx cdk synth
+```
+
+`npm run preflight` is where repeated rollout mistakes should graduate:
+
+- missing deploy env
+- mutable image tags
+- wrong environment/domain pairing
+- impossible slice ordering
+- API slices enabled without `edge-api-gateway`
+
+If the same class of prod surprise appears twice, add it to the preflight gate instead of only expanding `lesson.md`.
