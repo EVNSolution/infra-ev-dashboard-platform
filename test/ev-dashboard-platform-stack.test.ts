@@ -20,10 +20,20 @@ describe('EvDashboardPlatformStack', () => {
       gatewayImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
       accountAccessImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account',
       organizationImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:sha-organization',
+      driverProfileImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:sha-driver',
+      personnelDocumentImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:sha-document',
+      vehicleAssetImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:sha-vehicle',
+      driverVehicleAssignmentImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:sha-assignment',
       frontDesiredCount: 1,
       gatewayDesiredCount: 1,
       accountAccessDesiredCount: 1,
       organizationDesiredCount: 1,
+      driverProfileDesiredCount: 1,
+      personnelDocumentDesiredCount: 1,
+      vehicleAssetDesiredCount: 1,
+      driverVehicleAssignmentDesiredCount: 1,
       frontCpu: 256,
       frontMemoryMiB: 512,
       gatewayCpu: 256,
@@ -32,10 +42,22 @@ describe('EvDashboardPlatformStack', () => {
       accountAccessMemoryMiB: 512,
       organizationCpu: 256,
       organizationMemoryMiB: 512,
+      driverProfileCpu: 256,
+      driverProfileMemoryMiB: 512,
+      personnelDocumentCpu: 256,
+      personnelDocumentMemoryMiB: 512,
+      vehicleAssetCpu: 256,
+      vehicleAssetMemoryMiB: 512,
+      driverVehicleAssignmentCpu: 256,
+      driverVehicleAssignmentMemoryMiB: 512,
       frontHealthCheckPath: '/',
       gatewayHealthCheckPath: '/healthz',
       accountAccessHealthCheckPath: '/healthz',
-      organizationHealthCheckPath: '/health/'
+      organizationHealthCheckPath: '/health/',
+      driverProfileHealthCheckPath: '/health/',
+      personnelDocumentHealthCheckPath: '/health/',
+      vehicleAssetHealthCheckPath: '/health/',
+      driverVehicleAssignmentHealthCheckPath: '/health/'
     });
 
     const stack = new EvDashboardPlatformStack(app, 'TestStack', { config });
@@ -43,9 +65,9 @@ describe('EvDashboardPlatformStack', () => {
 
     template.resourceCountIs('AWS::ECS::Cluster', 1);
     template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
-    template.resourceCountIs('AWS::ECS::Service', 4);
+    template.resourceCountIs('AWS::ECS::Service', 8);
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
-    template.resourceCountIs('AWS::RDS::DBInstance', 2);
+    template.resourceCountIs('AWS::RDS::DBInstance', 6);
     template.resourceCountIs('AWS::ElastiCache::CacheCluster', 1);
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
       Port: 443,
@@ -102,6 +124,74 @@ describe('EvDashboardPlatformStack', () => {
               Match.objectLike({
                 DnsName: 'web-console',
                 Port: 5174
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'driver-profile-http',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'driver-profile-api',
+                Port: 8000
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'personnel-document-http',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'personnel-document-registry-api',
+                Port: 8000
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'vehicle-asset-http',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'vehicle-asset-api',
+                Port: 8000
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'driver-vehicle-assignment-http',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'driver-vehicle-assignment-api',
+                Port: 8000
               })
             ])
           })
@@ -191,13 +281,124 @@ describe('EvDashboardPlatformStack', () => {
         })
       ])
     }));
+    template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
+      Engine: 'postgres',
+      EngineVersion: '16.13',
+      PubliclyAccessible: false,
+      DBName: 'driver_profile'
+    }));
+    template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
+      Engine: 'postgres',
+      EngineVersion: '16.13',
+      PubliclyAccessible: false,
+      DBName: 'personnel_document'
+    }));
+    template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
+      Engine: 'postgres',
+      EngineVersion: '16.13',
+      PubliclyAccessible: false,
+      DBName: 'vehicle_asset'
+    }));
+    template.hasResourceProperties('AWS::RDS::DBInstance', Match.objectLike({
+      Engine: 'postgres',
+      EngineVersion: '16.13',
+      PubliclyAccessible: false,
+      DBName: 'driver_vehicle_assignment'
+    }));
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'ServiceDriverProfileContainer',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'driver_profile' }),
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'driver-profile-api,localhost,127.0.0.1'
+            })
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_USER' }),
+            Match.objectLike({ Name: 'POSTGRES_PASSWORD' }),
+            Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' })
+          ])
+        })
+      ])
+    }));
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'ServicePersonnelDocumentRegistryContainer',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'personnel_document' }),
+            Match.objectLike({ Name: 'DRIVER_PROFILE_BASE_URL', Value: 'http://driver-profile-api:8000' }),
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'personnel-document-registry-api,localhost,127.0.0.1'
+            })
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_USER' }),
+            Match.objectLike({ Name: 'POSTGRES_PASSWORD' }),
+            Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' })
+          ])
+        })
+      ])
+    }));
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'ServiceVehicleRegistryContainer',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'vehicle_asset' }),
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'vehicle-asset-api,localhost,127.0.0.1'
+            })
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_USER' }),
+            Match.objectLike({ Name: 'POSTGRES_PASSWORD' }),
+            Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' })
+          ])
+        })
+      ])
+    }));
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'ServiceVehicleAssignmentContainer',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_DB', Value: 'driver_vehicle_assignment' }),
+            Match.objectLike({ Name: 'DRIVER_PROFILE_BASE_URL', Value: 'http://driver-profile-api:8000' }),
+            Match.objectLike({ Name: 'VEHICLE_ASSET_BASE_URL', Value: 'http://vehicle-asset-api:8000' }),
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'driver-vehicle-assignment-api,localhost,127.0.0.1'
+            })
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: 'POSTGRES_USER' }),
+            Match.objectLike({ Name: 'POSTGRES_PASSWORD' }),
+            Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' })
+          ])
+        })
+      ])
+    }));
 
     const services = template.findResources('AWS::ECS::Service');
     expect(services.EdgeApiGatewayServiceFF03CA41.DependsOn).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^FrontWebConsoleService/),
         'ServiceAccountAccessServiceA22C9E5C',
-        'ServiceOrganizationRegistryService039B0502'
+        'ServiceOrganizationRegistryService039B0502',
+        expect.stringMatching(/^ServiceDriverProfileService/),
+        expect.stringMatching(/^ServicePersonnelDocumentRegistryService/),
+        expect.stringMatching(/^ServiceVehicleRegistryService/),
+        expect.stringMatching(/^ServiceVehicleAssignmentService/)
       ])
     );
   });

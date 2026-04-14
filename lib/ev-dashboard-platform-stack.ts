@@ -73,11 +73,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
 
     const dataSecurityGroup = new ec2.SecurityGroup(this, 'DataSecurityGroup', {
       vpc,
-      description: 'Private data stores for service-account-access',
+      description: 'Private data stores for ev-dashboard backend services',
       allowAllOutbound: true
     });
-    dataSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(5432), 'service-account-access postgres');
-    dataSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(6379), 'service-account-access redis');
+    dataSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(5432), 'backend postgres');
+    dataSecurityGroup.addIngressRule(serviceSecurityGroup, ec2.Port.tcp(6379), 'backend redis');
 
     const loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'LoadBalancer', {
       vpc,
@@ -143,8 +143,25 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     let organizationEnvironment: Record<string, string> | undefined;
     let organizationSecrets: Record<string, ecs.Secret> | undefined;
     let organizationDependencies: Construct[] = [];
+    let driverProfileEnvironment: Record<string, string> | undefined;
+    let driverProfileSecrets: Record<string, ecs.Secret> | undefined;
+    let driverProfileDependencies: Construct[] = [];
+    let personnelDocumentEnvironment: Record<string, string> | undefined;
+    let personnelDocumentSecrets: Record<string, ecs.Secret> | undefined;
+    let personnelDocumentDependencies: Construct[] = [];
+    let vehicleAssetEnvironment: Record<string, string> | undefined;
+    let vehicleAssetSecrets: Record<string, ecs.Secret> | undefined;
+    let vehicleAssetDependencies: Construct[] = [];
+    let driverVehicleAssignmentEnvironment: Record<string, string> | undefined;
+    let driverVehicleAssignmentSecrets: Record<string, ecs.Secret> | undefined;
+    let driverVehicleAssignmentDependencies: Construct[] = [];
     const platformJwtSecretKey =
-      config.accountAccessDesiredCount > 0 || config.organizationDesiredCount > 0
+      config.accountAccessDesiredCount > 0 ||
+      config.organizationDesiredCount > 0 ||
+      config.driverProfileDesiredCount > 0 ||
+      config.personnelDocumentDesiredCount > 0 ||
+      config.vehicleAssetDesiredCount > 0 ||
+      config.driverVehicleAssignmentDesiredCount > 0
         ? new secretsmanager.Secret(this, 'PlatformJwtSecretKey', {
             generateSecretString: {
               passwordLength: 64,
@@ -154,22 +171,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         : undefined;
 
     if (config.accountAccessDesiredCount > 0) {
-      const accountAccessDatabase = new rds.DatabaseInstance(this, 'AccountAccessDatabase', {
+      const accountAccessDatabase = this.createPostgresDatabaseInstance('AccountAccessDatabase', {
         vpc,
-        vpcSubnets: { subnets: privateSubnets },
-        securityGroups: [dataSecurityGroup],
-        engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.of('16.13', '16') }),
-        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
-        credentials: rds.Credentials.fromGeneratedSecret('account_auth'),
-        databaseName: 'account_auth',
-        allocatedStorage: 20,
-        maxAllocatedStorage: 100,
-        storageType: rds.StorageType.GP3,
-        publiclyAccessible: false,
-        multiAz: false,
-        deletionProtection: false,
-        deleteAutomatedBackups: true,
-        removalPolicy: cdk.RemovalPolicy.DESTROY
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'account_auth',
+        databaseName: 'account_auth'
       });
 
       const accountAccessDatabaseSecret = accountAccessDatabase.secret;
@@ -189,12 +196,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         cacheSubnetGroupName: accountAccessRedisSubnetGroup.ref
       });
 
-      const djangoSecretKey = new secretsmanager.Secret(this, 'AccountAccessDjangoSecretKey', {
-        generateSecretString: {
-          passwordLength: 64,
-          excludePunctuation: true
-        }
-      });
+      const djangoSecretKey = this.createGeneratedSecret('AccountAccessDjangoSecretKey');
       accountAccessEnvironment = {
         POSTGRES_HOST: accountAccessDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: accountAccessDatabase.dbInstanceEndpointPort,
@@ -219,22 +221,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     }
 
     if (config.organizationDesiredCount > 0) {
-      const organizationDatabase = new rds.DatabaseInstance(this, 'OrganizationDatabase', {
+      const organizationDatabase = this.createPostgresDatabaseInstance('OrganizationDatabase', {
         vpc,
-        vpcSubnets: { subnets: privateSubnets },
-        securityGroups: [dataSecurityGroup],
-        engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.of('16.13', '16') }),
-        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
-        credentials: rds.Credentials.fromGeneratedSecret('organization_master'),
-        databaseName: 'organization_master',
-        allocatedStorage: 20,
-        maxAllocatedStorage: 100,
-        storageType: rds.StorageType.GP3,
-        publiclyAccessible: false,
-        multiAz: false,
-        deletionProtection: false,
-        deleteAutomatedBackups: true,
-        removalPolicy: cdk.RemovalPolicy.DESTROY
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'organization_master',
+        databaseName: 'organization_master'
       });
 
       const organizationDatabaseSecret = organizationDatabase.secret;
@@ -242,12 +234,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         throw new Error('Organization database secret was not created');
       }
 
-      const djangoSecretKey = new secretsmanager.Secret(this, 'OrganizationDjangoSecretKey', {
-        generateSecretString: {
-          passwordLength: 64,
-          excludePunctuation: true
-        }
-      });
+      const djangoSecretKey = this.createGeneratedSecret('OrganizationDjangoSecretKey');
 
       organizationEnvironment = {
         POSTGRES_HOST: organizationDatabase.dbInstanceEndpointAddress,
@@ -262,6 +249,125 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
       };
       organizationDependencies = [organizationDatabase];
+    }
+
+    if (config.driverProfileDesiredCount > 0) {
+      const driverProfileDatabase = this.createPostgresDatabaseInstance('DriverProfileDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'driver_profile',
+        databaseName: 'driver_profile'
+      });
+      const driverProfileDatabaseSecret = driverProfileDatabase.secret;
+      if (!driverProfileDatabaseSecret) {
+        throw new Error('Driver profile database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('DriverProfileDjangoSecretKey');
+      driverProfileEnvironment = {
+        POSTGRES_HOST: driverProfileDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: driverProfileDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'driver_profile',
+        DJANGO_ALLOWED_HOSTS: 'driver-profile-api,localhost,127.0.0.1'
+      };
+      driverProfileSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(driverProfileDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(driverProfileDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      driverProfileDependencies = [driverProfileDatabase];
+    }
+
+    if (config.personnelDocumentDesiredCount > 0) {
+      const personnelDocumentDatabase = this.createPostgresDatabaseInstance('PersonnelDocumentDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'personnel_document',
+        databaseName: 'personnel_document'
+      });
+      const personnelDocumentDatabaseSecret = personnelDocumentDatabase.secret;
+      if (!personnelDocumentDatabaseSecret) {
+        throw new Error('Personnel document database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('PersonnelDocumentDjangoSecretKey');
+      personnelDocumentEnvironment = {
+        POSTGRES_HOST: personnelDocumentDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: personnelDocumentDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'personnel_document',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'personnel-document-registry-api,localhost,127.0.0.1'
+      };
+      personnelDocumentSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(personnelDocumentDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(personnelDocumentDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      personnelDocumentDependencies = [personnelDocumentDatabase];
+    }
+
+    if (config.vehicleAssetDesiredCount > 0) {
+      const vehicleAssetDatabase = this.createPostgresDatabaseInstance('VehicleAssetDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'vehicle_asset',
+        databaseName: 'vehicle_asset'
+      });
+      const vehicleAssetDatabaseSecret = vehicleAssetDatabase.secret;
+      if (!vehicleAssetDatabaseSecret) {
+        throw new Error('Vehicle asset database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('VehicleAssetDjangoSecretKey');
+      vehicleAssetEnvironment = {
+        POSTGRES_HOST: vehicleAssetDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: vehicleAssetDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'vehicle_asset',
+        DJANGO_ALLOWED_HOSTS: 'vehicle-asset-api,localhost,127.0.0.1'
+      };
+      vehicleAssetSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(vehicleAssetDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(vehicleAssetDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      vehicleAssetDependencies = [vehicleAssetDatabase];
+    }
+
+    if (config.driverVehicleAssignmentDesiredCount > 0) {
+      const driverVehicleAssignmentDatabase = this.createPostgresDatabaseInstance('DriverVehicleAssignmentDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'driver_vehicle_assignment',
+        databaseName: 'driver_vehicle_assignment'
+      });
+      const driverVehicleAssignmentDatabaseSecret = driverVehicleAssignmentDatabase.secret;
+      if (!driverVehicleAssignmentDatabaseSecret) {
+        throw new Error('Driver vehicle assignment database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('DriverVehicleAssignmentDjangoSecretKey');
+      driverVehicleAssignmentEnvironment = {
+        POSTGRES_HOST: driverVehicleAssignmentDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: driverVehicleAssignmentDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'driver_vehicle_assignment',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+        VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'driver-vehicle-assignment-api,localhost,127.0.0.1'
+      };
+      driverVehicleAssignmentSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(driverVehicleAssignmentDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(driverVehicleAssignmentDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      driverVehicleAssignmentDependencies = [driverVehicleAssignmentDatabase];
     }
 
     const accountAccessService = this.createFargateService('ServiceAccountAccess', {
@@ -304,6 +410,99 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     organizationDependencies.forEach((dependency) => organizationService.node.addDependency(dependency));
     if (config.organizationDesiredCount > 0) {
       gatewayService.node.addDependency(organizationService);
+    }
+
+    const driverProfileService = this.createFargateService('ServiceDriverProfile', {
+      cluster,
+      imageUri: config.driverProfileImageUri,
+      cpu: config.driverProfileCpu,
+      memoryMiB: config.driverProfileMemoryMiB,
+      desiredCount: config.driverProfileDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'driver-profile-http',
+      serviceName: 'service-driver-profile',
+      serviceConnectDnsName: 'driver-profile-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: driverProfileEnvironment,
+      secrets: driverProfileSecrets
+    });
+    driverProfileDependencies.forEach((dependency) => driverProfileService.node.addDependency(dependency));
+    if (config.driverProfileDesiredCount > 0) {
+      gatewayService.node.addDependency(driverProfileService);
+    }
+
+    const vehicleAssetService = this.createFargateService('ServiceVehicleRegistry', {
+      cluster,
+      imageUri: config.vehicleAssetImageUri,
+      cpu: config.vehicleAssetCpu,
+      memoryMiB: config.vehicleAssetMemoryMiB,
+      desiredCount: config.vehicleAssetDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'vehicle-asset-http',
+      serviceName: 'service-vehicle-registry',
+      serviceConnectDnsName: 'vehicle-asset-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: vehicleAssetEnvironment,
+      secrets: vehicleAssetSecrets
+    });
+    vehicleAssetDependencies.forEach((dependency) => vehicleAssetService.node.addDependency(dependency));
+    if (config.vehicleAssetDesiredCount > 0) {
+      gatewayService.node.addDependency(vehicleAssetService);
+    }
+
+    const personnelDocumentService = this.createFargateService('ServicePersonnelDocumentRegistry', {
+      cluster,
+      imageUri: config.personnelDocumentImageUri,
+      cpu: config.personnelDocumentCpu,
+      memoryMiB: config.personnelDocumentMemoryMiB,
+      desiredCount: config.personnelDocumentDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'personnel-document-http',
+      serviceName: 'service-personnel-document-registry',
+      serviceConnectDnsName: 'personnel-document-registry-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: personnelDocumentEnvironment,
+      secrets: personnelDocumentSecrets
+    });
+    personnelDocumentDependencies.forEach((dependency) => personnelDocumentService.node.addDependency(dependency));
+    if (config.driverProfileDesiredCount > 0) {
+      personnelDocumentService.node.addDependency(driverProfileService);
+    }
+    if (config.personnelDocumentDesiredCount > 0) {
+      gatewayService.node.addDependency(personnelDocumentService);
+    }
+
+    const driverVehicleAssignmentService = this.createFargateService('ServiceVehicleAssignment', {
+      cluster,
+      imageUri: config.driverVehicleAssignmentImageUri,
+      cpu: config.driverVehicleAssignmentCpu,
+      memoryMiB: config.driverVehicleAssignmentMemoryMiB,
+      desiredCount: config.driverVehicleAssignmentDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'driver-vehicle-assignment-http',
+      serviceName: 'service-vehicle-assignment',
+      serviceConnectDnsName: 'driver-vehicle-assignment-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: driverVehicleAssignmentEnvironment,
+      secrets: driverVehicleAssignmentSecrets
+    });
+    driverVehicleAssignmentDependencies.forEach((dependency) => driverVehicleAssignmentService.node.addDependency(dependency));
+    if (config.driverProfileDesiredCount > 0) {
+      driverVehicleAssignmentService.node.addDependency(driverProfileService);
+    }
+    if (config.vehicleAssetDesiredCount > 0) {
+      driverVehicleAssignmentService.node.addDependency(vehicleAssetService);
+    }
+    if (config.driverVehicleAssignmentDesiredCount > 0) {
+      gatewayService.node.addDependency(driverVehicleAssignmentService);
     }
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
@@ -434,6 +633,44 @@ export class EvDashboardPlatformStack extends cdk.Stack {
 
     const [, repositoryName, tag] = match;
     return { repositoryName, tag };
+  }
+
+  private createPostgresDatabaseInstance(
+    id: string,
+    input: {
+      vpc: ec2.IVpc;
+      privateSubnets: ec2.ISubnet[];
+      dataSecurityGroup: ec2.SecurityGroup;
+      username: string;
+      databaseName: string;
+    }
+  ): rds.DatabaseInstance {
+    return new rds.DatabaseInstance(this, id, {
+      vpc: input.vpc,
+      vpcSubnets: { subnets: input.privateSubnets },
+      securityGroups: [input.dataSecurityGroup],
+      engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.of('16.13', '16') }),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
+      credentials: rds.Credentials.fromGeneratedSecret(input.username),
+      databaseName: input.databaseName,
+      allocatedStorage: 20,
+      maxAllocatedStorage: 100,
+      storageType: rds.StorageType.GP3,
+      publiclyAccessible: false,
+      multiAz: false,
+      deletionProtection: false,
+      deleteAutomatedBackups: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    });
+  }
+
+  private createGeneratedSecret(id: string): secretsmanager.Secret {
+    return new secretsmanager.Secret(this, id, {
+      generateSecretString: {
+        passwordLength: 64,
+        excludePunctuation: true
+      }
+    });
   }
 
   private recordName(fqdn: string, hostedZoneName: string): string | undefined {

@@ -28,6 +28,22 @@ on:
         type: string
         description: Full ECR image URI for service-organization-registry
         required: true
+      driver_profile_image_uri:
+        type: string
+        description: Full ECR image URI for service-driver-profile
+        required: true
+      personnel_document_image_uri:
+        type: string
+        description: Full ECR image URI for service-personnel-document-registry
+        required: true
+      vehicle_asset_image_uri:
+        type: string
+        description: Full ECR image URI for service-vehicle-registry
+        required: true
+      driver_vehicle_assignment_image_uri:
+        type: string
+        description: Full ECR image URI for service-vehicle-assignment
+        required: true
 
 permissions:
   id-token: write
@@ -54,6 +70,10 @@ jobs:
       GATEWAY_DESIRED_COUNT: ${{ vars.GATEWAY_DESIRED_COUNT }}
       ACCOUNT_ACCESS_DESIRED_COUNT: ${{ vars.ACCOUNT_ACCESS_DESIRED_COUNT }}
       ORGANIZATION_DESIRED_COUNT: ${{ vars.ORGANIZATION_DESIRED_COUNT }}
+      DRIVER_PROFILE_DESIRED_COUNT: ${{ vars.DRIVER_PROFILE_DESIRED_COUNT }}
+      PERSONNEL_DOCUMENT_DESIRED_COUNT: ${{ vars.PERSONNEL_DOCUMENT_DESIRED_COUNT }}
+      VEHICLE_ASSET_DESIRED_COUNT: ${{ vars.VEHICLE_ASSET_DESIRED_COUNT }}
+      DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT }}
       FRONT_CPU: ${{ vars.FRONT_CPU }}
       FRONT_MEMORY_MIB: ${{ vars.FRONT_MEMORY_MIB }}
       GATEWAY_CPU: ${{ vars.GATEWAY_CPU }}
@@ -62,14 +82,30 @@ jobs:
       ACCOUNT_ACCESS_MEMORY_MIB: ${{ vars.ACCOUNT_ACCESS_MEMORY_MIB }}
       ORGANIZATION_CPU: ${{ vars.ORGANIZATION_CPU }}
       ORGANIZATION_MEMORY_MIB: ${{ vars.ORGANIZATION_MEMORY_MIB }}
+      DRIVER_PROFILE_CPU: ${{ vars.DRIVER_PROFILE_CPU }}
+      DRIVER_PROFILE_MEMORY_MIB: ${{ vars.DRIVER_PROFILE_MEMORY_MIB }}
+      PERSONNEL_DOCUMENT_CPU: ${{ vars.PERSONNEL_DOCUMENT_CPU }}
+      PERSONNEL_DOCUMENT_MEMORY_MIB: ${{ vars.PERSONNEL_DOCUMENT_MEMORY_MIB }}
+      VEHICLE_ASSET_CPU: ${{ vars.VEHICLE_ASSET_CPU }}
+      VEHICLE_ASSET_MEMORY_MIB: ${{ vars.VEHICLE_ASSET_MEMORY_MIB }}
+      DRIVER_VEHICLE_ASSIGNMENT_CPU: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_CPU }}
+      DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB }}
       FRONT_HEALTH_CHECK_PATH: ${{ vars.FRONT_HEALTH_CHECK_PATH }}
       GATEWAY_HEALTH_CHECK_PATH: ${{ vars.GATEWAY_HEALTH_CHECK_PATH }}
       ACCOUNT_ACCESS_HEALTH_CHECK_PATH: ${{ vars.ACCOUNT_ACCESS_HEALTH_CHECK_PATH }}
       ORGANIZATION_HEALTH_CHECK_PATH: ${{ vars.ORGANIZATION_HEALTH_CHECK_PATH }}
+      DRIVER_PROFILE_HEALTH_CHECK_PATH: ${{ vars.DRIVER_PROFILE_HEALTH_CHECK_PATH }}
+      PERSONNEL_DOCUMENT_HEALTH_CHECK_PATH: ${{ vars.PERSONNEL_DOCUMENT_HEALTH_CHECK_PATH }}
+      VEHICLE_ASSET_HEALTH_CHECK_PATH: ${{ vars.VEHICLE_ASSET_HEALTH_CHECK_PATH }}
+      DRIVER_VEHICLE_ASSIGNMENT_HEALTH_CHECK_PATH: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_HEALTH_CHECK_PATH }}
       FRONT_IMAGE_URI: ${{ github.event.inputs.front_image_uri }}
       GATEWAY_IMAGE_URI: ${{ github.event.inputs.gateway_image_uri }}
       ACCOUNT_ACCESS_IMAGE_URI: ${{ github.event.inputs.account_access_image_uri }}
       ORGANIZATION_IMAGE_URI: ${{ github.event.inputs.organization_image_uri }}
+      DRIVER_PROFILE_IMAGE_URI: ${{ github.event.inputs.driver_profile_image_uri }}
+      PERSONNEL_DOCUMENT_IMAGE_URI: ${{ github.event.inputs.personnel_document_image_uri }}
+      VEHICLE_ASSET_IMAGE_URI: ${{ github.event.inputs.vehicle_asset_image_uri }}
+      DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI: ${{ github.event.inputs.driver_vehicle_assignment_image_uri }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -112,6 +148,10 @@ jobs:
             GATEWAY_IMAGE_URI
             ACCOUNT_ACCESS_IMAGE_URI
             ORGANIZATION_IMAGE_URI
+            DRIVER_PROFILE_IMAGE_URI
+            PERSONNEL_DOCUMENT_IMAGE_URI
+            VEHICLE_ASSET_IMAGE_URI
+            DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI
           )
 
           for key in "${required_vars[@]}"; do
@@ -121,7 +161,14 @@ jobs:
             fi
           done
 
-          if { [ "${ACCOUNT_ACCESS_DESIRED_COUNT:-0}" != "0" ] || [ "${ORGANIZATION_DESIRED_COUNT:-0}" != "0" ]; } && [ -z "${PRIVATE_SUBNET_IDS:-}" ]; then
+          if {
+            [ "${ACCOUNT_ACCESS_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${ORGANIZATION_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${DRIVER_PROFILE_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${PERSONNEL_DOCUMENT_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${VEHICLE_ASSET_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT:-0}" != "0" ];
+          } && [ -z "${PRIVATE_SUBNET_IDS:-}" ]; then
             echo "Missing required value: PRIVATE_SUBNET_IDS" >&2
             exit 1
           fi
