@@ -173,6 +173,15 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     let vehicleOpsEnvironment: Record<string, string> | undefined;
     let vehicleOpsSecrets: Record<string, ecs.Secret> | undefined;
     let vehicleOpsDependencies: Construct[] = [];
+    let settlementRegistryEnvironment: Record<string, string> | undefined;
+    let settlementRegistrySecrets: Record<string, ecs.Secret> | undefined;
+    let settlementRegistryDependencies: Construct[] = [];
+    let settlementPayrollEnvironment: Record<string, string> | undefined;
+    let settlementPayrollSecrets: Record<string, ecs.Secret> | undefined;
+    let settlementPayrollDependencies: Construct[] = [];
+    let settlementOpsEnvironment: Record<string, string> | undefined;
+    let settlementOpsSecrets: Record<string, ecs.Secret> | undefined;
+    let settlementOpsDependencies: Construct[] = [];
     const platformJwtSecretKey =
       config.accountAccessDesiredCount > 0 ||
       config.organizationDesiredCount > 0 ||
@@ -185,7 +194,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       config.attendanceRegistryDesiredCount > 0 ||
       config.dispatchOpsDesiredCount > 0 ||
       config.driverOpsDesiredCount > 0 ||
-      config.vehicleOpsDesiredCount > 0
+      config.vehicleOpsDesiredCount > 0 ||
+      config.settlementRegistryDesiredCount > 0 ||
+      config.settlementPayrollDesiredCount > 0 ||
+      config.settlementOpsDesiredCount > 0
         ? new secretsmanager.Secret(this, 'PlatformJwtSecretKey', {
             generateSecretString: {
               passwordLength: 64,
@@ -539,6 +551,88 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       };
     }
 
+    if (config.settlementRegistryDesiredCount > 0) {
+      const settlementRegistryDatabase = this.createPostgresDatabaseInstance('SettlementRegistryDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'settlement_registry',
+        databaseName: 'settlement_registry'
+      });
+      const settlementRegistryDatabaseSecret = settlementRegistryDatabase.secret;
+      if (!settlementRegistryDatabaseSecret) {
+        throw new Error('Settlement registry database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('SettlementRegistryDjangoSecretKey');
+      settlementRegistryEnvironment = {
+        POSTGRES_HOST: settlementRegistryDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: settlementRegistryDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'settlement_registry',
+        ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'settlement-registry-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      settlementRegistrySecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(settlementRegistryDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(settlementRegistryDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      settlementRegistryDependencies = [settlementRegistryDatabase];
+    }
+
+    if (config.settlementPayrollDesiredCount > 0) {
+      const settlementPayrollDatabase = this.createPostgresDatabaseInstance('SettlementPayrollDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'settlement_payroll',
+        databaseName: 'settlement_payroll'
+      });
+      const settlementPayrollDatabaseSecret = settlementPayrollDatabase.secret;
+      if (!settlementPayrollDatabaseSecret) {
+        throw new Error('Settlement payroll database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('SettlementPayrollDjangoSecretKey');
+      settlementPayrollEnvironment = {
+        POSTGRES_HOST: settlementPayrollDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: settlementPayrollDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'settlement_payroll',
+        SETTLEMENT_ORG_BASE_URL: 'http://organization-master-api:8000',
+        SETTLEMENT_DRIVER_BASE_URL: 'http://driver-profile-api:8000',
+        SETTLEMENT_REGISTRY_BASE_URL: 'http://settlement-registry-api:8000',
+        DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+        DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
+        ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'settlement-payroll-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      settlementPayrollSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(settlementPayrollDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(settlementPayrollDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      settlementPayrollDependencies = [settlementPayrollDatabase];
+    }
+
+    if (config.settlementOpsDesiredCount > 0) {
+      const djangoSecretKey = this.createGeneratedSecret('SettlementOpsDjangoSecretKey');
+      settlementOpsEnvironment = {
+        SETTLEMENT_PAYROLL_BASE_URL: 'http://settlement-payroll-api:8000',
+        DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'settlement-ops-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      settlementOpsSecrets = {
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+    }
+
     const accountAccessService = this.createFargateService('ServiceAccountAccess', {
       cluster,
       imageUri: config.accountAccessImageUri,
@@ -837,6 +931,99 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     }
     if (config.vehicleOpsDesiredCount > 0) {
       gatewayService.node.addDependency(vehicleOpsService);
+    }
+
+    const settlementRegistryService = this.createFargateService('ServiceSettlementRegistry', {
+      cluster,
+      imageUri: config.settlementRegistryImageUri,
+      cpu: config.settlementRegistryCpu,
+      memoryMiB: config.settlementRegistryMemoryMiB,
+      desiredCount: config.settlementRegistryDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'settlement-registry-http',
+      serviceName: 'service-settlement-registry',
+      serviceConnectDnsName: 'settlement-registry-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: settlementRegistryEnvironment,
+      secrets: settlementRegistrySecrets
+    });
+    settlementRegistryDependencies.forEach((dependency) => settlementRegistryService.node.addDependency(dependency));
+    if (config.organizationDesiredCount > 0) {
+      settlementRegistryService.node.addDependency(organizationService);
+    }
+    if (config.settlementRegistryDesiredCount > 0) {
+      gatewayService.node.addDependency(settlementRegistryService);
+    }
+
+    const settlementPayrollService = this.createFargateService('ServiceSettlementPayroll', {
+      cluster,
+      imageUri: config.settlementPayrollImageUri,
+      cpu: config.settlementPayrollCpu,
+      memoryMiB: config.settlementPayrollMemoryMiB,
+      desiredCount: config.settlementPayrollDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'settlement-payroll-http',
+      serviceName: 'service-settlement-payroll',
+      serviceConnectDnsName: 'settlement-payroll-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: settlementPayrollEnvironment,
+      secrets: settlementPayrollSecrets
+    });
+    settlementPayrollDependencies.forEach((dependency) => settlementPayrollService.node.addDependency(dependency));
+    if (config.organizationDesiredCount > 0) {
+      settlementPayrollService.node.addDependency(organizationService);
+    }
+    if (config.driverProfileDesiredCount > 0) {
+      settlementPayrollService.node.addDependency(driverProfileService);
+    }
+    if (config.settlementRegistryDesiredCount > 0) {
+      settlementPayrollService.node.addDependency(settlementRegistryService);
+    }
+    if (config.dispatchRegistryDesiredCount > 0) {
+      settlementPayrollService.node.addDependency(dispatchRegistryService);
+    }
+    if (config.deliveryRecordDesiredCount > 0) {
+      settlementPayrollService.node.addDependency(deliveryRecordService);
+    }
+    if (config.attendanceRegistryDesiredCount > 0) {
+      settlementPayrollService.node.addDependency(attendanceRegistryService);
+    }
+    if (config.settlementPayrollDesiredCount > 0) {
+      gatewayService.node.addDependency(settlementPayrollService);
+    }
+
+    const settlementOpsService = this.createFargateService('ServiceSettlementOperationsView', {
+      cluster,
+      imageUri: config.settlementOpsImageUri,
+      cpu: config.settlementOpsCpu,
+      memoryMiB: config.settlementOpsMemoryMiB,
+      desiredCount: config.settlementOpsDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'settlement-ops-http',
+      serviceName: 'service-settlement-operations-view',
+      serviceConnectDnsName: 'settlement-ops-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: settlementOpsEnvironment,
+      secrets: settlementOpsSecrets
+    });
+    settlementOpsDependencies.forEach((dependency) => settlementOpsService.node.addDependency(dependency));
+    if (config.settlementPayrollDesiredCount > 0) {
+      settlementOpsService.node.addDependency(settlementPayrollService);
+    }
+    if (config.deliveryRecordDesiredCount > 0) {
+      settlementOpsService.node.addDependency(deliveryRecordService);
+    }
+    if (config.driverProfileDesiredCount > 0) {
+      settlementOpsService.node.addDependency(driverProfileService);
+    }
+    if (config.settlementOpsDesiredCount > 0) {
+      gatewayService.node.addDependency(settlementOpsService);
     }
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {

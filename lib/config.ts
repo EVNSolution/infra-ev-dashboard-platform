@@ -23,6 +23,9 @@ export type PlatformConfigInput = {
   dispatchOpsImageUri: string;
   driverOpsImageUri: string;
   vehicleOpsImageUri: string;
+  settlementRegistryImageUri: string;
+  settlementPayrollImageUri: string;
+  settlementOpsImageUri: string;
   frontDesiredCount: number;
   gatewayDesiredCount: number;
   accountAccessDesiredCount: number;
@@ -37,6 +40,9 @@ export type PlatformConfigInput = {
   dispatchOpsDesiredCount: number;
   driverOpsDesiredCount: number;
   vehicleOpsDesiredCount: number;
+  settlementRegistryDesiredCount: number;
+  settlementPayrollDesiredCount: number;
+  settlementOpsDesiredCount: number;
   frontCpu: number;
   frontMemoryMiB: number;
   gatewayCpu: number;
@@ -65,6 +71,12 @@ export type PlatformConfigInput = {
   driverOpsMemoryMiB: number;
   vehicleOpsCpu: number;
   vehicleOpsMemoryMiB: number;
+  settlementRegistryCpu: number;
+  settlementRegistryMemoryMiB: number;
+  settlementPayrollCpu: number;
+  settlementPayrollMemoryMiB: number;
+  settlementOpsCpu: number;
+  settlementOpsMemoryMiB: number;
   frontHealthCheckPath: string;
   gatewayHealthCheckPath: string;
   accountAccessHealthCheckPath: string;
@@ -79,6 +91,9 @@ export type PlatformConfigInput = {
   dispatchOpsHealthCheckPath: string;
   driverOpsHealthCheckPath: string;
   vehicleOpsHealthCheckPath: string;
+  settlementRegistryHealthCheckPath: string;
+  settlementPayrollHealthCheckPath: string;
+  settlementOpsHealthCheckPath: string;
   settlementOpsBaseUrl: string;
   telemetryHubBaseUrl: string;
   terminalRegistryBaseUrl: string;
@@ -101,7 +116,9 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     input.driverVehicleAssignmentDesiredCount > 0 ||
     input.dispatchRegistryDesiredCount > 0 ||
     input.deliveryRecordDesiredCount > 0 ||
-    input.attendanceRegistryDesiredCount > 0;
+    input.attendanceRegistryDesiredCount > 0 ||
+    input.settlementRegistryDesiredCount > 0 ||
+    input.settlementPayrollDesiredCount > 0;
   if (requiresPrivateSubnets && privateSubnetIds.length === 0) {
     throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
   }
@@ -131,6 +148,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const dispatchOpsHealthCheckPath = emptyToUndefined(env.DISPATCH_OPS_HEALTH_CHECK_PATH);
   const driverOpsHealthCheckPath = emptyToUndefined(env.DRIVER_OPS_HEALTH_CHECK_PATH);
   const vehicleOpsHealthCheckPath = emptyToUndefined(env.VEHICLE_OPS_HEALTH_CHECK_PATH);
+  const settlementRegistryHealthCheckPath = emptyToUndefined(env.SETTLEMENT_REGISTRY_HEALTH_CHECK_PATH);
+  const settlementPayrollHealthCheckPath = emptyToUndefined(env.SETTLEMENT_PAYROLL_HEALTH_CHECK_PATH);
+  const settlementOpsHealthCheckPath = emptyToUndefined(env.SETTLEMENT_OPS_HEALTH_CHECK_PATH);
 
   return buildPlatformConfig({
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
@@ -163,6 +183,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     dispatchOpsImageUri: required(env.DISPATCH_OPS_IMAGE_URI, 'DISPATCH_OPS_IMAGE_URI'),
     driverOpsImageUri: required(env.DRIVER_OPS_IMAGE_URI, 'DRIVER_OPS_IMAGE_URI'),
     vehicleOpsImageUri: required(env.VEHICLE_OPS_IMAGE_URI, 'VEHICLE_OPS_IMAGE_URI'),
+    settlementRegistryImageUri: required(env.SETTLEMENT_REGISTRY_IMAGE_URI, 'SETTLEMENT_REGISTRY_IMAGE_URI'),
+    settlementPayrollImageUri: required(env.SETTLEMENT_PAYROLL_IMAGE_URI, 'SETTLEMENT_PAYROLL_IMAGE_URI'),
+    settlementOpsImageUri: required(env.SETTLEMENT_OPS_IMAGE_URI, 'SETTLEMENT_OPS_IMAGE_URI'),
     frontDesiredCount: toNumber(env.FRONT_DESIRED_COUNT, 'FRONT_DESIRED_COUNT', 1),
     gatewayDesiredCount: toNumber(env.GATEWAY_DESIRED_COUNT, 'GATEWAY_DESIRED_COUNT', 1),
     accountAccessDesiredCount: toNumber(env.ACCOUNT_ACCESS_DESIRED_COUNT, 'ACCOUNT_ACCESS_DESIRED_COUNT', 1),
@@ -189,6 +212,17 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     dispatchOpsDesiredCount: toNumber(env.DISPATCH_OPS_DESIRED_COUNT, 'DISPATCH_OPS_DESIRED_COUNT', 0),
     driverOpsDesiredCount: toNumber(env.DRIVER_OPS_DESIRED_COUNT, 'DRIVER_OPS_DESIRED_COUNT', 0),
     vehicleOpsDesiredCount: toNumber(env.VEHICLE_OPS_DESIRED_COUNT, 'VEHICLE_OPS_DESIRED_COUNT', 0),
+    settlementRegistryDesiredCount: toNumber(
+      env.SETTLEMENT_REGISTRY_DESIRED_COUNT,
+      'SETTLEMENT_REGISTRY_DESIRED_COUNT',
+      0
+    ),
+    settlementPayrollDesiredCount: toNumber(
+      env.SETTLEMENT_PAYROLL_DESIRED_COUNT,
+      'SETTLEMENT_PAYROLL_DESIRED_COUNT',
+      0
+    ),
+    settlementOpsDesiredCount: toNumber(env.SETTLEMENT_OPS_DESIRED_COUNT, 'SETTLEMENT_OPS_DESIRED_COUNT', 0),
     frontCpu: toNumber(env.FRONT_CPU, 'FRONT_CPU', 256),
     frontMemoryMiB: toNumber(env.FRONT_MEMORY_MIB, 'FRONT_MEMORY_MIB', 512),
     gatewayCpu: toNumber(env.GATEWAY_CPU, 'GATEWAY_CPU', 256),
@@ -233,6 +267,20 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     driverOpsMemoryMiB: toNumber(env.DRIVER_OPS_MEMORY_MIB, 'DRIVER_OPS_MEMORY_MIB', 512),
     vehicleOpsCpu: toNumber(env.VEHICLE_OPS_CPU, 'VEHICLE_OPS_CPU', 256),
     vehicleOpsMemoryMiB: toNumber(env.VEHICLE_OPS_MEMORY_MIB, 'VEHICLE_OPS_MEMORY_MIB', 512),
+    settlementRegistryCpu: toNumber(env.SETTLEMENT_REGISTRY_CPU, 'SETTLEMENT_REGISTRY_CPU', 256),
+    settlementRegistryMemoryMiB: toNumber(
+      env.SETTLEMENT_REGISTRY_MEMORY_MIB,
+      'SETTLEMENT_REGISTRY_MEMORY_MIB',
+      512
+    ),
+    settlementPayrollCpu: toNumber(env.SETTLEMENT_PAYROLL_CPU, 'SETTLEMENT_PAYROLL_CPU', 256),
+    settlementPayrollMemoryMiB: toNumber(
+      env.SETTLEMENT_PAYROLL_MEMORY_MIB,
+      'SETTLEMENT_PAYROLL_MEMORY_MIB',
+      512
+    ),
+    settlementOpsCpu: toNumber(env.SETTLEMENT_OPS_CPU, 'SETTLEMENT_OPS_CPU', 256),
+    settlementOpsMemoryMiB: toNumber(env.SETTLEMENT_OPS_MEMORY_MIB, 'SETTLEMENT_OPS_MEMORY_MIB', 512),
     frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
     gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
     accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz',
@@ -247,6 +295,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     dispatchOpsHealthCheckPath: dispatchOpsHealthCheckPath ?? '/health/',
     driverOpsHealthCheckPath: driverOpsHealthCheckPath ?? '/health/',
     vehicleOpsHealthCheckPath: vehicleOpsHealthCheckPath ?? '/health/',
+    settlementRegistryHealthCheckPath: settlementRegistryHealthCheckPath ?? '/health/',
+    settlementPayrollHealthCheckPath: settlementPayrollHealthCheckPath ?? '/health/',
+    settlementOpsHealthCheckPath: settlementOpsHealthCheckPath ?? '/health/',
     settlementOpsBaseUrl: env.SETTLEMENT_OPS_BASE_URL || 'http://settlement-ops-api:8000',
     telemetryHubBaseUrl: env.TELEMETRY_HUB_BASE_URL || 'http://telemetry-hub-api:8000',
     terminalRegistryBaseUrl: env.TERMINAL_REGISTRY_BASE_URL || 'http://terminal-registry-api:8000'

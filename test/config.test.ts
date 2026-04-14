@@ -89,7 +89,13 @@ describe('buildPlatformConfigFromEnv', () => {
       DRIVER_OPS_IMAGE_URI:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
       VEHICLE_OPS_IMAGE_URI:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test'
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+      SETTLEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+      SETTLEMENT_PAYROLL_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+      SETTLEMENT_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
     });
 
     expect(config.serviceConnectNamespace).toBe('ev-dashboard.internal');
@@ -163,7 +169,13 @@ describe('buildPlatformConfigFromEnv', () => {
         DRIVER_OPS_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
         VEHICLE_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test'
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+        SETTLEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+        SETTLEMENT_PAYROLL_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+        SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -213,7 +225,13 @@ describe('buildPlatformConfigFromEnv', () => {
         DRIVER_OPS_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
         VEHICLE_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test'
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+        SETTLEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+        SETTLEMENT_PAYROLL_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+        SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -263,7 +281,13 @@ describe('buildPlatformConfigFromEnv', () => {
         DRIVER_OPS_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
         VEHICLE_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test'
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+        SETTLEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+        SETTLEMENT_PAYROLL_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+        SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -313,7 +337,13 @@ describe('buildPlatformConfigFromEnv', () => {
         DRIVER_OPS_IMAGE_URI:
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
         VEHICLE_OPS_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test'
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+        SETTLEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+        SETTLEMENT_PAYROLL_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+        SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -350,6 +380,12 @@ describe('buildPlatformConfigFromEnv', () => {
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
       VEHICLE_OPS_IMAGE_URI:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+      SETTLEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+      SETTLEMENT_PAYROLL_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+      SETTLEMENT_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
       SETTLEMENT_OPS_BASE_URL: 'https://hub.evnlogistics.com/api/settlement-ops',
       TELEMETRY_HUB_BASE_URL: 'https://hub.evnlogistics.com/api/telemetry',
       TERMINAL_REGISTRY_BASE_URL: 'https://hub.evnlogistics.com/api/terminals'

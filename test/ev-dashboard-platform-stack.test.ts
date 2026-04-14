@@ -38,6 +38,12 @@ describe('EvDashboardPlatformStack', () => {
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:sha-driver-ops',
       vehicleOpsImageUri:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:sha-vehicle-ops',
+      settlementRegistryImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:sha-settlement-registry',
+      settlementPayrollImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:sha-settlement-payroll',
+      settlementOpsImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:sha-settlement-ops',
       frontDesiredCount: 1,
       gatewayDesiredCount: 1,
       accountAccessDesiredCount: 1,
@@ -52,6 +58,9 @@ describe('EvDashboardPlatformStack', () => {
       dispatchOpsDesiredCount: 1,
       driverOpsDesiredCount: 1,
       vehicleOpsDesiredCount: 1,
+      settlementRegistryDesiredCount: 0,
+      settlementPayrollDesiredCount: 0,
+      settlementOpsDesiredCount: 0,
       frontCpu: 256,
       frontMemoryMiB: 512,
       gatewayCpu: 256,
@@ -80,6 +89,12 @@ describe('EvDashboardPlatformStack', () => {
       driverOpsMemoryMiB: 512,
       vehicleOpsCpu: 256,
       vehicleOpsMemoryMiB: 512,
+      settlementRegistryCpu: 256,
+      settlementRegistryMemoryMiB: 512,
+      settlementPayrollCpu: 256,
+      settlementPayrollMemoryMiB: 512,
+      settlementOpsCpu: 256,
+      settlementOpsMemoryMiB: 512,
       frontHealthCheckPath: '/',
       gatewayHealthCheckPath: '/healthz',
       accountAccessHealthCheckPath: '/healthz',
@@ -94,6 +109,9 @@ describe('EvDashboardPlatformStack', () => {
       dispatchOpsHealthCheckPath: '/health/',
       driverOpsHealthCheckPath: '/health/',
       vehicleOpsHealthCheckPath: '/health/',
+      settlementRegistryHealthCheckPath: '/health/',
+      settlementPayrollHealthCheckPath: '/health/',
+      settlementOpsHealthCheckPath: '/health/',
       settlementOpsBaseUrl: 'https://hub.evnlogistics.com/api/settlement-ops',
       telemetryHubBaseUrl: 'https://hub.evnlogistics.com/api/telemetry',
       terminalRegistryBaseUrl: 'https://hub.evnlogistics.com/api/terminals'
@@ -104,7 +122,7 @@ describe('EvDashboardPlatformStack', () => {
 
     template.resourceCountIs('AWS::ECS::Cluster', 1);
     template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
-    template.resourceCountIs('AWS::ECS::Service', 14);
+    template.resourceCountIs('AWS::ECS::Service', 17);
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
     template.resourceCountIs('AWS::RDS::DBInstance', 9);
     template.resourceCountIs('AWS::ElastiCache::CacheCluster', 1);
