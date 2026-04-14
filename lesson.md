@@ -115,3 +115,16 @@ Support Surface added one more concrete wait pattern. The five new backend servi
 - support health routes were all `200` and protected list routes were all `401`
 
 Treat that as the final closure rule for direct-upstream slices with new Service Connect names. Service steady state alone is not enough, and public smoke alone is not enough.
+
+Repo vars are part of deploy state in this repo, not just metadata. Because `workflow_dispatch` hit its property cap, image URIs live in repo vars and can silently drift away from what is actually present in ECR. Preflight now has to prove those tags exist in ECR before deploy. If a future rollout fails on a missing image tag after `cdk deploy` has already started, the gate is incomplete.
+
+Slice 7 is intentionally split. `service-terminal-registry`, `service-telemetry-hub`, and `service-telemetry-dead-letter` closed as `7a`, but `service-telemetry-listener` remains a `desired=0` worker until a real MQTT broker endpoint and credentials are confirmed. Service creation in ECS is not permission to enable the listener.
+
+Telemetry proof also needs real endpoints, not just the prefix name. The honest external proof for `7a` was:
+
+- `/api/terminals/health/` -> `200`
+- `/api/terminals/` -> `401`
+- `/api/telemetry/health/` -> `200`
+- `/api/telemetry/terminals/<uuid>/latest-location/` -> `401`
+- `/api/telemetry-dead-letters/health/` -> `200`
+- `/api/telemetry-dead-letters/` -> `401`
