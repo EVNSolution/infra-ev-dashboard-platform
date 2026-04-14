@@ -57,3 +57,16 @@ Do not poll deploys as if every signal means the same thing. In this stack, the 
 During step 3, `502` from new gateway routes is expected and usually means "backend service resource not created yet", not "nginx route is wrong". Use a slower `60-90s` polling cadence while DB resources are provisioning.
 
 The second `502` window is a different signal. In Slice 2, `service-driver-profile`, `service-vehicle-registry`, `service-personnel-document-registry`, and `service-vehicle-assignment` all reached steady state before `edge-api-gateway` finished its own rollout. In that short period, edge logs showed `could not be resolved` for the new Service Connect names and then flipped to `401` once the new gateway task settled. If the backend services already exist, check `edge-api-gateway` deployment state and edge logs before changing config.
+
+Public repo workflows are not a guaranteed build path in this account. Slice 3 hit a billing block where `service-dispatch-registry`, `service-delivery-record`, and `service-attendance-registry` image jobs never started. The practical fallback was local `docker buildx` plus ECR push, followed by the usual infra workflow with explicit image URIs.
+
+For local Docker fallback builds, always push `linux/amd64`. The first local push failed only at ECS pull time because the manifest did not match the Fargate platform.
+
+Slice 3 also proved that a new task definition is not the same as an honest slice proof. `service-delivery-record` and `service-attendance-registry` both needed production smoke on their real list endpoints before the rollout was trustworthy:
+
+- `/api/delivery-record/records/`
+- `/api/attendance/days/`
+
+The prefix roots returned `404` once routing was correct. That was expected and should not be treated as slice failure.
+
+When one backend service depends on another, the CDK dependency ordering shows up as quiet wait time in CloudFormation. In Slice 3, `service-attendance-registry` rolled first, then `service-delivery-record` updated only after attendance completed. That delay was intentional, not ignored image input.
