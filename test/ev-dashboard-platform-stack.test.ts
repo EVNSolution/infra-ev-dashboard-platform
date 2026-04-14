@@ -32,6 +32,12 @@ describe('EvDashboardPlatformStack', () => {
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:sha-delivery',
       attendanceRegistryImageUri:
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:sha-attendance',
+      dispatchOpsImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:sha-dispatch-ops',
+      driverOpsImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:sha-driver-ops',
+      vehicleOpsImageUri:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:sha-vehicle-ops',
       frontDesiredCount: 1,
       gatewayDesiredCount: 1,
       accountAccessDesiredCount: 1,
@@ -43,6 +49,9 @@ describe('EvDashboardPlatformStack', () => {
       dispatchRegistryDesiredCount: 1,
       deliveryRecordDesiredCount: 1,
       attendanceRegistryDesiredCount: 1,
+      dispatchOpsDesiredCount: 1,
+      driverOpsDesiredCount: 1,
+      vehicleOpsDesiredCount: 1,
       frontCpu: 256,
       frontMemoryMiB: 512,
       gatewayCpu: 256,
@@ -65,6 +74,12 @@ describe('EvDashboardPlatformStack', () => {
       deliveryRecordMemoryMiB: 512,
       attendanceRegistryCpu: 256,
       attendanceRegistryMemoryMiB: 512,
+      dispatchOpsCpu: 256,
+      dispatchOpsMemoryMiB: 512,
+      driverOpsCpu: 256,
+      driverOpsMemoryMiB: 512,
+      vehicleOpsCpu: 256,
+      vehicleOpsMemoryMiB: 512,
       frontHealthCheckPath: '/',
       gatewayHealthCheckPath: '/healthz',
       accountAccessHealthCheckPath: '/healthz',
@@ -75,7 +90,13 @@ describe('EvDashboardPlatformStack', () => {
       driverVehicleAssignmentHealthCheckPath: '/health/',
       dispatchRegistryHealthCheckPath: '/health/',
       deliveryRecordHealthCheckPath: '/health/',
-      attendanceRegistryHealthCheckPath: '/health/'
+      attendanceRegistryHealthCheckPath: '/health/',
+      dispatchOpsHealthCheckPath: '/health/',
+      driverOpsHealthCheckPath: '/health/',
+      vehicleOpsHealthCheckPath: '/health/',
+      settlementOpsBaseUrl: 'https://hub.evnlogistics.com/api/settlement-ops',
+      telemetryHubBaseUrl: 'https://hub.evnlogistics.com/api/telemetry',
+      terminalRegistryBaseUrl: 'https://hub.evnlogistics.com/api/terminals'
     });
 
     const stack = new EvDashboardPlatformStack(app, 'TestStack', { config });
@@ -83,7 +104,7 @@ describe('EvDashboardPlatformStack', () => {
 
     template.resourceCountIs('AWS::ECS::Cluster', 1);
     template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
-    template.resourceCountIs('AWS::ECS::Service', 11);
+    template.resourceCountIs('AWS::ECS::Service', 14);
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
     template.resourceCountIs('AWS::RDS::DBInstance', 9);
     template.resourceCountIs('AWS::ElastiCache::CacheCluster', 1);
@@ -142,6 +163,57 @@ describe('EvDashboardPlatformStack', () => {
               Match.objectLike({
                 DnsName: 'web-console',
                 Port: 5174
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'dispatch-ops-http',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'dispatch-ops-api',
+                Port: 8000
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'driver-ops-http',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'driver-ops-api',
+                Port: 8000
+              })
+            ])
+          })
+        ])
+      })
+    }));
+    template.hasResourceProperties('AWS::ECS::Service', Match.objectLike({
+      ServiceConnectConfiguration: Match.objectLike({
+        Enabled: true,
+        Namespace: 'ev-dashboard.internal',
+        Services: Match.arrayWith([
+          Match.objectLike({
+            PortName: 'vehicle-ops-http',
+            ClientAliases: Match.arrayWith([
+              Match.objectLike({
+                DnsName: 'vehicle-ops-api',
+                Port: 8000
               })
             ])
           })
@@ -316,6 +388,80 @@ describe('EvDashboardPlatformStack', () => {
           Secrets: Match.arrayWith([
             Match.objectLike({ Name: 'POSTGRES_USER' }),
             Match.objectLike({ Name: 'POSTGRES_PASSWORD' }),
+            Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' })
+          ])
+        })
+      ])
+    }));
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'ServiceDispatchOperationsViewContainer',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'DISPATCH_REGISTRY_BASE_URL', Value: 'http://dispatch-registry-api:8000' }),
+            Match.objectLike({
+              Name: 'DRIVER_VEHICLE_ASSIGNMENT_BASE_URL',
+              Value: 'http://driver-vehicle-assignment-api:8000'
+            }),
+            Match.objectLike({ Name: 'VEHICLE_ASSET_BASE_URL', Value: 'http://vehicle-asset-api:8000' }),
+            Match.objectLike({ Name: 'DRIVER_PROFILE_BASE_URL', Value: 'http://driver-profile-api:8000' }),
+            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'dispatch-ops-api,localhost,127.0.0.1' })
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' })
+          ])
+        })
+      ])
+    }));
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'ServiceDriverOperationsViewContainer',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'ACCOUNT_AUTH_BASE_URL', Value: 'http://account-auth-api:8000' }),
+            Match.objectLike({ Name: 'DRIVER_PROFILE_BASE_URL', Value: 'http://driver-profile-api:8000' }),
+            Match.objectLike({ Name: 'ORGANIZATION_MASTER_BASE_URL', Value: 'http://organization-master-api:8000' }),
+            Match.objectLike({
+              Name: 'SETTLEMENT_OPS_BASE_URL',
+              Value: 'https://hub.evnlogistics.com/api/settlement-ops'
+            }),
+            Match.objectLike({
+              Name: 'PERSONNEL_DOCUMENT_BASE_URL',
+              Value: 'http://personnel-document-registry-api:8000'
+            }),
+            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'driver-ops-api,localhost,127.0.0.1' })
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' })
+          ])
+        })
+      ])
+    }));
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', Match.objectLike({
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'ServiceVehicleOperationsViewContainer',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'VEHICLE_ASSET_BASE_URL', Value: 'http://vehicle-asset-api:8000' }),
+            Match.objectLike({
+              Name: 'DRIVER_VEHICLE_ASSIGNMENT_BASE_URL',
+              Value: 'http://driver-vehicle-assignment-api:8000'
+            }),
+            Match.objectLike({ Name: 'ORGANIZATION_MASTER_BASE_URL', Value: 'http://organization-master-api:8000' }),
+            Match.objectLike({
+              Name: 'TELEMETRY_HUB_BASE_URL',
+              Value: 'https://hub.evnlogistics.com/api/telemetry'
+            }),
+            Match.objectLike({
+              Name: 'TERMINAL_REGISTRY_BASE_URL',
+              Value: 'https://hub.evnlogistics.com/api/terminals'
+            }),
+            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'vehicle-ops-api,localhost,127.0.0.1' })
+          ]),
+          Secrets: Match.arrayWith([
             Match.objectLike({ Name: 'DJANGO_SECRET_KEY' }),
             Match.objectLike({ Name: 'JWT_SECRET_KEY' })
           ])

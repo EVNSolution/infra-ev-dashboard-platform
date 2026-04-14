@@ -164,6 +164,15 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     let attendanceRegistryEnvironment: Record<string, string> | undefined;
     let attendanceRegistrySecrets: Record<string, ecs.Secret> | undefined;
     let attendanceRegistryDependencies: Construct[] = [];
+    let dispatchOpsEnvironment: Record<string, string> | undefined;
+    let dispatchOpsSecrets: Record<string, ecs.Secret> | undefined;
+    let dispatchOpsDependencies: Construct[] = [];
+    let driverOpsEnvironment: Record<string, string> | undefined;
+    let driverOpsSecrets: Record<string, ecs.Secret> | undefined;
+    let driverOpsDependencies: Construct[] = [];
+    let vehicleOpsEnvironment: Record<string, string> | undefined;
+    let vehicleOpsSecrets: Record<string, ecs.Secret> | undefined;
+    let vehicleOpsDependencies: Construct[] = [];
     const platformJwtSecretKey =
       config.accountAccessDesiredCount > 0 ||
       config.organizationDesiredCount > 0 ||
@@ -173,7 +182,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       config.driverVehicleAssignmentDesiredCount > 0 ||
       config.dispatchRegistryDesiredCount > 0 ||
       config.deliveryRecordDesiredCount > 0 ||
-      config.attendanceRegistryDesiredCount > 0
+      config.attendanceRegistryDesiredCount > 0 ||
+      config.dispatchOpsDesiredCount > 0 ||
+      config.driverOpsDesiredCount > 0 ||
+      config.vehicleOpsDesiredCount > 0
         ? new secretsmanager.Secret(this, 'PlatformJwtSecretKey', {
             generateSecretString: {
               passwordLength: 64,
@@ -477,6 +489,56 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       deliveryRecordDependencies = [deliveryRecordDatabase];
     }
 
+    if (config.dispatchOpsDesiredCount > 0) {
+      const djangoSecretKey = this.createGeneratedSecret('DispatchOpsDjangoSecretKey');
+      dispatchOpsEnvironment = {
+        DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
+        DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
+        VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'dispatch-ops-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      dispatchOpsSecrets = {
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+    }
+
+    if (config.driverOpsDesiredCount > 0) {
+      const djangoSecretKey = this.createGeneratedSecret('DriverOpsDjangoSecretKey');
+      driverOpsEnvironment = {
+        ACCOUNT_AUTH_BASE_URL: 'http://account-auth-api:8000',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+        ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+        SETTLEMENT_OPS_BASE_URL: config.settlementOpsBaseUrl,
+        PERSONNEL_DOCUMENT_BASE_URL: 'http://personnel-document-registry-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'driver-ops-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      driverOpsSecrets = {
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+    }
+
+    if (config.vehicleOpsDesiredCount > 0) {
+      const djangoSecretKey = this.createGeneratedSecret('VehicleOpsDjangoSecretKey');
+      vehicleOpsEnvironment = {
+        VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
+        DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
+        ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+        TELEMETRY_HUB_BASE_URL: config.telemetryHubBaseUrl,
+        TERMINAL_REGISTRY_BASE_URL: config.terminalRegistryBaseUrl,
+        DJANGO_ALLOWED_HOSTS: 'vehicle-ops-api,localhost,127.0.0.1',
+        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+      };
+      vehicleOpsSecrets = {
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+    }
+
     const accountAccessService = this.createFargateService('ServiceAccountAccess', {
       cluster,
       imageUri: config.accountAccessImageUri,
@@ -679,6 +741,102 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     }
     if (config.deliveryRecordDesiredCount > 0) {
       gatewayService.node.addDependency(deliveryRecordService);
+    }
+
+    const dispatchOpsService = this.createFargateService('ServiceDispatchOperationsView', {
+      cluster,
+      imageUri: config.dispatchOpsImageUri,
+      cpu: config.dispatchOpsCpu,
+      memoryMiB: config.dispatchOpsMemoryMiB,
+      desiredCount: config.dispatchOpsDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'dispatch-ops-http',
+      serviceName: 'service-dispatch-operations-view',
+      serviceConnectDnsName: 'dispatch-ops-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: dispatchOpsEnvironment,
+      secrets: dispatchOpsSecrets
+    });
+    dispatchOpsDependencies.forEach((dependency) => dispatchOpsService.node.addDependency(dependency));
+    if (config.dispatchRegistryDesiredCount > 0) {
+      dispatchOpsService.node.addDependency(dispatchRegistryService);
+    }
+    if (config.driverVehicleAssignmentDesiredCount > 0) {
+      dispatchOpsService.node.addDependency(driverVehicleAssignmentService);
+    }
+    if (config.vehicleAssetDesiredCount > 0) {
+      dispatchOpsService.node.addDependency(vehicleAssetService);
+    }
+    if (config.driverProfileDesiredCount > 0) {
+      dispatchOpsService.node.addDependency(driverProfileService);
+    }
+    if (config.dispatchOpsDesiredCount > 0) {
+      gatewayService.node.addDependency(dispatchOpsService);
+    }
+
+    const driverOpsService = this.createFargateService('ServiceDriverOperationsView', {
+      cluster,
+      imageUri: config.driverOpsImageUri,
+      cpu: config.driverOpsCpu,
+      memoryMiB: config.driverOpsMemoryMiB,
+      desiredCount: config.driverOpsDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'driver-ops-http',
+      serviceName: 'service-driver-operations-view',
+      serviceConnectDnsName: 'driver-ops-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: driverOpsEnvironment,
+      secrets: driverOpsSecrets
+    });
+    driverOpsDependencies.forEach((dependency) => driverOpsService.node.addDependency(dependency));
+    if (config.accountAccessDesiredCount > 0) {
+      driverOpsService.node.addDependency(accountAccessService);
+    }
+    if (config.driverProfileDesiredCount > 0) {
+      driverOpsService.node.addDependency(driverProfileService);
+    }
+    if (config.organizationDesiredCount > 0) {
+      driverOpsService.node.addDependency(organizationService);
+    }
+    if (config.personnelDocumentDesiredCount > 0) {
+      driverOpsService.node.addDependency(personnelDocumentService);
+    }
+    if (config.driverOpsDesiredCount > 0) {
+      gatewayService.node.addDependency(driverOpsService);
+    }
+
+    const vehicleOpsService = this.createFargateService('ServiceVehicleOperationsView', {
+      cluster,
+      imageUri: config.vehicleOpsImageUri,
+      cpu: config.vehicleOpsCpu,
+      memoryMiB: config.vehicleOpsMemoryMiB,
+      desiredCount: config.vehicleOpsDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'vehicle-ops-http',
+      serviceName: 'service-vehicle-operations-view',
+      serviceConnectDnsName: 'vehicle-ops-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: vehicleOpsEnvironment,
+      secrets: vehicleOpsSecrets
+    });
+    vehicleOpsDependencies.forEach((dependency) => vehicleOpsService.node.addDependency(dependency));
+    if (config.vehicleAssetDesiredCount > 0) {
+      vehicleOpsService.node.addDependency(vehicleAssetService);
+    }
+    if (config.driverVehicleAssignmentDesiredCount > 0) {
+      vehicleOpsService.node.addDependency(driverVehicleAssignmentService);
+    }
+    if (config.organizationDesiredCount > 0) {
+      vehicleOpsService.node.addDependency(organizationService);
+    }
+    if (config.vehicleOpsDesiredCount > 0) {
+      gatewayService.node.addDependency(vehicleOpsService);
     }
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {

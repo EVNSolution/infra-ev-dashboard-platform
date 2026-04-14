@@ -56,6 +56,18 @@ on:
         type: string
         description: Full ECR image URI for service-attendance-registry
         required: true
+      dispatch_ops_image_uri:
+        type: string
+        description: Full ECR image URI for service-dispatch-operations-view
+        required: true
+      driver_ops_image_uri:
+        type: string
+        description: Full ECR image URI for service-driver-operations-view
+        required: true
+      vehicle_ops_image_uri:
+        type: string
+        description: Full ECR image URI for service-vehicle-operations-view
+        required: true
 
 permissions:
   id-token: write
@@ -89,6 +101,9 @@ jobs:
       DISPATCH_REGISTRY_DESIRED_COUNT: ${{ vars.DISPATCH_REGISTRY_DESIRED_COUNT }}
       DELIVERY_RECORD_DESIRED_COUNT: ${{ vars.DELIVERY_RECORD_DESIRED_COUNT }}
       ATTENDANCE_REGISTRY_DESIRED_COUNT: ${{ vars.ATTENDANCE_REGISTRY_DESIRED_COUNT }}
+      DISPATCH_OPS_DESIRED_COUNT: ${{ vars.DISPATCH_OPS_DESIRED_COUNT }}
+      DRIVER_OPS_DESIRED_COUNT: ${{ vars.DRIVER_OPS_DESIRED_COUNT }}
+      VEHICLE_OPS_DESIRED_COUNT: ${{ vars.VEHICLE_OPS_DESIRED_COUNT }}
       FRONT_CPU: ${{ vars.FRONT_CPU }}
       FRONT_MEMORY_MIB: ${{ vars.FRONT_MEMORY_MIB }}
       GATEWAY_CPU: ${{ vars.GATEWAY_CPU }}
@@ -111,6 +126,12 @@ jobs:
       DELIVERY_RECORD_MEMORY_MIB: ${{ vars.DELIVERY_RECORD_MEMORY_MIB }}
       ATTENDANCE_REGISTRY_CPU: ${{ vars.ATTENDANCE_REGISTRY_CPU }}
       ATTENDANCE_REGISTRY_MEMORY_MIB: ${{ vars.ATTENDANCE_REGISTRY_MEMORY_MIB }}
+      DISPATCH_OPS_CPU: ${{ vars.DISPATCH_OPS_CPU }}
+      DISPATCH_OPS_MEMORY_MIB: ${{ vars.DISPATCH_OPS_MEMORY_MIB }}
+      DRIVER_OPS_CPU: ${{ vars.DRIVER_OPS_CPU }}
+      DRIVER_OPS_MEMORY_MIB: ${{ vars.DRIVER_OPS_MEMORY_MIB }}
+      VEHICLE_OPS_CPU: ${{ vars.VEHICLE_OPS_CPU }}
+      VEHICLE_OPS_MEMORY_MIB: ${{ vars.VEHICLE_OPS_MEMORY_MIB }}
       FRONT_HEALTH_CHECK_PATH: ${{ vars.FRONT_HEALTH_CHECK_PATH }}
       GATEWAY_HEALTH_CHECK_PATH: ${{ vars.GATEWAY_HEALTH_CHECK_PATH }}
       ACCOUNT_ACCESS_HEALTH_CHECK_PATH: ${{ vars.ACCOUNT_ACCESS_HEALTH_CHECK_PATH }}
@@ -122,6 +143,12 @@ jobs:
       DISPATCH_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.DISPATCH_REGISTRY_HEALTH_CHECK_PATH }}
       DELIVERY_RECORD_HEALTH_CHECK_PATH: ${{ vars.DELIVERY_RECORD_HEALTH_CHECK_PATH }}
       ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH }}
+      DISPATCH_OPS_HEALTH_CHECK_PATH: ${{ vars.DISPATCH_OPS_HEALTH_CHECK_PATH }}
+      DRIVER_OPS_HEALTH_CHECK_PATH: ${{ vars.DRIVER_OPS_HEALTH_CHECK_PATH }}
+      VEHICLE_OPS_HEALTH_CHECK_PATH: ${{ vars.VEHICLE_OPS_HEALTH_CHECK_PATH }}
+      SETTLEMENT_OPS_BASE_URL: ${{ vars.SETTLEMENT_OPS_BASE_URL }}
+      TELEMETRY_HUB_BASE_URL: ${{ vars.TELEMETRY_HUB_BASE_URL }}
+      TERMINAL_REGISTRY_BASE_URL: ${{ vars.TERMINAL_REGISTRY_BASE_URL }}
       FRONT_IMAGE_URI: ${{ github.event.inputs.front_image_uri }}
       GATEWAY_IMAGE_URI: ${{ github.event.inputs.gateway_image_uri }}
       ACCOUNT_ACCESS_IMAGE_URI: ${{ github.event.inputs.account_access_image_uri }}
@@ -133,6 +160,9 @@ jobs:
       DISPATCH_REGISTRY_IMAGE_URI: ${{ github.event.inputs.dispatch_registry_image_uri }}
       DELIVERY_RECORD_IMAGE_URI: ${{ github.event.inputs.delivery_record_image_uri }}
       ATTENDANCE_REGISTRY_IMAGE_URI: ${{ github.event.inputs.attendance_registry_image_uri }}
+      DISPATCH_OPS_IMAGE_URI: ${{ github.event.inputs.dispatch_ops_image_uri }}
+      DRIVER_OPS_IMAGE_URI: ${{ github.event.inputs.driver_ops_image_uri }}
+      VEHICLE_OPS_IMAGE_URI: ${{ github.event.inputs.vehicle_ops_image_uri }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -182,6 +212,9 @@ jobs:
             DISPATCH_REGISTRY_IMAGE_URI
             DELIVERY_RECORD_IMAGE_URI
             ATTENDANCE_REGISTRY_IMAGE_URI
+            DISPATCH_OPS_IMAGE_URI
+            DRIVER_OPS_IMAGE_URI
+            VEHICLE_OPS_IMAGE_URI
           )
 
           for key in "${required_vars[@]}"; do

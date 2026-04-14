@@ -20,6 +20,9 @@ export type PlatformConfigInput = {
   dispatchRegistryImageUri: string;
   deliveryRecordImageUri: string;
   attendanceRegistryImageUri: string;
+  dispatchOpsImageUri: string;
+  driverOpsImageUri: string;
+  vehicleOpsImageUri: string;
   frontDesiredCount: number;
   gatewayDesiredCount: number;
   accountAccessDesiredCount: number;
@@ -31,6 +34,9 @@ export type PlatformConfigInput = {
   dispatchRegistryDesiredCount: number;
   deliveryRecordDesiredCount: number;
   attendanceRegistryDesiredCount: number;
+  dispatchOpsDesiredCount: number;
+  driverOpsDesiredCount: number;
+  vehicleOpsDesiredCount: number;
   frontCpu: number;
   frontMemoryMiB: number;
   gatewayCpu: number;
@@ -53,6 +59,12 @@ export type PlatformConfigInput = {
   deliveryRecordMemoryMiB: number;
   attendanceRegistryCpu: number;
   attendanceRegistryMemoryMiB: number;
+  dispatchOpsCpu: number;
+  dispatchOpsMemoryMiB: number;
+  driverOpsCpu: number;
+  driverOpsMemoryMiB: number;
+  vehicleOpsCpu: number;
+  vehicleOpsMemoryMiB: number;
   frontHealthCheckPath: string;
   gatewayHealthCheckPath: string;
   accountAccessHealthCheckPath: string;
@@ -64,6 +76,12 @@ export type PlatformConfigInput = {
   dispatchRegistryHealthCheckPath: string;
   deliveryRecordHealthCheckPath: string;
   attendanceRegistryHealthCheckPath: string;
+  dispatchOpsHealthCheckPath: string;
+  driverOpsHealthCheckPath: string;
+  vehicleOpsHealthCheckPath: string;
+  settlementOpsBaseUrl: string;
+  telemetryHubBaseUrl: string;
+  terminalRegistryBaseUrl: string;
 };
 
 export type PlatformConfig = PlatformConfigInput & {
@@ -110,6 +128,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const dispatchRegistryHealthCheckPath = emptyToUndefined(env.DISPATCH_REGISTRY_HEALTH_CHECK_PATH);
   const deliveryRecordHealthCheckPath = emptyToUndefined(env.DELIVERY_RECORD_HEALTH_CHECK_PATH);
   const attendanceRegistryHealthCheckPath = emptyToUndefined(env.ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH);
+  const dispatchOpsHealthCheckPath = emptyToUndefined(env.DISPATCH_OPS_HEALTH_CHECK_PATH);
+  const driverOpsHealthCheckPath = emptyToUndefined(env.DRIVER_OPS_HEALTH_CHECK_PATH);
+  const vehicleOpsHealthCheckPath = emptyToUndefined(env.VEHICLE_OPS_HEALTH_CHECK_PATH);
 
   return buildPlatformConfig({
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
@@ -139,6 +160,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     dispatchRegistryImageUri: required(env.DISPATCH_REGISTRY_IMAGE_URI, 'DISPATCH_REGISTRY_IMAGE_URI'),
     deliveryRecordImageUri: required(env.DELIVERY_RECORD_IMAGE_URI, 'DELIVERY_RECORD_IMAGE_URI'),
     attendanceRegistryImageUri: required(env.ATTENDANCE_REGISTRY_IMAGE_URI, 'ATTENDANCE_REGISTRY_IMAGE_URI'),
+    dispatchOpsImageUri: required(env.DISPATCH_OPS_IMAGE_URI, 'DISPATCH_OPS_IMAGE_URI'),
+    driverOpsImageUri: required(env.DRIVER_OPS_IMAGE_URI, 'DRIVER_OPS_IMAGE_URI'),
+    vehicleOpsImageUri: required(env.VEHICLE_OPS_IMAGE_URI, 'VEHICLE_OPS_IMAGE_URI'),
     frontDesiredCount: toNumber(env.FRONT_DESIRED_COUNT, 'FRONT_DESIRED_COUNT', 1),
     gatewayDesiredCount: toNumber(env.GATEWAY_DESIRED_COUNT, 'GATEWAY_DESIRED_COUNT', 1),
     accountAccessDesiredCount: toNumber(env.ACCOUNT_ACCESS_DESIRED_COUNT, 'ACCOUNT_ACCESS_DESIRED_COUNT', 1),
@@ -162,6 +186,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       'ATTENDANCE_REGISTRY_DESIRED_COUNT',
       0
     ),
+    dispatchOpsDesiredCount: toNumber(env.DISPATCH_OPS_DESIRED_COUNT, 'DISPATCH_OPS_DESIRED_COUNT', 0),
+    driverOpsDesiredCount: toNumber(env.DRIVER_OPS_DESIRED_COUNT, 'DRIVER_OPS_DESIRED_COUNT', 0),
+    vehicleOpsDesiredCount: toNumber(env.VEHICLE_OPS_DESIRED_COUNT, 'VEHICLE_OPS_DESIRED_COUNT', 0),
     frontCpu: toNumber(env.FRONT_CPU, 'FRONT_CPU', 256),
     frontMemoryMiB: toNumber(env.FRONT_MEMORY_MIB, 'FRONT_MEMORY_MIB', 512),
     gatewayCpu: toNumber(env.GATEWAY_CPU, 'GATEWAY_CPU', 256),
@@ -200,6 +227,12 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       'ATTENDANCE_REGISTRY_MEMORY_MIB',
       512
     ),
+    dispatchOpsCpu: toNumber(env.DISPATCH_OPS_CPU, 'DISPATCH_OPS_CPU', 256),
+    dispatchOpsMemoryMiB: toNumber(env.DISPATCH_OPS_MEMORY_MIB, 'DISPATCH_OPS_MEMORY_MIB', 512),
+    driverOpsCpu: toNumber(env.DRIVER_OPS_CPU, 'DRIVER_OPS_CPU', 256),
+    driverOpsMemoryMiB: toNumber(env.DRIVER_OPS_MEMORY_MIB, 'DRIVER_OPS_MEMORY_MIB', 512),
+    vehicleOpsCpu: toNumber(env.VEHICLE_OPS_CPU, 'VEHICLE_OPS_CPU', 256),
+    vehicleOpsMemoryMiB: toNumber(env.VEHICLE_OPS_MEMORY_MIB, 'VEHICLE_OPS_MEMORY_MIB', 512),
     frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
     gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
     accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz',
@@ -210,7 +243,13 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     driverVehicleAssignmentHealthCheckPath: driverVehicleAssignmentHealthCheckPath ?? '/health/',
     dispatchRegistryHealthCheckPath: dispatchRegistryHealthCheckPath ?? '/health/',
     deliveryRecordHealthCheckPath: deliveryRecordHealthCheckPath ?? '/health/',
-    attendanceRegistryHealthCheckPath: attendanceRegistryHealthCheckPath ?? '/health/'
+    attendanceRegistryHealthCheckPath: attendanceRegistryHealthCheckPath ?? '/health/',
+    dispatchOpsHealthCheckPath: dispatchOpsHealthCheckPath ?? '/health/',
+    driverOpsHealthCheckPath: driverOpsHealthCheckPath ?? '/health/',
+    vehicleOpsHealthCheckPath: vehicleOpsHealthCheckPath ?? '/health/',
+    settlementOpsBaseUrl: env.SETTLEMENT_OPS_BASE_URL || 'http://settlement-ops-api:8000',
+    telemetryHubBaseUrl: env.TELEMETRY_HUB_BASE_URL || 'http://telemetry-hub-api:8000',
+    terminalRegistryBaseUrl: env.TERMINAL_REGISTRY_BASE_URL || 'http://terminal-registry-api:8000'
   });
 }
 
