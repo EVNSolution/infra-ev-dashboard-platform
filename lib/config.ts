@@ -17,6 +17,9 @@ export type PlatformConfigInput = {
   personnelDocumentImageUri: string;
   vehicleAssetImageUri: string;
   driverVehicleAssignmentImageUri: string;
+  dispatchRegistryImageUri: string;
+  deliveryRecordImageUri: string;
+  attendanceRegistryImageUri: string;
   frontDesiredCount: number;
   gatewayDesiredCount: number;
   accountAccessDesiredCount: number;
@@ -25,6 +28,9 @@ export type PlatformConfigInput = {
   personnelDocumentDesiredCount: number;
   vehicleAssetDesiredCount: number;
   driverVehicleAssignmentDesiredCount: number;
+  dispatchRegistryDesiredCount: number;
+  deliveryRecordDesiredCount: number;
+  attendanceRegistryDesiredCount: number;
   frontCpu: number;
   frontMemoryMiB: number;
   gatewayCpu: number;
@@ -41,6 +47,12 @@ export type PlatformConfigInput = {
   vehicleAssetMemoryMiB: number;
   driverVehicleAssignmentCpu: number;
   driverVehicleAssignmentMemoryMiB: number;
+  dispatchRegistryCpu: number;
+  dispatchRegistryMemoryMiB: number;
+  deliveryRecordCpu: number;
+  deliveryRecordMemoryMiB: number;
+  attendanceRegistryCpu: number;
+  attendanceRegistryMemoryMiB: number;
   frontHealthCheckPath: string;
   gatewayHealthCheckPath: string;
   accountAccessHealthCheckPath: string;
@@ -49,6 +61,9 @@ export type PlatformConfigInput = {
   personnelDocumentHealthCheckPath: string;
   vehicleAssetHealthCheckPath: string;
   driverVehicleAssignmentHealthCheckPath: string;
+  dispatchRegistryHealthCheckPath: string;
+  deliveryRecordHealthCheckPath: string;
+  attendanceRegistryHealthCheckPath: string;
 };
 
 export type PlatformConfig = PlatformConfigInput & {
@@ -65,7 +80,10 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     input.driverProfileDesiredCount > 0 ||
     input.personnelDocumentDesiredCount > 0 ||
     input.vehicleAssetDesiredCount > 0 ||
-    input.driverVehicleAssignmentDesiredCount > 0;
+    input.driverVehicleAssignmentDesiredCount > 0 ||
+    input.dispatchRegistryDesiredCount > 0 ||
+    input.deliveryRecordDesiredCount > 0 ||
+    input.attendanceRegistryDesiredCount > 0;
   if (requiresPrivateSubnets && privateSubnetIds.length === 0) {
     throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
   }
@@ -89,6 +107,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const personnelDocumentHealthCheckPath = emptyToUndefined(env.PERSONNEL_DOCUMENT_HEALTH_CHECK_PATH);
   const vehicleAssetHealthCheckPath = emptyToUndefined(env.VEHICLE_ASSET_HEALTH_CHECK_PATH);
   const driverVehicleAssignmentHealthCheckPath = emptyToUndefined(env.DRIVER_VEHICLE_ASSIGNMENT_HEALTH_CHECK_PATH);
+  const dispatchRegistryHealthCheckPath = emptyToUndefined(env.DISPATCH_REGISTRY_HEALTH_CHECK_PATH);
+  const deliveryRecordHealthCheckPath = emptyToUndefined(env.DELIVERY_RECORD_HEALTH_CHECK_PATH);
+  const attendanceRegistryHealthCheckPath = emptyToUndefined(env.ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH);
 
   return buildPlatformConfig({
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
@@ -115,6 +136,9 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       env.DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI,
       'DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI'
     ),
+    dispatchRegistryImageUri: required(env.DISPATCH_REGISTRY_IMAGE_URI, 'DISPATCH_REGISTRY_IMAGE_URI'),
+    deliveryRecordImageUri: required(env.DELIVERY_RECORD_IMAGE_URI, 'DELIVERY_RECORD_IMAGE_URI'),
+    attendanceRegistryImageUri: required(env.ATTENDANCE_REGISTRY_IMAGE_URI, 'ATTENDANCE_REGISTRY_IMAGE_URI'),
     frontDesiredCount: toNumber(env.FRONT_DESIRED_COUNT, 'FRONT_DESIRED_COUNT', 1),
     gatewayDesiredCount: toNumber(env.GATEWAY_DESIRED_COUNT, 'GATEWAY_DESIRED_COUNT', 1),
     accountAccessDesiredCount: toNumber(env.ACCOUNT_ACCESS_DESIRED_COUNT, 'ACCOUNT_ACCESS_DESIRED_COUNT', 1),
@@ -129,6 +153,13 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     driverVehicleAssignmentDesiredCount: toNumber(
       env.DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT,
       'DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT',
+      0
+    ),
+    dispatchRegistryDesiredCount: toNumber(env.DISPATCH_REGISTRY_DESIRED_COUNT, 'DISPATCH_REGISTRY_DESIRED_COUNT', 0),
+    deliveryRecordDesiredCount: toNumber(env.DELIVERY_RECORD_DESIRED_COUNT, 'DELIVERY_RECORD_DESIRED_COUNT', 0),
+    attendanceRegistryDesiredCount: toNumber(
+      env.ATTENDANCE_REGISTRY_DESIRED_COUNT,
+      'ATTENDANCE_REGISTRY_DESIRED_COUNT',
       0
     ),
     frontCpu: toNumber(env.FRONT_CPU, 'FRONT_CPU', 256),
@@ -159,6 +190,16 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       'DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB',
       512
     ),
+    dispatchRegistryCpu: toNumber(env.DISPATCH_REGISTRY_CPU, 'DISPATCH_REGISTRY_CPU', 256),
+    dispatchRegistryMemoryMiB: toNumber(env.DISPATCH_REGISTRY_MEMORY_MIB, 'DISPATCH_REGISTRY_MEMORY_MIB', 512),
+    deliveryRecordCpu: toNumber(env.DELIVERY_RECORD_CPU, 'DELIVERY_RECORD_CPU', 256),
+    deliveryRecordMemoryMiB: toNumber(env.DELIVERY_RECORD_MEMORY_MIB, 'DELIVERY_RECORD_MEMORY_MIB', 512),
+    attendanceRegistryCpu: toNumber(env.ATTENDANCE_REGISTRY_CPU, 'ATTENDANCE_REGISTRY_CPU', 256),
+    attendanceRegistryMemoryMiB: toNumber(
+      env.ATTENDANCE_REGISTRY_MEMORY_MIB,
+      'ATTENDANCE_REGISTRY_MEMORY_MIB',
+      512
+    ),
     frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
     gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
     accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz',
@@ -166,7 +207,10 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     driverProfileHealthCheckPath: driverProfileHealthCheckPath ?? '/health/',
     personnelDocumentHealthCheckPath: personnelDocumentHealthCheckPath ?? '/health/',
     vehicleAssetHealthCheckPath: vehicleAssetHealthCheckPath ?? '/health/',
-    driverVehicleAssignmentHealthCheckPath: driverVehicleAssignmentHealthCheckPath ?? '/health/'
+    driverVehicleAssignmentHealthCheckPath: driverVehicleAssignmentHealthCheckPath ?? '/health/',
+    dispatchRegistryHealthCheckPath: dispatchRegistryHealthCheckPath ?? '/health/',
+    deliveryRecordHealthCheckPath: deliveryRecordHealthCheckPath ?? '/health/',
+    attendanceRegistryHealthCheckPath: attendanceRegistryHealthCheckPath ?? '/health/'
   });
 }
 

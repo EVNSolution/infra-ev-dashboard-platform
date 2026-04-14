@@ -44,6 +44,18 @@ on:
         type: string
         description: Full ECR image URI for service-vehicle-assignment
         required: true
+      dispatch_registry_image_uri:
+        type: string
+        description: Full ECR image URI for service-dispatch-registry
+        required: true
+      delivery_record_image_uri:
+        type: string
+        description: Full ECR image URI for service-delivery-record
+        required: true
+      attendance_registry_image_uri:
+        type: string
+        description: Full ECR image URI for service-attendance-registry
+        required: true
 
 permissions:
   id-token: write
@@ -74,6 +86,9 @@ jobs:
       PERSONNEL_DOCUMENT_DESIRED_COUNT: ${{ vars.PERSONNEL_DOCUMENT_DESIRED_COUNT }}
       VEHICLE_ASSET_DESIRED_COUNT: ${{ vars.VEHICLE_ASSET_DESIRED_COUNT }}
       DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT }}
+      DISPATCH_REGISTRY_DESIRED_COUNT: ${{ vars.DISPATCH_REGISTRY_DESIRED_COUNT }}
+      DELIVERY_RECORD_DESIRED_COUNT: ${{ vars.DELIVERY_RECORD_DESIRED_COUNT }}
+      ATTENDANCE_REGISTRY_DESIRED_COUNT: ${{ vars.ATTENDANCE_REGISTRY_DESIRED_COUNT }}
       FRONT_CPU: ${{ vars.FRONT_CPU }}
       FRONT_MEMORY_MIB: ${{ vars.FRONT_MEMORY_MIB }}
       GATEWAY_CPU: ${{ vars.GATEWAY_CPU }}
@@ -90,6 +105,12 @@ jobs:
       VEHICLE_ASSET_MEMORY_MIB: ${{ vars.VEHICLE_ASSET_MEMORY_MIB }}
       DRIVER_VEHICLE_ASSIGNMENT_CPU: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_CPU }}
       DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB }}
+      DISPATCH_REGISTRY_CPU: ${{ vars.DISPATCH_REGISTRY_CPU }}
+      DISPATCH_REGISTRY_MEMORY_MIB: ${{ vars.DISPATCH_REGISTRY_MEMORY_MIB }}
+      DELIVERY_RECORD_CPU: ${{ vars.DELIVERY_RECORD_CPU }}
+      DELIVERY_RECORD_MEMORY_MIB: ${{ vars.DELIVERY_RECORD_MEMORY_MIB }}
+      ATTENDANCE_REGISTRY_CPU: ${{ vars.ATTENDANCE_REGISTRY_CPU }}
+      ATTENDANCE_REGISTRY_MEMORY_MIB: ${{ vars.ATTENDANCE_REGISTRY_MEMORY_MIB }}
       FRONT_HEALTH_CHECK_PATH: ${{ vars.FRONT_HEALTH_CHECK_PATH }}
       GATEWAY_HEALTH_CHECK_PATH: ${{ vars.GATEWAY_HEALTH_CHECK_PATH }}
       ACCOUNT_ACCESS_HEALTH_CHECK_PATH: ${{ vars.ACCOUNT_ACCESS_HEALTH_CHECK_PATH }}
@@ -98,6 +119,9 @@ jobs:
       PERSONNEL_DOCUMENT_HEALTH_CHECK_PATH: ${{ vars.PERSONNEL_DOCUMENT_HEALTH_CHECK_PATH }}
       VEHICLE_ASSET_HEALTH_CHECK_PATH: ${{ vars.VEHICLE_ASSET_HEALTH_CHECK_PATH }}
       DRIVER_VEHICLE_ASSIGNMENT_HEALTH_CHECK_PATH: ${{ vars.DRIVER_VEHICLE_ASSIGNMENT_HEALTH_CHECK_PATH }}
+      DISPATCH_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.DISPATCH_REGISTRY_HEALTH_CHECK_PATH }}
+      DELIVERY_RECORD_HEALTH_CHECK_PATH: ${{ vars.DELIVERY_RECORD_HEALTH_CHECK_PATH }}
+      ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH: ${{ vars.ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH }}
       FRONT_IMAGE_URI: ${{ github.event.inputs.front_image_uri }}
       GATEWAY_IMAGE_URI: ${{ github.event.inputs.gateway_image_uri }}
       ACCOUNT_ACCESS_IMAGE_URI: ${{ github.event.inputs.account_access_image_uri }}
@@ -106,6 +130,9 @@ jobs:
       PERSONNEL_DOCUMENT_IMAGE_URI: ${{ github.event.inputs.personnel_document_image_uri }}
       VEHICLE_ASSET_IMAGE_URI: ${{ github.event.inputs.vehicle_asset_image_uri }}
       DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI: ${{ github.event.inputs.driver_vehicle_assignment_image_uri }}
+      DISPATCH_REGISTRY_IMAGE_URI: ${{ github.event.inputs.dispatch_registry_image_uri }}
+      DELIVERY_RECORD_IMAGE_URI: ${{ github.event.inputs.delivery_record_image_uri }}
+      ATTENDANCE_REGISTRY_IMAGE_URI: ${{ github.event.inputs.attendance_registry_image_uri }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -152,6 +179,9 @@ jobs:
             PERSONNEL_DOCUMENT_IMAGE_URI
             VEHICLE_ASSET_IMAGE_URI
             DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI
+            DISPATCH_REGISTRY_IMAGE_URI
+            DELIVERY_RECORD_IMAGE_URI
+            ATTENDANCE_REGISTRY_IMAGE_URI
           )
 
           for key in "${required_vars[@]}"; do
@@ -167,7 +197,10 @@ jobs:
             [ "${DRIVER_PROFILE_DESIRED_COUNT:-0}" != "0" ] ||
             [ "${PERSONNEL_DOCUMENT_DESIRED_COUNT:-0}" != "0" ] ||
             [ "${VEHICLE_ASSET_DESIRED_COUNT:-0}" != "0" ] ||
-            [ "${DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT:-0}" != "0" ];
+            [ "${DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${DISPATCH_REGISTRY_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${DELIVERY_RECORD_DESIRED_COUNT:-0}" != "0" ] ||
+            [ "${ATTENDANCE_REGISTRY_DESIRED_COUNT:-0}" != "0" ];
           } && [ -z "${PRIVATE_SUBNET_IDS:-}" ]; then
             echo "Missing required value: PRIVATE_SUBNET_IDS" >&2
             exit 1

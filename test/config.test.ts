@@ -20,6 +20,9 @@ describe('buildPlatformConfigFromEnv', () => {
       PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
       VEHICLE_ASSET_DESIRED_COUNT: '0',
       DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+      DISPATCH_REGISTRY_DESIRED_COUNT: '0',
+      DELIVERY_RECORD_DESIRED_COUNT: '0',
+      ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
       FRONT_CPU: '',
       FRONT_MEMORY_MIB: '',
       GATEWAY_CPU: '',
@@ -36,6 +39,12 @@ describe('buildPlatformConfigFromEnv', () => {
       VEHICLE_ASSET_MEMORY_MIB: '',
       DRIVER_VEHICLE_ASSIGNMENT_CPU: '',
       DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB: '',
+      DISPATCH_REGISTRY_CPU: '',
+      DISPATCH_REGISTRY_MEMORY_MIB: '',
+      DELIVERY_RECORD_CPU: '',
+      DELIVERY_RECORD_MEMORY_MIB: '',
+      ATTENDANCE_REGISTRY_CPU: '',
+      ATTENDANCE_REGISTRY_MEMORY_MIB: '',
       FRONT_HEALTH_CHECK_PATH: '',
       GATEWAY_HEALTH_CHECK_PATH: '',
       ACCOUNT_ACCESS_HEALTH_CHECK_PATH: '',
@@ -44,6 +53,9 @@ describe('buildPlatformConfigFromEnv', () => {
       PERSONNEL_DOCUMENT_HEALTH_CHECK_PATH: '',
       VEHICLE_ASSET_HEALTH_CHECK_PATH: '',
       DRIVER_VEHICLE_ASSIGNMENT_HEALTH_CHECK_PATH: '',
+      DISPATCH_REGISTRY_HEALTH_CHECK_PATH: '',
+      DELIVERY_RECORD_HEALTH_CHECK_PATH: '',
+      ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH: '',
       FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
       GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
       ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
@@ -53,7 +65,13 @@ describe('buildPlatformConfigFromEnv', () => {
         '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
       VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
       DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test'
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+      DISPATCH_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+      DELIVERY_RECORD_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+      ATTENDANCE_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test'
     });
 
     expect(config.serviceConnectNamespace).toBe('ev-dashboard.internal');
@@ -71,6 +89,9 @@ describe('buildPlatformConfigFromEnv', () => {
     expect(config.personnelDocumentHealthCheckPath).toBe('/health/');
     expect(config.vehicleAssetHealthCheckPath).toBe('/health/');
     expect(config.driverVehicleAssignmentHealthCheckPath).toBe('/health/');
+    expect(config.dispatchRegistryHealthCheckPath).toBe('/health/');
+    expect(config.deliveryRecordHealthCheckPath).toBe('/health/');
+    expect(config.attendanceRegistryHealthCheckPath).toBe('/health/');
   });
 
   test('requires private subnets when account-access is enabled', () => {
@@ -87,6 +108,13 @@ describe('buildPlatformConfigFromEnv', () => {
         GATEWAY_DESIRED_COUNT: '1',
         ACCOUNT_ACCESS_DESIRED_COUNT: '1',
         ORGANIZATION_DESIRED_COUNT: '0',
+        DRIVER_PROFILE_DESIRED_COUNT: '0',
+        PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
+        VEHICLE_ASSET_DESIRED_COUNT: '0',
+        DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '0',
+        DELIVERY_RECORD_DESIRED_COUNT: '0',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
         FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
         GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
         ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
@@ -96,7 +124,13 @@ describe('buildPlatformConfigFromEnv', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
         VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
         DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test'
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+        DISPATCH_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+        DELIVERY_RECORD_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+        ATTENDANCE_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -119,6 +153,9 @@ describe('buildPlatformConfigFromEnv', () => {
         PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
         VEHICLE_ASSET_DESIRED_COUNT: '0',
         DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '0',
+        DELIVERY_RECORD_DESIRED_COUNT: '0',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
         FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
         GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
         ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
@@ -128,7 +165,13 @@ describe('buildPlatformConfigFromEnv', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
         VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
         DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test'
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+        DISPATCH_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+        DELIVERY_RECORD_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+        ATTENDANCE_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
@@ -151,6 +194,9 @@ describe('buildPlatformConfigFromEnv', () => {
         PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
         VEHICLE_ASSET_DESIRED_COUNT: '0',
         DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '0',
+        DELIVERY_RECORD_DESIRED_COUNT: '0',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
         FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
         GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
         ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
@@ -160,7 +206,54 @@ describe('buildPlatformConfigFromEnv', () => {
           '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
         VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
         DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
-          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test'
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+        DISPATCH_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+        DELIVERY_RECORD_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+        ATTENDANCE_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test'
+      })
+    ).toThrow('PRIVATE_SUBNET_IDS');
+  });
+
+  test('requires private subnets when dispatch inputs slice is enabled', () => {
+    expect(() =>
+      buildPlatformConfigFromEnv({
+        AWS_REGION: 'ap-northeast-2',
+        HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+        HOSTED_ZONE_NAME: 'ev-dashboard.com',
+        APEX_DOMAIN: 'next.ev-dashboard.com',
+        API_DOMAIN: 'api.next.ev-dashboard.com',
+        VPC_ID: 'vpc-015c89247f96e9221',
+        PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+        FRONT_DESIRED_COUNT: '1',
+        GATEWAY_DESIRED_COUNT: '1',
+        ACCOUNT_ACCESS_DESIRED_COUNT: '0',
+        ORGANIZATION_DESIRED_COUNT: '0',
+        DRIVER_PROFILE_DESIRED_COUNT: '0',
+        PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
+        VEHICLE_ASSET_DESIRED_COUNT: '0',
+        DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '1',
+        DELIVERY_RECORD_DESIRED_COUNT: '0',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
+        FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+        GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+        ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
+        ORGANIZATION_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:test',
+        DRIVER_PROFILE_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test',
+        PERSONNEL_DOCUMENT_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
+        VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
+        DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+        DISPATCH_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+        DELIVERY_RECORD_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+        ATTENDANCE_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test'
       })
     ).toThrow('PRIVATE_SUBNET_IDS');
   });

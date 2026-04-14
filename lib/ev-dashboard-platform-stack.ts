@@ -155,13 +155,25 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     let driverVehicleAssignmentEnvironment: Record<string, string> | undefined;
     let driverVehicleAssignmentSecrets: Record<string, ecs.Secret> | undefined;
     let driverVehicleAssignmentDependencies: Construct[] = [];
+    let dispatchRegistryEnvironment: Record<string, string> | undefined;
+    let dispatchRegistrySecrets: Record<string, ecs.Secret> | undefined;
+    let dispatchRegistryDependencies: Construct[] = [];
+    let deliveryRecordEnvironment: Record<string, string> | undefined;
+    let deliveryRecordSecrets: Record<string, ecs.Secret> | undefined;
+    let deliveryRecordDependencies: Construct[] = [];
+    let attendanceRegistryEnvironment: Record<string, string> | undefined;
+    let attendanceRegistrySecrets: Record<string, ecs.Secret> | undefined;
+    let attendanceRegistryDependencies: Construct[] = [];
     const platformJwtSecretKey =
       config.accountAccessDesiredCount > 0 ||
       config.organizationDesiredCount > 0 ||
       config.driverProfileDesiredCount > 0 ||
       config.personnelDocumentDesiredCount > 0 ||
       config.vehicleAssetDesiredCount > 0 ||
-      config.driverVehicleAssignmentDesiredCount > 0
+      config.driverVehicleAssignmentDesiredCount > 0 ||
+      config.dispatchRegistryDesiredCount > 0 ||
+      config.deliveryRecordDesiredCount > 0 ||
+      config.attendanceRegistryDesiredCount > 0
         ? new secretsmanager.Secret(this, 'PlatformJwtSecretKey', {
             generateSecretString: {
               passwordLength: 64,
@@ -370,6 +382,101 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       driverVehicleAssignmentDependencies = [driverVehicleAssignmentDatabase];
     }
 
+    if (config.attendanceRegistryDesiredCount > 0) {
+      const attendanceRegistryDatabase = this.createPostgresDatabaseInstance('AttendanceRegistryDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'attendance_registry',
+        databaseName: 'attendance_registry'
+      });
+      const attendanceRegistryDatabaseSecret = attendanceRegistryDatabase.secret;
+      if (!attendanceRegistryDatabaseSecret) {
+        throw new Error('Attendance registry database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('AttendanceRegistryDjangoSecretKey');
+      attendanceRegistryEnvironment = {
+        POSTGRES_HOST: attendanceRegistryDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: attendanceRegistryDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'attendance_registry',
+        DJANGO_ALLOWED_HOSTS: 'attendance-registry-api,localhost,127.0.0.1'
+      };
+      attendanceRegistrySecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(attendanceRegistryDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(attendanceRegistryDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      attendanceRegistryDependencies = [attendanceRegistryDatabase];
+    }
+
+    if (config.dispatchRegistryDesiredCount > 0) {
+      const dispatchRegistryDatabase = this.createPostgresDatabaseInstance('DispatchRegistryDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'dispatch_registry',
+        databaseName: 'dispatch_registry'
+      });
+      const dispatchRegistryDatabaseSecret = dispatchRegistryDatabase.secret;
+      if (!dispatchRegistryDatabaseSecret) {
+        throw new Error('Dispatch registry database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('DispatchRegistryDjangoSecretKey');
+      dispatchRegistryEnvironment = {
+        POSTGRES_HOST: dispatchRegistryDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: dispatchRegistryDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'dispatch_registry',
+        VEHICLE_REGISTRY_BASE_URL: 'http://vehicle-asset-api:8000',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+        DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+        ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'dispatch-registry-api,localhost,127.0.0.1'
+      };
+      dispatchRegistrySecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(dispatchRegistryDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(dispatchRegistryDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      dispatchRegistryDependencies = [dispatchRegistryDatabase];
+    }
+
+    if (config.deliveryRecordDesiredCount > 0) {
+      const deliveryRecordDatabase = this.createPostgresDatabaseInstance('DeliveryRecordDatabase', {
+        vpc,
+        privateSubnets,
+        dataSecurityGroup,
+        username: 'delivery_record',
+        databaseName: 'delivery_record'
+      });
+      const deliveryRecordDatabaseSecret = deliveryRecordDatabase.secret;
+      if (!deliveryRecordDatabaseSecret) {
+        throw new Error('Delivery record database secret was not created');
+      }
+
+      const djangoSecretKey = this.createGeneratedSecret('DeliveryRecordDjangoSecretKey');
+      deliveryRecordEnvironment = {
+        POSTGRES_HOST: deliveryRecordDatabase.dbInstanceEndpointAddress,
+        POSTGRES_PORT: deliveryRecordDatabase.dbInstanceEndpointPort,
+        POSTGRES_DB: 'delivery_record',
+        ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+        DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
+        ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
+        DJANGO_ALLOWED_HOSTS: 'delivery-record-api,localhost,127.0.0.1'
+      };
+      deliveryRecordSecrets = {
+        POSTGRES_USER: ecs.Secret.fromSecretsManager(deliveryRecordDatabaseSecret, 'username'),
+        POSTGRES_PASSWORD: ecs.Secret.fromSecretsManager(deliveryRecordDatabaseSecret, 'password'),
+        DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
+        JWT_SECRET_KEY: ecs.Secret.fromSecretsManager(platformJwtSecretKey!)
+      };
+      deliveryRecordDependencies = [deliveryRecordDatabase];
+    }
+
     const accountAccessService = this.createFargateService('ServiceAccountAccess', {
       cluster,
       imageUri: config.accountAccessImageUri,
@@ -503,6 +610,75 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     }
     if (config.driverVehicleAssignmentDesiredCount > 0) {
       gatewayService.node.addDependency(driverVehicleAssignmentService);
+    }
+
+    const attendanceRegistryService = this.createFargateService('ServiceAttendanceRegistry', {
+      cluster,
+      imageUri: config.attendanceRegistryImageUri,
+      cpu: config.attendanceRegistryCpu,
+      memoryMiB: config.attendanceRegistryMemoryMiB,
+      desiredCount: config.attendanceRegistryDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'attendance-registry-http',
+      serviceName: 'service-attendance-registry',
+      serviceConnectDnsName: 'attendance-registry-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: attendanceRegistryEnvironment,
+      secrets: attendanceRegistrySecrets
+    });
+    attendanceRegistryDependencies.forEach((dependency) => attendanceRegistryService.node.addDependency(dependency));
+    if (config.attendanceRegistryDesiredCount > 0) {
+      gatewayService.node.addDependency(attendanceRegistryService);
+    }
+
+    const dispatchRegistryService = this.createFargateService('ServiceDispatchRegistry', {
+      cluster,
+      imageUri: config.dispatchRegistryImageUri,
+      cpu: config.dispatchRegistryCpu,
+      memoryMiB: config.dispatchRegistryMemoryMiB,
+      desiredCount: config.dispatchRegistryDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'dispatch-registry-http',
+      serviceName: 'service-dispatch-registry',
+      serviceConnectDnsName: 'dispatch-registry-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: dispatchRegistryEnvironment,
+      secrets: dispatchRegistrySecrets
+    });
+    dispatchRegistryDependencies.forEach((dependency) => dispatchRegistryService.node.addDependency(dependency));
+    if (config.attendanceRegistryDesiredCount > 0) {
+      dispatchRegistryService.node.addDependency(attendanceRegistryService);
+    }
+    if (config.dispatchRegistryDesiredCount > 0) {
+      gatewayService.node.addDependency(dispatchRegistryService);
+    }
+
+    const deliveryRecordService = this.createFargateService('ServiceDeliveryRecord', {
+      cluster,
+      imageUri: config.deliveryRecordImageUri,
+      cpu: config.deliveryRecordCpu,
+      memoryMiB: config.deliveryRecordMemoryMiB,
+      desiredCount: config.deliveryRecordDesiredCount,
+      containerPort: 8000,
+      portMappingName: 'delivery-record-http',
+      serviceName: 'service-delivery-record',
+      serviceConnectDnsName: 'delivery-record-api',
+      serviceConnectNamespace: config.serviceConnectNamespace,
+      securityGroup: serviceSecurityGroup,
+      subnets: publicSubnets,
+      environment: deliveryRecordEnvironment,
+      secrets: deliveryRecordSecrets
+    });
+    deliveryRecordDependencies.forEach((dependency) => deliveryRecordService.node.addDependency(dependency));
+    if (config.attendanceRegistryDesiredCount > 0) {
+      deliveryRecordService.node.addDependency(attendanceRegistryService);
+    }
+    if (config.deliveryRecordDesiredCount > 0) {
+      gatewayService.node.addDependency(deliveryRecordService);
     }
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
