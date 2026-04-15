@@ -1,4 +1,4 @@
-name: Deploy ev-dashboard ECS platform
+name: Deploy ev-dashboard runtime platform
 
 on:
   workflow_dispatch:
@@ -24,6 +24,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     env:
       DEPLOY_ENVIRONMENT: ${{ github.event.inputs.environment }}
+      RUNTIME_MODE: ec2
       INFRA_ROLE_ARN: ${{ secrets.GH_ACTIONS_INFRA_ROLE_ARN }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
@@ -34,7 +35,11 @@ jobs:
       PUBLIC_SUBNET_IDS: ${{ vars.PUBLIC_SUBNET_IDS }}
       PRIVATE_SUBNET_IDS: ${{ vars.PRIVATE_SUBNET_IDS }}
       AVAILABILITY_ZONES: ${{ vars.AVAILABILITY_ZONES }}
-      SERVICE_CONNECT_NAMESPACE: ${{ vars.SERVICE_CONNECT_NAMESPACE }}
+      APP_HOST_SUBNET_ID: ${{ vars.APP_HOST_SUBNET_ID }}
+      DATA_HOST_SUBNET_ID: ${{ vars.DATA_HOST_SUBNET_ID }}
+      APP_HOST_INSTANCE_TYPE: ${{ vars.APP_HOST_INSTANCE_TYPE }}
+      DATA_HOST_INSTANCE_TYPE: ${{ vars.DATA_HOST_INSTANCE_TYPE }}
+      DATA_VOLUME_SIZE_GIB: ${{ vars.DATA_VOLUME_SIZE_GIB }}
       FRONT_DESIRED_COUNT: ${{ vars.FRONT_DESIRED_COUNT }}
       GATEWAY_DESIRED_COUNT: ${{ vars.GATEWAY_DESIRED_COUNT }}
       ACCOUNT_ACCESS_DESIRED_COUNT: ${{ vars.ACCOUNT_ACCESS_DESIRED_COUNT }}
@@ -193,7 +198,7 @@ jobs:
           role-to-assume: ${{ env.INFRA_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           allowed-account-ids: 902837199612
-          role-session-name: ev-dashboard-ecs-infra-${{ github.run_id }}
+          role-session-name: ev-dashboard-runtime-infra-${{ github.run_id }}
           mask-aws-account-id: true
           unset-current-credentials: true
           retry-max-attempts: 4
@@ -214,11 +219,10 @@ jobs:
           ## Deploy operator loop
 
           - Preflight, unit tests, and synth already passed in this run.
-          - Typical prod hotfix deploy: about `10-15m`
-          - Typical new backend slice deploy: about `20-30m`
-          - Wait phases: `CloudFormation start -> stateful quiet period -> backend registration -> late gateway rollout -> ALB draining`
-          - `502` before the new ECS service exists usually means `wait`
-          - `502` after the backend exists but `edge-api-gateway` is still rolling usually means `wait, then inspect gateway logs if it stays stuck`
+          - Typical runtime verification deploy: about `10-20m`
+          - Wait phases: `CloudFormation start -> EC2 launch -> user-data/bootstrap -> ALB target healthy -> public smoke`
+          - `502` before the app host is healthy usually means `wait`
+          - `502` after the app host is healthy usually means `check gateway/bootstrap logs before retry`
           - Protected route `401` is often the first honest proof that the route is alive
           - Post-deploy public smoke runs after `cdk deploy` and fails this job if the public edge still answers incorrectly
           - A deploy is only done when the GitHub run is `success`, the stack is `UPDATE_COMPLETE`, and the public smoke passes

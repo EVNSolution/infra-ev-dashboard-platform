@@ -146,3 +146,13 @@ Deploy docs have to behave like an operator loop, not a history log. If a produc
 Keep the timing baseline, wait signals, and stop-versus-debug rules in that runbook path, not only in retrospective lessons.
 
 `cdk deploy` success is not enough for this repo. The same workflow has to run a post-deploy public smoke step and fail if the public edge still answers with the wrong status. Otherwise the operator is forced back into manual curl checks and the deploy loop becomes slow again.
+
+## GitHub Variable Scope Can Block A Runtime Switch Before CloudFormation Starts
+
+The first EC2 runtime rehearsal proved that repo-scope deploy vars and environment-scope deploy vars are different operational state, not interchangeable documentation. `AWS_REGION`, hosted zone, VPC, and subnet list values were present at repo scope, but the new `APP_HOST_SUBNET_ID` and `DATA_HOST_SUBNET_ID` keys were missing in both `dev` and `prod` environment scopes. Because the workflow now exports those keys directly into the deploy job, preflight fails before CloudFormation starts if the selected environment does not provide them.
+
+For future runtime-mode changes:
+
+- check repo-scope vars and environment-scope vars separately
+- treat new required host-placement keys as rollout prerequisites
+- record whether a key is expected to be repo-global or environment-specific before editing the workflow

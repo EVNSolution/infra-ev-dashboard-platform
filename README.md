@@ -1,16 +1,18 @@
 # infra-ev-dashboard-platform
 
-ECS/CDK runtime infrastructure for `ev-dashboard.com`.
+CDK runtime infrastructure for `ev-dashboard.com`.
 
 ## Ownership
 
-This repo owns the shared ECS/CDK runtime for the `ev-dashboard` slice:
+This repo owns the shared CDK runtime for the `ev-dashboard` slice:
 
 - ALB
 - ACM certificate issuance
 - Route53 alias records
-- ECS cluster and services
-- Service Connect namespace
+- EC2 app host
+- EC2 data host
+- EBS-backed data volume
+- runtime image-map parameter
 - deploy workflow
 
 It does not own app code. Application source and image builds stay in:
@@ -91,6 +93,7 @@ npm run smoke:postdeploy
 - a required deploy env value is missing
 - a mutable image tag such as `:latest` is used
 - the selected environment and domains do not match
+- `RUNTIME_MODE=ec2` is missing app/data host subnet inputs
 - a later backend slice is enabled without the earlier slices it depends on
 - `edge-api-gateway` is disabled while API slices are still enabled
 
@@ -100,6 +103,7 @@ The command also prints the expected deploy wait signals so operators do not ove
 
 Repository or environment variables:
 
+- `RUNTIME_MODE`
 - `AWS_REGION`
 - `HOSTED_ZONE_ID`
 - `HOSTED_ZONE_NAME`
@@ -133,9 +137,13 @@ Repository or environment variables:
 - `TELEMETRY_LISTENER_IMAGE_URI`
 - `VPC_ID`
 - `PUBLIC_SUBNET_IDS`
+- `APP_HOST_SUBNET_ID`
+- `DATA_HOST_SUBNET_ID`
 - optional: `PRIVATE_SUBNET_IDS`
 - optional: `AVAILABILITY_ZONES`
-- optional: `SERVICE_CONNECT_NAMESPACE`
+- optional: `APP_HOST_INSTANCE_TYPE`
+- optional: `DATA_HOST_INSTANCE_TYPE`
+- optional: `DATA_VOLUME_SIZE_GIB`
 - optional: `FRONT_DESIRED_COUNT`
 - optional: `GATEWAY_DESIRED_COUNT`
 - optional: `ACCOUNT_ACCESS_DESIRED_COUNT`
@@ -229,39 +237,23 @@ Repository secrets:
 
 The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates. The actual CDK deploy runs with the shared infra role because the existing `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles remain EC2/SSM deploy roles for `clever-deploy-control`.
 
-When any backend slice desired count is greater than `0`, `PRIVATE_SUBNET_IDS` becomes required. The stack uses those subnets for the dedicated service databases and Redis.
+For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID` and `DATA_HOST_SUBNET_ID` are required. `PRIVATE_SUBNET_IDS` is still used for imported network metadata and should stay aligned with the app/data host private lanes.
+
+GitHub variable scope matters for the EC2 runtime cutover. The shared network values in this repo currently live at repo scope, but the new host-placement keys (`APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`) may need environment-specific values. If those keys are absent from the selected GitHub Environment, the workflow still starts but preflight fails before deploy.
 
 ## Runtime Notes
 
 - The stack issues its own ACM certificate from the hosted zone instead of importing a pre-created `CERTIFICATE_ARN`.
-- The front service listens on `5174`, matching the existing container contract.
-- The ALB routes `ev-dashboard.com/api/*` to `edge-api-gateway` so the front can keep same-host `/api` calls.
-- When the auth slice is enabled, the stack creates dedicated private PostgreSQL 16 and Redis resources for `service-account-access` and injects the required runtime env/secrets into the task definition.
-- When the company-governance slice is enabled, the stack creates a dedicated private PostgreSQL 16 instance for `service-organization-registry` and injects the same shared `JWT_SECRET_KEY` used by `service-account-access`.
-- When the people-and-assets slice is enabled, the stack creates dedicated private PostgreSQL 16 instances for:
-  - `service-driver-profile`
-  - `service-personnel-document-registry`
-  - `service-vehicle-registry`
-  - `service-vehicle-assignment`
-- `service-personnel-document-registry` receives `DRIVER_PROFILE_BASE_URL=http://driver-profile-api:8000`.
-- `service-vehicle-assignment` receives:
-  - `DRIVER_PROFILE_BASE_URL=http://driver-profile-api:8000`
-  - `VEHICLE_ASSET_BASE_URL=http://vehicle-asset-api:8000`
-- When the dispatch-inputs slice is enabled, the stack creates dedicated private PostgreSQL 16 instances for:
-  - `service-dispatch-registry`
-  - `service-delivery-record`
-  - `service-attendance-registry`
-- `service-dispatch-registry` receives:
-  - `VEHICLE_REGISTRY_BASE_URL=http://vehicle-asset-api:8000`
-  - `DRIVER_PROFILE_BASE_URL=http://driver-profile-api:8000`
-  - `DELIVERY_RECORD_BASE_URL=http://delivery-record-api:8000`
-  - `ATTENDANCE_REGISTRY_BASE_URL=http://attendance-registry-api:8000`
-- `service-delivery-record` receives:
-  - `ORGANIZATION_MASTER_BASE_URL=http://organization-master-api:8000`
-  - `DRIVER_PROFILE_BASE_URL=http://driver-profile-api:8000`
-  - `DISPATCH_REGISTRY_BASE_URL=http://dispatch-registry-api:8000`
-  - `ATTENDANCE_REGISTRY_BASE_URL=http://attendance-registry-api:8000`
-- ECS Service Connect provides the short names that `edge-api-gateway` already expects:
+- The app host runs image-backed containers pulled from immutable ECR SHA tags.
+- The data host owns PostgreSQL and Redis on EBS-backed storage.
+- The ALB still routes `ev-dashboard.com/api/*` and `api.ev-dashboard.com/*` to the same edge entry on the app host so the front can keep same-host `/api` calls.
+- The runtime image map is stored in SSM and consumed by the app-host bootstrap.
+- The runtime is no longer modeled as ECS services, Service Connect, dedicated RDS instances, or ElastiCache clusters in canonical mode.
+- Frontend and gateway container contracts stay the same:
+  - `front-web-console` serves on `5174`
+  - `edge-api-gateway` serves on `8080`
+  - backend services still expect the same internal upstream names and ports
+- Host-level bootstrap must preserve the same internal names that `edge-api-gateway` already expects:
   - `web-console:5174`
   - `account-auth-api:8000`
   - `organization-master-api:8000`
@@ -276,25 +268,16 @@ When any backend slice desired count is greater than `0`, `PRIVATE_SUBNET_IDS` b
   - `region-analytics-api:8000`
   - `announcement-registry-api:8000`
   - `support-registry-api:8000`
-- `notification-hub-api:8000`
-- `terminal-registry-api:8000`
-- `telemetry-hub-api:8000`
-- `telemetry-dead-letter-api:8000`
-- When the support-surface slice is enabled, the stack creates dedicated private PostgreSQL 16 instances for:
-  - `service-region-registry`
-  - `service-region-analytics`
-  - `service-announcement-registry`
-  - `service-support-registry`
-  - `service-notification-hub`
-- `service-support-registry` receives:
+  - `notification-hub-api:8000`
+  - `terminal-registry-api:8000`
+  - `telemetry-hub-api:8000`
+  - `telemetry-dead-letter-api:8000`
+- Host bootstrap is responsible for wiring any cross-service base URLs such as:
+  - `DRIVER_PROFILE_BASE_URL=http://driver-profile-api:8000`
+  - `DISPATCH_REGISTRY_BASE_URL=http://dispatch-registry-api:8000`
+  - `ATTENDANCE_REGISTRY_BASE_URL=http://attendance-registry-api:8000`
   - `NOTIFICATION_HUB_BASE_URL=http://notification-hub-api:8000`
-- When the terminal-and-telemetry slice is enabled, the stack creates dedicated private PostgreSQL 16 instances for:
-  - `service-terminal-registry`
-  - `service-telemetry-hub`
-  - `service-telemetry-dead-letter`
-- `service-terminal-registry` receives:
   - `VEHICLE_REGISTRY_BASE_URL=http://vehicle-asset-api:8000`
-- `service-telemetry-listener` runs as an internal worker service without an ALB target group and receives:
   - `TELEMETRY_HUB_BASE_URL=http://telemetry-hub-api:8000`
   - `TELEMETRY_DEAD_LETTER_BASE_URL=http://telemetry-dead-letter-api:8000`
   - `TELEMETRY_DEAD_LETTER_SOURCE_SERVICE=service-telemetry-listener`
