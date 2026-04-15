@@ -25,6 +25,8 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).toContain('unzip -o /tmp/ev-dashboard-bootstrap.zip -d /opt/ev-dashboard/bootstrap');
     expect(script).not.toContain('/opt/ev-dashboard/manifests/app-services.json');
     expect(script).toContain('python3 /opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py reconcile-app');
+    expect(script).toContain('systemctl enable ev-dashboard-app-reconcile.service');
+    expect(script).not.toContain('ev-dashboard-app-reconcile.timer');
     expect(script.length).toBeLessThan(16384);
     expect(script).not.toContain('docker run -d --name web-console');
     expect(script).not.toContain('docker run -d --name account-auth-api');

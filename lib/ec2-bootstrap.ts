@@ -87,20 +87,8 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     '[Install]',
     'WantedBy=multi-user.target',
     'EOF',
-    "cat <<'EOF' > /etc/systemd/system/ev-dashboard-app-reconcile.timer",
-    '[Unit]',
-    'Description=Periodic reconcile for ev-dashboard app containers',
-    '',
-    '[Timer]',
-    'OnBootSec=30sec',
-    'OnUnitActiveSec=2min',
-    'Unit=ev-dashboard-app-reconcile.service',
-    '',
-    '[Install]',
-    'WantedBy=timers.target',
-    'EOF',
     'systemctl daemon-reload',
-    'systemctl enable --now ev-dashboard-app-reconcile.timer',
+    'systemctl enable ev-dashboard-app-reconcile.service',
     'systemctl start ev-dashboard-app-reconcile.service'
   ];
 }

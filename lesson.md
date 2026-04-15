@@ -303,3 +303,9 @@ Full-fleet EC2 bring-up needs a different host class than `bootstrap-proof`. The
 - keep the implicit `t3.small` default for `bootstrap-proof` only
 - make `RUN_PROFILE=full` reject t-family burstable app hosts when later slices are enabled
 - use an explicit non-burstable x86 proof host such as `m6i.2xlarge` for temporary full-fleet validation, then return the lane to the cheaper bootstrap-proof shape after success
+
+Periodic full reconcile is the wrong app-host steady state. The first `m6i.2xlarge` full-fleet proof showed that later slices could all come up, but the `ev-dashboard-app-reconcile.timer` kept re-running `reconcile-app`, which deletes and recreates every container in sequence. That made `edge-api-gateway` restart against half-present upstream names and reintroduced live `502` after the workflow had already gone green. For this repo:
+
+- keep `reconcile-app` as a boot/deploy oneshot
+- do not run a periodic timer that tears down the full fleet on a live host
+- rely on `runtimeFingerprint` plus `userDataCausesReplacement` to pick up manifest/image changes through host replacement instead of in-place churn

@@ -292,6 +292,7 @@ GitHub variable scope matters for the EC2 runtime cutover. The shared network va
 - EC2 bootstrap changes only matter if the instances actually pick them up. In this repo that means app/data hosts must use `userDataCausesReplacement`, otherwise a successful stack update can still leave the old reconcile script and data bootstrap running on the existing instances.
 - The ALB still routes `ev-dashboard.com/api/*` and `api.ev-dashboard.com/*` to the same edge entry on the app host so the front can keep same-host `/api` calls.
 - The runtime image map is stored in SSM and consumed by the app-host bootstrap.
+- App-host reconcile is boot/deploy scoped, not periodic. `userDataCausesReplacement` plus `runtimeFingerprint` already force host replacement when the manifest changes, so a timer that re-runs full reconcile on a live host only creates avoidable gateway churn.
 - The post-deploy smoke step is allowed to poll for host readiness because CloudFormation can finish before a fresh EC2 app host completes `cloud-init`, Docker install, and the first reconcile loop.
 - The runtime is no longer modeled as ECS services, Service Connect, dedicated RDS instances, or ElastiCache clusters in canonical mode.
 - Frontend and gateway container contracts stay the same:
