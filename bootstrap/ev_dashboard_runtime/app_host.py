@@ -4,7 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from ev_dashboard_runtime.common import optional_env, require_env, run, run_output, write_text
+from ev_dashboard_runtime.common import require_env, run, run_output, write_text
 
 BASE_DIR = Path("/opt/ev-dashboard")
 RUNTIME_IMAGES_PATH = BASE_DIR / "runtime-images.json"
@@ -18,6 +18,7 @@ def verify_app() -> int:
 def reconcile_app() -> int:
     region = require_env("AWS_REGION")
     image_map_param = require_env("IMAGE_MAP_PARAM")
+    service_manifest_path = Path(require_env("SERVICE_MANIFEST_PATH"))
 
     image_map_json = run_output(
         [
@@ -38,7 +39,7 @@ def reconcile_app() -> int:
     write_text(RUNTIME_IMAGES_PATH, f"{image_map_json}\n")
     image_map = json.loads(image_map_json)
 
-    services = _load_runtime_services(region=region, image_map=image_map)
+    services = _load_runtime_services(region=region, image_map=image_map, service_manifest_path=service_manifest_path)
     registries = sorted({service["image"].split("/", 1)[0] for service in services})
     secret_cache: dict[str, str] = {}
 
@@ -82,30 +83,38 @@ def reconcile_app() -> int:
     return 0
 
 
-def _load_runtime_services(*, region: str, image_map: dict[str, str]) -> list[dict[str, object]]:
-    service_ids = [service_id.strip() for service_id in require_env("APP_SERVICE_IDS").split(",") if service_id.strip()]
+def _load_runtime_services(
+    *, region: str, image_map: dict[str, str], service_manifest_path: Path
+) -> list[dict[str, object]]:
+    service_definitions = json.loads(service_manifest_path.read_text(encoding="utf-8"))
     services: list[dict[str, object]] = []
 
-    for service_id in service_ids:
-        prefix = f"SERVICE_{service_id}"
-        if optional_env(f"{prefix}_ENABLED") != "1":
+    for service_definition in service_definitions:
+        if not service_definition.get("enabled", False):
             continue
 
-        image_map_key = require_env(f"{prefix}_IMAGE_MAP_KEY")
+        service_id = str(service_definition["id"])
+        image_map_key = str(service_definition["imageMapKey"])
         image = image_map.get(image_map_key)
         if not image:
             raise RuntimeError(f"{image_map_key} image is missing from the runtime image map")
 
-        environment = _load_prefixed_values(prefix=prefix, kind="ENV")
-        secrets = _load_prefixed_values(prefix=prefix, kind="SECRET")
+        environment = {
+            str(key): str(value)
+            for key, value in (service_definition.get("environment", {}) or {}).items()
+        }
+        secrets = {
+            str(key): str(value)
+            for key, value in (service_definition.get("secretArns", {}) or {}).items()
+        }
         services.append(
             {
                 "id": service_id,
                 "region": region,
                 "image": image,
-                "container_name": require_env(f"{prefix}_CONTAINER_NAME"),
-                "container_port": _parse_optional_int(optional_env(f"{prefix}_CONTAINER_PORT")),
-                "host_port": _parse_optional_int(optional_env(f"{prefix}_HOST_PORT")),
+                "container_name": str(service_definition["containerName"]),
+                "container_port": _parse_optional_int(service_definition.get("containerPort")),
+                "host_port": _parse_optional_int(service_definition.get("hostPort")),
                 "environment": environment,
                 "secret_arns": secrets,
             }
@@ -113,19 +122,8 @@ def _load_runtime_services(*, region: str, image_map: dict[str, str]) -> list[di
 
     return services
 
-
-def _load_prefixed_values(*, prefix: str, kind: str) -> dict[str, str]:
-    keys = [key.strip() for key in optional_env(f"{prefix}_{kind}_KEYS").split(",") if key.strip()]
-    values: dict[str, str] = {}
-
-    for key in keys:
-        values[key] = require_env(f"{prefix}_{kind}_{key}")
-
-    return values
-
-
-def _parse_optional_int(value: str) -> int | None:
-    if not value:
+def _parse_optional_int(value: object) -> int | None:
+    if value in ("", None):
         return None
     return int(value)
 

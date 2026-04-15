@@ -1,7 +1,7 @@
 import { aws_ec2 as ec2, aws_iam as iam } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
-import { AppHostRuntimeService, renderAppHostBootstrap } from './ec2-bootstrap';
+import { renderAppHostBootstrap } from './ec2-bootstrap';
 
 export type Ec2AppHostProps = {
   vpc: ec2.IVpc;
@@ -12,7 +12,8 @@ export type Ec2AppHostProps = {
   region: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
-  services: AppHostRuntimeService[];
+  serviceManifestBucketName: string;
+  serviceManifestObjectKey: string;
   instanceName?: string;
 };
 
@@ -59,7 +60,8 @@ export class Ec2AppHost extends Construct {
         imageMapSsmParam: props.imageMapSsmParam,
         bootstrapPackageBucketName: props.bootstrapPackageBucketName,
         bootstrapPackageObjectKey: props.bootstrapPackageObjectKey,
-        services: props.services
+        serviceManifestBucketName: props.serviceManifestBucketName,
+        serviceManifestObjectKey: props.serviceManifestObjectKey
       })
     );
 
