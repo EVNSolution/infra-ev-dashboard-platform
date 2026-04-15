@@ -18,7 +18,7 @@ def verify_app() -> int:
 def reconcile_app() -> int:
     region = require_env("AWS_REGION")
     image_map_param = require_env("IMAGE_MAP_PARAM")
-    service_manifest_secret_arn = require_env("SERVICE_MANIFEST_SECRET_ARN")
+    service_manifest_path = Path(require_env("SERVICE_MANIFEST_PATH"))
 
     image_map_json = run_output(
         [
@@ -39,10 +39,9 @@ def reconcile_app() -> int:
     write_text(RUNTIME_IMAGES_PATH, f"{image_map_json}\n")
     image_map = json.loads(image_map_json)
 
-    service_manifest_json = _resolve_secret(secret_arn=service_manifest_secret_arn, region=region, cache={})
-    services = _load_runtime_services(region=region, image_map=image_map, service_manifest_json=service_manifest_json)
+    services = _load_runtime_services(region=region, image_map=image_map, service_manifest_path=service_manifest_path)
     registries = sorted({service["image"].split("/", 1)[0] for service in services})
-    secret_cache: dict[str, str] = {service_manifest_secret_arn: service_manifest_json}
+    secret_cache: dict[str, str] = {}
 
     for registry in registries:
         password = run_output(["aws", "ecr", "get-login-password", "--region", region])
@@ -85,9 +84,9 @@ def reconcile_app() -> int:
 
 
 def _load_runtime_services(
-    *, region: str, image_map: dict[str, str], service_manifest_json: str
+    *, region: str, image_map: dict[str, str], service_manifest_path: Path
 ) -> list[dict[str, object]]:
-    service_definitions = json.loads(service_manifest_json)
+    service_definitions = json.loads(service_manifest_path.read_text(encoding="utf-8"))
     services: list[dict[str, object]] = []
 
     for service_definition in service_definitions:
@@ -104,9 +103,10 @@ def _load_runtime_services(
             str(key): str(value)
             for key, value in (service_definition.get("environment", {}) or {}).items()
         }
+        secret_keys = [str(value) for value in service_definition.get("secretKeys", [])]
         secrets = {
-            str(key): str(value)
-            for key, value in (service_definition.get("secretArns", {}) or {}).items()
+            key: require_env(f"SERVICE_{service_id}_SECRET_{key}")
+            for key in secret_keys
         }
         services.append(
             {

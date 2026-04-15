@@ -7,7 +7,9 @@ export type AppHostBootstrapProps = {
   imageMapSsmParam: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
-  serviceManifestSecretArn: string;
+  serviceManifestBucketName: string;
+  serviceManifestObjectKey: string;
+  services: AppHostRuntimeService[];
 };
 
 export type AppHostRuntimeService = {
@@ -43,18 +45,20 @@ const BOOTSTRAP_ROOT = '/opt/ev-dashboard/bootstrap';
 const PYTHON_CLI_PATH = `${BOOTSTRAP_ROOT}/ev_dashboard_runtime/cli.py`;
 const APP_RECONCILE_UNIT_PATH = '/etc/systemd/system/ev-dashboard-app-reconcile.service';
 const DATA_BOOTSTRAP_UNIT_PATH = '/etc/systemd/system/ev-dashboard-data-bootstrap.service';
+const APP_SERVICE_MANIFEST_PATH = '/opt/ev-dashboard/manifests/app-services.json';
 
 export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
   return [
     'set -euxo pipefail',
     'dnf install -y docker jq python3 unzip',
     'systemctl enable --now docker',
-    'mkdir -p /opt/ev-dashboard /etc/systemd/system',
+    'mkdir -p /opt/ev-dashboard /opt/ev-dashboard/manifests /etc/systemd/system',
     ...renderBootstrapPackageFetchCommands(
       BOOTSTRAP_ROOT,
       props.bootstrapPackageBucketName,
       props.bootstrapPackageObjectKey
     ),
+    renderS3CopyCommand(props.serviceManifestBucketName, props.serviceManifestObjectKey, APP_SERVICE_MANIFEST_PATH),
     `cat <<'EOF' > ${APP_RECONCILE_UNIT_PATH}`,
     '[Unit]',
     'Description=Reconcile ev-dashboard app containers from runtime image map',
@@ -67,12 +71,8 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     'EOF',
     appendTokenizedEnvironmentLine(APP_RECONCILE_UNIT_PATH, 'IMAGE_MAP_PARAM', 'ImageMapParam', props.imageMapSsmParam),
     `printf '%s\n' 'Environment=AWS_REGION=${props.region}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'SERVICE_MANIFEST_SECRET_ARN',
-      'ServiceManifestSecretArn',
-      props.serviceManifestSecretArn
-    ),
+    `printf '%s\n' 'Environment=SERVICE_MANIFEST_PATH=${APP_SERVICE_MANIFEST_PATH}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    ...renderAppServiceSecretEnvironmentUnitLines(props.services),
     `cat <<'EOF' >> ${APP_RECONCILE_UNIT_PATH}`,
     `ExecStart=/usr/bin/python3 ${PYTHON_CLI_PATH} reconcile-app`,
     '',
@@ -95,6 +95,29 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     'systemctl enable --now ev-dashboard-app-reconcile.timer',
     'systemctl start ev-dashboard-app-reconcile.service'
   ];
+}
+
+function renderAppServiceSecretEnvironmentUnitLines(services: AppHostRuntimeService[]): string[] {
+  return services.flatMap((service) => {
+    const prefix = `SERVICE_${service.id}`;
+    const secretKeys = Object.keys(service.secretArns ?? {});
+
+    if (secretKeys.length === 0) {
+      return [];
+    }
+
+    return [
+      `printf '%s\n' 'Environment=${prefix}_SECRET_KEYS=${secretKeys.join(',')}' >> ${APP_RECONCILE_UNIT_PATH}`,
+      ...secretKeys.map((key) =>
+        appendTokenizedEnvironmentLine(
+          APP_RECONCILE_UNIT_PATH,
+          `${prefix}_SECRET_${key}`,
+          `${prefix}Secret${normalizeEnvironmentVariableSegment(key)}`,
+          (service.secretArns ?? {})[key]
+        )
+      )
+    ];
+  });
 }
 
 export function renderDataHostBootstrap(props: DataHostBootstrapProps): string[] {
@@ -163,5 +186,20 @@ function appendTokenizedEnvironmentLine(
 ): string {
   return cdk.Fn.sub(`printf '%s\\n' 'Environment=${envName}=\${${variableName}}' >> ${unitPath}`, {
     [variableName]: value
+  });
+}
+
+function normalizeEnvironmentVariableSegment(value: string): string {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0) + segment.slice(1).toLowerCase())
+    .join('');
+}
+
+function renderS3CopyCommand(bucketName: string, objectKey: string, targetPath: string): string {
+  return cdk.Fn.sub(`aws s3 cp s3://\${BucketName}/\${ObjectKey} ${targetPath}`, {
+    BucketName: bucketName,
+    ObjectKey: objectKey
   });
 }
