@@ -2038,7 +2038,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerName: 'edge-api-gateway',
         enabled: config.gatewayDesiredCount > 0,
         containerPort: 8080,
-        hostPort: 8080
+        hostPort: 8080,
+        environment: {
+          GATEWAY_PROFILE: config.runProfile === 'bootstrap-proof' ? 'bootstrap-proof' : 'full'
+        }
       },
       {
         id: 'DRIVER_PROFILE',
