@@ -21,8 +21,6 @@ export type Ec2DataHostProps = {
 export class Ec2DataHost extends Construct {
   readonly instance: ec2.Instance;
   readonly role: iam.Role;
-  readonly volume: ec2.CfnVolume;
-  readonly volumeAttachment: ec2.CfnVolumeAttachment;
 
   constructor(scope: Construct, id: string, props: Ec2DataHostProps) {
     super(scope, id);
@@ -61,20 +59,17 @@ export class Ec2DataHost extends Construct {
       machineImage: machineImageForInstanceType(props.instanceType),
       role: this.role,
       userData,
+      blockDevices: [
+        {
+          deviceName: '/dev/sdf',
+          volume: ec2.BlockDeviceVolume.ebs(props.dataVolumeSizeGiB, {
+            encrypted: true,
+            volumeType: ec2.EbsDeviceVolumeType.GP3,
+            deleteOnTermination: true
+          })
+        }
+      ],
       userDataCausesReplacement: true
-    });
-
-    this.volume = new ec2.CfnVolume(this, 'DataVolume', {
-      availabilityZone: this.instance.instanceAvailabilityZone,
-      encrypted: true,
-      size: props.dataVolumeSizeGiB,
-      volumeType: 'gp3'
-    });
-
-    this.volumeAttachment = new ec2.CfnVolumeAttachment(this, 'DataVolumeAttachment', {
-      device: '/dev/sdf',
-      instanceId: this.instance.instanceId,
-      volumeId: this.volume.ref
     });
 
     if (props.instanceName) {

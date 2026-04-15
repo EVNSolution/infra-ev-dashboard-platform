@@ -95,5 +95,7 @@ describe('EC2 host bootstrap renderers', () => {
     const source = readFileSync(join(__dirname, '..', 'lib', 'ec2-data-host.ts'), 'utf8');
 
     expect(source).toContain('userDataCausesReplacement: true');
+    expect(source).toContain('blockDevices:');
+    expect(source).not.toContain('CfnVolumeAttachment');
   });
 });

@@ -227,6 +227,8 @@ EC2 runtime fixes are not real until the hosts ingest the new bootstrap. The fir
 
 That rule applies even more strongly to the data host than to the app host. When a slice adds a new Postgres database or role to the data-host bootstrap contract, an in-place update can leave the old instance alive with the old bootstrap state. The symptom looks like an application wiring bug (`password authentication failed` from the new service), but the real fix is to force data-host replacement so the new DB/role bootstrap actually runs.
 
+For the current proof lane, detachable EBS reattachment is the wrong optimization. Switching the data host to `userDataCausesReplacement: true` while keeping a separate `CfnVolumeAttachment` just moved the failure: CloudFormation tried to attach the existing volume to the new instance before the old attachment was gone and rolled back with `AlreadyExists`. In a no-migration proof lane, the honest shape is launch-time block-device EBS on the instance itself so host replacement and storage lifecycle move together.
+
 Once bootstrap moved into a Python package, repeating the full release workflow for every bootstrap bug stopped making sense. The honest fix is not a report-only precheck layer; it is a separate fast deploy profile. For this repo:
 
 Cockpit host support is only half-merged if the stack code changes but the deploy workflow never exports `COCKPIT_HOSTS`. In this repo, domain readiness for company cockpits now means all three layers agree:

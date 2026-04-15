@@ -157,7 +157,7 @@ describe('EvDashboardPlatformStack', () => {
     const template = Template.fromStack(stack);
 
     template.resourceCountIs('AWS::EC2::Instance', 2);
-    template.resourceCountIs('AWS::EC2::Volume', 1);
+    template.resourceCountIs('AWS::EC2::Volume', 0);
     template.resourceCountIs('AWS::ECS::Service', 0);
     template.resourceCountIs('AWS::ECS::Cluster', 0);
     template.resourceCountIs('AWS::RDS::DBInstance', 0);
@@ -212,5 +212,19 @@ describe('EvDashboardPlatformStack', () => {
         expect.stringMatching(/^DataHostInstance4BFB8F49(?:[a-f0-9]{16})?$/)
       ])
     );
+
+    template.hasResourceProperties('AWS::EC2::Instance', {
+      BlockDeviceMappings: Match.arrayWith([
+        Match.objectLike({
+          DeviceName: '/dev/sdf',
+          Ebs: Match.objectLike({
+            DeleteOnTermination: true,
+            Encrypted: true,
+            VolumeSize: 100,
+            VolumeType: 'gp3'
+          })
+        })
+      ])
+    });
   });
 });
