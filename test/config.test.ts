@@ -8,6 +8,7 @@ describe('buildPlatformConfigFromEnv', () => {
       HOSTED_ZONE_NAME: 'ev-dashboard.com',
       APEX_DOMAIN: 'next.ev-dashboard.com',
       API_DOMAIN: 'api.next.ev-dashboard.com',
+      COCKPIT_HOSTS: 'cheonha.ev-dashboard.com,hanbit.ev-dashboard.com',
       VPC_ID: 'vpc-015c89247f96e9221',
       PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
       AVAILABILITY_ZONES: 'ap-northeast-2a,ap-northeast-2c',
@@ -109,6 +110,7 @@ describe('buildPlatformConfigFromEnv', () => {
     });
 
     expect(config.serviceConnectNamespace).toBe('ev-dashboard.internal');
+    expect(config.cockpitHosts).toEqual(['cheonha.ev-dashboard.com', 'hanbit.ev-dashboard.com']);
     expect(config.frontCpu).toBe(256);
     expect(config.frontMemoryMiB).toBe(512);
     expect(config.frontHealthCheckPath).toBe('/healthz');

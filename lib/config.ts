@@ -5,6 +5,7 @@ export type PlatformConfigInput = {
   hostedZoneName: string;
   apexDomain: string;
   apiDomain: string;
+  cockpitHosts?: string[];
   vpcId: string;
   publicSubnetIds: string[];
   privateSubnetIds?: string[];
@@ -160,6 +161,7 @@ export type PlatformConfigInput = {
 
 export type PlatformConfig = PlatformConfigInput & {
   runtimeMode: 'ecs' | 'ec2';
+  cockpitHosts: string[];
   availabilityZones: string[];
   privateSubnetIds: string[];
   serviceConnectNamespace: string;
@@ -218,6 +220,7 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
   return {
     ...input,
     runtimeMode,
+    cockpitHosts: normalizeHosts(input.cockpitHosts),
     privateSubnetIds,
     serviceConnectNamespace: input.serviceConnectNamespace ?? 'ev-dashboard.internal',
     appHostInstanceType: input.appHostInstanceType ?? 't3.small',
@@ -280,6 +283,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     hostedZoneName: required(env.HOSTED_ZONE_NAME, 'HOSTED_ZONE_NAME'),
     apexDomain: required(env.APEX_DOMAIN, 'APEX_DOMAIN'),
     apiDomain: required(env.API_DOMAIN, 'API_DOMAIN'),
+    cockpitHosts: optionalList(env.COCKPIT_HOSTS),
     vpcId: required(env.VPC_ID, 'VPC_ID'),
     publicSubnetIds: required(env.PUBLIC_SUBNET_IDS, 'PUBLIC_SUBNET_IDS')
       .split(',')
@@ -577,12 +581,30 @@ function optionalList(value: string | undefined): string[] | undefined {
     return undefined;
   }
 
-  const parsed = value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const parsed = normalizeHosts(value.split(','));
 
   return parsed.length > 0 ? parsed : undefined;
+}
+
+function normalizeHosts(values: string[] | undefined): string[] {
+  if (!values) {
+    return [];
+  }
+
+  const normalizedHosts: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    normalizedHosts.push(normalized);
+  }
+
+  return normalizedHosts;
 }
 
 function emptyToUndefined(value: string | undefined): string | undefined {

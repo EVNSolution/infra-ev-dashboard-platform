@@ -1,5 +1,5 @@
 import { App } from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 
 import { buildPlatformConfig } from '../lib/config';
 import { EvDashboardPlatformStack } from '../lib/ev-dashboard-platform-stack';
@@ -14,6 +14,7 @@ describe('EvDashboardPlatformStack', () => {
       hostedZoneName: 'ev-dashboard.com',
       apexDomain: 'ev-dashboard.com',
       apiDomain: 'api.ev-dashboard.com',
+      cockpitHosts: ['cheonha.ev-dashboard.com'],
       vpcId: 'vpc-1234567890abcdef0',
       publicSubnetIds: ['subnet-aaa', 'subnet-bbb'],
       privateSubnetIds: ['subnet-ccc', 'subnet-ddd'],
@@ -163,6 +164,46 @@ describe('EvDashboardPlatformStack', () => {
     template.resourceCountIs('AWS::ElastiCache::CacheCluster', 0);
     template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
+    template.resourceCountIs('AWS::Route53::RecordSet', 3);
+
+    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
+      DomainName: 'ev-dashboard.com',
+      SubjectAlternativeNames: Match.arrayWith(['api.ev-dashboard.com', 'cheonha.ev-dashboard.com'])
+    });
+
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
+      Conditions: Match.arrayWith([
+        Match.objectLike({
+          Field: 'host-header',
+          HostHeaderConfig: {
+            Values: ['ev-dashboard.com', 'cheonha.ev-dashboard.com']
+          }
+        })
+      ])
+    });
+
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
+      Conditions: Match.arrayWith([
+        Match.objectLike({
+          Field: 'host-header',
+          HostHeaderConfig: {
+            Values: ['ev-dashboard.com', 'cheonha.ev-dashboard.com']
+          }
+        }),
+        Match.objectLike({
+          Field: 'path-pattern',
+          PathPatternConfig: {
+            Values: ['/api/*']
+          }
+        })
+      ])
+    });
+
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'cheonha.ev-dashboard.com.',
+      Type: 'A',
+      AliasTarget: Match.anyValue()
+    });
 
     const instanceResources = template.findResources('AWS::EC2::Instance');
     expect(Object.keys(instanceResources)).toEqual(

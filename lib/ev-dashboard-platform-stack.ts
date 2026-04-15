@@ -29,6 +29,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     super(scope, id, props);
 
     const { config } = props;
+    const browserHosts = this.buildBrowserHosts(config);
+    const certificateSans = this.buildCertificateSubjectAlternativeNames(config);
     const vpc = ec2.Vpc.fromVpcAttributes(this, 'Vpc', {
       vpcId: config.vpcId,
       availabilityZones: config.availabilityZones,
@@ -46,7 +48,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     });
     const certificate = new acm.Certificate(this, 'Certificate', {
       domainName: config.apexDomain,
-      subjectAlternativeNames: [config.apiDomain],
+      subjectAlternativeNames: certificateSans,
       validation: acm.CertificateValidation.fromDns(hostedZone)
     });
 
@@ -299,8 +301,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           accountAccessRedis.attrRedisEndpointPort,
           '/0'
         ]),
-        DJANGO_ALLOWED_HOSTS: `${config.apiDomain},account-auth-api,localhost,127.0.0.1`,
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'account-auth-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       accountAccessSecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(accountAccessDatabaseSecret, 'username'),
@@ -563,8 +565,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
         VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
         DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
-        DJANGO_ALLOWED_HOSTS: 'dispatch-ops-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'dispatch-ops-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       dispatchOpsSecrets = {
         DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
@@ -580,8 +582,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
         SETTLEMENT_OPS_BASE_URL: config.settlementOpsBaseUrl,
         PERSONNEL_DOCUMENT_BASE_URL: 'http://personnel-document-registry-api:8000',
-        DJANGO_ALLOWED_HOSTS: 'driver-ops-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'driver-ops-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       driverOpsSecrets = {
         DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
@@ -597,8 +599,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
         TELEMETRY_HUB_BASE_URL: config.telemetryHubBaseUrl,
         TERMINAL_REGISTRY_BASE_URL: config.terminalRegistryBaseUrl,
-        DJANGO_ALLOWED_HOSTS: 'vehicle-ops-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'vehicle-ops-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       vehicleOpsSecrets = {
         DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
@@ -625,8 +627,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_PORT: settlementRegistryDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'settlement_registry',
         ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
-        DJANGO_ALLOWED_HOSTS: 'settlement-registry-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'settlement-registry-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       settlementRegistrySecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(settlementRegistryDatabaseSecret, 'username'),
@@ -661,8 +663,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
         DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
         ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
-        DJANGO_ALLOWED_HOSTS: 'settlement-payroll-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'settlement-payroll-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       settlementPayrollSecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(settlementPayrollDatabaseSecret, 'username'),
@@ -679,8 +681,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         SETTLEMENT_PAYROLL_BASE_URL: 'http://settlement-payroll-api:8000',
         DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
         DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
-        DJANGO_ALLOWED_HOSTS: 'settlement-ops-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'settlement-ops-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       settlementOpsSecrets = {
         DJANGO_SECRET_KEY: ecs.Secret.fromSecretsManager(djangoSecretKey),
@@ -706,8 +708,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_HOST: regionRegistryDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: regionRegistryDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'region_registry',
-        DJANGO_ALLOWED_HOSTS: 'region-registry-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'region-registry-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       regionRegistrySecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(regionRegistryDatabaseSecret, 'username'),
@@ -736,8 +738,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_HOST: regionAnalyticsDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: regionAnalyticsDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'region_analytics',
-        DJANGO_ALLOWED_HOSTS: 'region-analytics-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'region-analytics-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       regionAnalyticsSecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(regionAnalyticsDatabaseSecret, 'username'),
@@ -766,8 +768,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_HOST: announcementRegistryDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: announcementRegistryDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'announcement_registry',
-        DJANGO_ALLOWED_HOSTS: 'announcement-registry-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'announcement-registry-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       announcementRegistrySecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(announcementRegistryDatabaseSecret, 'username'),
@@ -796,8 +798,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_HOST: notificationHubDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: notificationHubDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'notification_hub',
-        DJANGO_ALLOWED_HOSTS: 'notification-hub-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'notification-hub-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       notificationHubSecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(notificationHubDatabaseSecret, 'username'),
@@ -827,8 +829,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_PORT: supportRegistryDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'support_registry',
         NOTIFICATION_HUB_BASE_URL: 'http://notification-hub-api:8000',
-        DJANGO_ALLOWED_HOSTS: 'support-registry-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'support-registry-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       supportRegistrySecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(supportRegistryDatabaseSecret, 'username'),
@@ -862,8 +864,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_PORT: terminalRegistryDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'terminal_registry',
         VEHICLE_REGISTRY_BASE_URL: 'http://vehicle-asset-api:8000',
-        DJANGO_ALLOWED_HOSTS: 'terminal-registry-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'terminal-registry-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       terminalRegistrySecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(terminalRegistryDatabaseSecret, 'username'),
@@ -893,8 +895,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_HOST: telemetryHubDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: telemetryHubDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'telemetry_hub',
-        DJANGO_ALLOWED_HOSTS: 'telemetry-hub-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'telemetry-hub-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       telemetryHubSecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(telemetryHubDatabaseSecret, 'username'),
@@ -928,8 +930,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         POSTGRES_HOST: telemetryDeadLetterDatabase.dbInstanceEndpointAddress,
         POSTGRES_PORT: telemetryDeadLetterDatabase.dbInstanceEndpointPort,
         POSTGRES_DB: 'telemetry_dead_letter',
-        DJANGO_ALLOWED_HOSTS: 'telemetry-dead-letter-api,localhost,127.0.0.1',
-        CSRF_TRUSTED_ORIGINS: `https://${config.apexDomain},https://${config.apiDomain}`
+        DJANGO_ALLOWED_HOSTS: this.buildBrowserAllowedHosts(config, 'telemetry-dead-letter-api'),
+        CSRF_TRUSTED_ORIGINS: this.buildCsrfTrustedOrigins(config)
       };
       telemetryDeadLetterSecrets = {
         POSTGRES_USER: ecs.Secret.fromSecretsManager(telemetryDeadLetterDatabaseSecret, 'username'),
@@ -1595,14 +1597,14 @@ export class EvDashboardPlatformStack extends cdk.Stack {
 
     httpsListener.addTargetGroups('FrontRule', {
       priority: 20,
-      conditions: [elbv2.ListenerCondition.hostHeaders([config.apexDomain])],
+      conditions: [elbv2.ListenerCondition.hostHeaders(browserHosts)],
       targetGroups: [frontTargetGroup]
     });
 
     httpsListener.addTargetGroups('ApexApiRule', {
       priority: 10,
       conditions: [
-        elbv2.ListenerCondition.hostHeaders([config.apexDomain]),
+        elbv2.ListenerCondition.hostHeaders(browserHosts),
         elbv2.ListenerCondition.pathPatterns(['/api/*'])
       ],
       targetGroups: [gatewayTargetGroup]
@@ -1625,6 +1627,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       recordName: this.recordName(config.apiDomain, config.hostedZoneName),
       target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadBalancer))
     });
+
+    this.createCockpitAliasRecords(hostedZone, loadBalancer, config);
   }
 
   private buildEc2Runtime(input: {
@@ -1637,6 +1641,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     dataSecurityGroup: ec2.SecurityGroup;
   }): void {
     const { config, vpc, hostedZone, loadBalancer, httpsListener, serviceSecurityGroup, dataSecurityGroup } = input;
+    const browserHosts = this.buildBrowserHosts(config);
     const runtimeNamePrefix = this.stackName;
     const appHostSubnet = ec2.Subnet.fromSubnetAttributes(this, 'Ec2AppHostSubnet', {
       subnetId: config.appHostSubnetId!,
@@ -1728,14 +1733,14 @@ export class EvDashboardPlatformStack extends cdk.Stack {
 
     httpsListener.addTargetGroups('FrontRule', {
       priority: 20,
-      conditions: [elbv2.ListenerCondition.hostHeaders([config.apexDomain])],
+      conditions: [elbv2.ListenerCondition.hostHeaders(browserHosts)],
       targetGroups: [frontTargetGroup]
     });
 
     httpsListener.addTargetGroups('ApexApiRule', {
       priority: 10,
       conditions: [
-        elbv2.ListenerCondition.hostHeaders([config.apexDomain]),
+        elbv2.ListenerCondition.hostHeaders(browserHosts),
         elbv2.ListenerCondition.pathPatterns(['/api/*'])
       ],
       targetGroups: [gatewayTargetGroup]
@@ -1758,6 +1763,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       recordName: this.recordName(config.apiDomain, config.hostedZoneName),
       target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadBalancer))
     });
+
+    this.createCockpitAliasRecords(hostedZone, loadBalancer, config);
 
     new cdk.CfnOutput(this, 'AppHostInstanceId', { value: appHost.instance.instanceId });
     new cdk.CfnOutput(this, 'DataHostInstanceId', { value: dataHost.instance.instanceId });
@@ -1914,6 +1921,20 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     });
   }
 
+  private createCockpitAliasRecords(
+    hostedZone: route53.IHostedZone,
+    loadBalancer: elbv2.ApplicationLoadBalancer,
+    config: PlatformConfig
+  ): void {
+    this.buildCockpitAliasHosts(config).forEach((host, index) => {
+      new route53.ARecord(this, `CockpitAliasRecord${index + 1}`, {
+        zone: hostedZone,
+        recordName: this.recordName(host, config.hostedZoneName),
+        target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadBalancer))
+      });
+    });
+  }
+
   private recordName(fqdn: string, hostedZoneName: string): string | undefined {
     if (fqdn === hostedZoneName) {
       return undefined;
@@ -1921,6 +1942,50 @@ export class EvDashboardPlatformStack extends cdk.Stack {
 
     const suffix = `.${hostedZoneName}`;
     return fqdn.endsWith(suffix) ? fqdn.slice(0, -suffix.length) : fqdn;
+  }
+
+  private buildBrowserAllowedHosts(config: PlatformConfig, internalHost: string): string {
+    return this.uniqueValues([internalHost, config.apiDomain, ...this.buildBrowserHosts(config), 'localhost', '127.0.0.1'])
+      .join(',');
+  }
+
+  private buildBrowserHosts(config: PlatformConfig): string[] {
+    return this.uniqueValues([config.apexDomain, ...this.buildCockpitAliasHosts(config)]);
+  }
+
+  private buildCertificateSubjectAlternativeNames(config: PlatformConfig): string[] {
+    return this.uniqueValues([config.apiDomain, ...this.buildCockpitAliasHosts(config)]).filter(
+      (host) => host !== config.apexDomain
+    );
+  }
+
+  private buildCockpitAliasHosts(config: PlatformConfig): string[] {
+    return this.uniqueValues(
+      config.cockpitHosts.filter((host) => host !== config.apexDomain && host !== config.apiDomain)
+    );
+  }
+
+  private buildCsrfTrustedOrigins(config: PlatformConfig): string {
+    return this.uniqueValues([config.apexDomain, config.apiDomain, ...this.buildCockpitAliasHosts(config)])
+      .map((host) => `https://${host}`)
+      .join(',');
+  }
+
+  private uniqueValues(values: string[]): string[] {
+    const unique: string[] = [];
+    const seen = new Set<string>();
+
+    for (const value of values) {
+      const normalized = value.trim();
+      if (!normalized || seen.has(normalized)) {
+        continue;
+      }
+
+      seen.add(normalized);
+      unique.push(normalized);
+    }
+
+    return unique;
   }
 
   private buildRuntimeImageMap(config: PlatformConfig): Record<string, string> {
