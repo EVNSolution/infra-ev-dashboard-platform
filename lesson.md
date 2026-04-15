@@ -226,6 +226,13 @@ If a bootstrap helper becomes slower than the stack update it is supposed to sav
 
 `24446648973` proved the replacement. The `bootstrap-proof` profile skipped preflight and unit tests, still synthesized, deployed, and passed public smoke in under a minute. Keep that profile for dev/candidate EC2 bring-up; use `full` only when release-grade proof is the goal.
 
+Deleted paths are not really gone if generated output still emits them. This repo ignores `dist/`, so a source cleanup can leave dead compiled entrypoints behind and create false noise in later audits. Keep the build contract explicit:
+
+- `npm run build` must start by deleting `dist/`
+- cleanup is not complete until regenerated `dist/` no longer contains the removed path
+
+If a deleted runtime helper survives only in compiled debris, treat that as unfinished cleanup, not harmless leftovers.
+
 EC2 user-data size is a real deployment limit, not an academic warning. The first `EvDashboardPlatformDevStack` create failed before either host booted because the data-host user-data exceeded EC2's 16 KB raw limit when the Python bootstrap package was inlined with `cat <<EOF` blocks. For this repo's EC2 lanes:
 
 - keep user-data thin enough to install packages, fetch assets, and register systemd units

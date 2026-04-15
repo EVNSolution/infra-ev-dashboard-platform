@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.json",
     "preflight": "ts-node bin/preflight.ts",
     "smoke:postdeploy": "ts-node bin/postDeploySmoke.ts",
     "test": "jest --runInBand",
