@@ -8,9 +8,7 @@ from ev_dashboard_runtime.common import optional_env, require_env, run, run_outp
 
 BASE_DIR = Path("/opt/ev-dashboard")
 RUNTIME_IMAGES_PATH = BASE_DIR / "runtime-images.json"
-ACCOUNT_ACCESS_ENV_PATH = BASE_DIR / "account-access.env"
-ORGANIZATION_ENV_PATH = BASE_DIR / "organization.env"
-PROOF_GATEWAY_CONFIG_PATH = BASE_DIR / "nginx.ec2-proof.conf"
+SERVICE_ENV_DIR = BASE_DIR / "service-env"
 
 
 def verify_app() -> int:
@@ -20,11 +18,6 @@ def verify_app() -> int:
 def reconcile_app() -> int:
     region = require_env("AWS_REGION")
     image_map_param = require_env("IMAGE_MAP_PARAM")
-    data_host_address = require_env("DATA_HOST_ADDRESS")
-    apex_domain = require_env("APEX_DOMAIN")
-    api_domain = require_env("API_DOMAIN")
-    csrf_trusted_origins = require_env("CSRF_TRUSTED_ORIGINS")
-    organization_enabled = optional_env("ORGANIZATION_ENABLED") == "1"
 
     image_map_json = run_output(
         [
@@ -45,16 +38,10 @@ def reconcile_app() -> int:
     write_text(RUNTIME_IMAGES_PATH, f"{image_map_json}\n")
     image_map = json.loads(image_map_json)
 
-    front_image = image_map["front-web-console"]
-    gateway_image = image_map["edge-api-gateway"]
-    account_access_image = image_map["service-account-access"]
-    organization_image = image_map.get("service-organization-registry")
+    services = _load_runtime_services(region=region, image_map=image_map)
+    registries = sorted({service["image"].split("/", 1)[0] for service in services})
+    secret_cache: dict[str, str] = {}
 
-    pull_images = [front_image, gateway_image, account_access_image]
-    if organization_enabled and organization_image:
-        pull_images.append(organization_image)
-
-    registries = sorted({image.split("/", 1)[0] for image in pull_images})
     for registry in registries:
         password = run_output(["aws", "ecr", "get-login-password", "--region", region])
         run(["docker", "login", "--username", "AWS", "--password-stdin", registry], input_text=password)
@@ -68,220 +55,120 @@ def reconcile_app() -> int:
     if not network_exists:
         run(["docker", "network", "create", "ev-dashboard"])
 
-    postgres_secret_arn = require_env("ACCOUNT_ACCESS_POSTGRES_SECRET_ARN")
-    django_secret_arn = require_env("ACCOUNT_ACCESS_DJANGO_SECRET_ARN")
-    jwt_secret_arn = require_env("ACCOUNT_ACCESS_JWT_SECRET_ARN")
+    for service in services:
+        _remove_container(service["container_name"])
 
-    account_access_postgres_password = run_output(
-        [
-            "aws",
-            "secretsmanager",
-            "get-secret-value",
-            "--secret-id",
-            postgres_secret_arn,
-            "--region",
-            region,
-            "--query",
-            "SecretString",
-            "--output",
-            "text",
-        ]
-    )
-    account_access_django_secret = run_output(
-        [
-            "aws",
-            "secretsmanager",
-            "get-secret-value",
-            "--secret-id",
-            django_secret_arn,
-            "--region",
-            region,
-            "--query",
-            "SecretString",
-            "--output",
-            "text",
-        ]
-    )
-    account_access_jwt_secret = run_output(
-        [
-            "aws",
-            "secretsmanager",
-            "get-secret-value",
-            "--secret-id",
-            jwt_secret_arn,
-            "--region",
-            region,
-            "--query",
-            "SecretString",
-            "--output",
-            "text",
-        ]
-    )
-
-    account_access_env = "\n".join(
-        [
-            f"POSTGRES_HOST={data_host_address}",
-            "POSTGRES_PORT=5432",
-            "POSTGRES_DB=account_auth",
-            "POSTGRES_USER=account_auth",
-            f"POSTGRES_PASSWORD={account_access_postgres_password}",
-            f"REDIS_URL=redis://{data_host_address}:6379/0",
-            "ORGANIZATION_MASTER_BASE_URL=http://organization-master-api:8000",
-            f"DJANGO_SECRET_KEY={account_access_django_secret}",
-            f"JWT_SECRET_KEY={account_access_jwt_secret}",
-            f"DJANGO_ALLOWED_HOSTS={api_domain},account-auth-api,localhost,127.0.0.1",
-            f"CSRF_TRUSTED_ORIGINS={csrf_trusted_origins}",
-            "",
-        ]
-    )
-    write_text(ACCOUNT_ACCESS_ENV_PATH, account_access_env)
-    write_text(PROOF_GATEWAY_CONFIG_PATH, render_proof_gateway_config(organization_enabled=organization_enabled))
-
-    for container_name in ["web-console", "account-auth-api", "organization-master-api", "edge-api-gateway"]:
-        _remove_container(container_name)
-
-    run(["docker", "pull", front_image])
-    run(
-        [
+    for service in services:
+        env_path = _write_service_env(service=service, region=region, secret_cache=secret_cache)
+        run(["docker", "pull", service["image"]])
+        command = [
             "docker",
             "run",
             "-d",
             "--name",
-            "web-console",
+            service["container_name"],
             "--restart",
             "unless-stopped",
             "--network",
             "ev-dashboard",
-            "-p",
-            "5174:5174",
-            front_image,
         ]
-    )
-    run(["docker", "pull", account_access_image])
-    run(
-        [
-            "docker",
-            "run",
-            "-d",
-            "--name",
-            "account-auth-api",
-            "--restart",
-            "unless-stopped",
-            "--network",
-            "ev-dashboard",
-            "--env-file",
-            str(ACCOUNT_ACCESS_ENV_PATH),
-            "-p",
-            "8000:8000",
-            account_access_image,
-        ]
-    )
-    if organization_enabled:
-        organization_postgres_secret_arn = require_env("ORGANIZATION_POSTGRES_SECRET_ARN")
-        organization_django_secret_arn = require_env("ORGANIZATION_DJANGO_SECRET_ARN")
-        organization_jwt_secret_arn = require_env("ORGANIZATION_JWT_SECRET_ARN")
-        organization_postgres_password = run_output(
-            [
-                "aws",
-                "secretsmanager",
-                "get-secret-value",
-                "--secret-id",
-                organization_postgres_secret_arn,
-                "--region",
-                region,
-                "--query",
-                "SecretString",
-                "--output",
-                "text",
-            ]
-        )
-        organization_django_secret = run_output(
-            [
-                "aws",
-                "secretsmanager",
-                "get-secret-value",
-                "--secret-id",
-                organization_django_secret_arn,
-                "--region",
-                region,
-                "--query",
-                "SecretString",
-                "--output",
-                "text",
-            ]
-        )
-        organization_jwt_secret = run_output(
-            [
-                "aws",
-                "secretsmanager",
-                "get-secret-value",
-                "--secret-id",
-                organization_jwt_secret_arn,
-                "--region",
-                region,
-                "--query",
-                "SecretString",
-                "--output",
-                "text",
-            ]
-        )
-        organization_env = "\n".join(
-            [
-                f"POSTGRES_HOST={data_host_address}",
-                "POSTGRES_PORT=5432",
-                "POSTGRES_DB=organization_master",
-                "POSTGRES_USER=organization_master",
-                f"POSTGRES_PASSWORD={organization_postgres_password}",
-                f"DJANGO_SECRET_KEY={organization_django_secret}",
-                f"JWT_SECRET_KEY={organization_jwt_secret}",
-                "DJANGO_ALLOWED_HOSTS=organization-master-api,localhost,127.0.0.1",
-                f"CSRF_TRUSTED_ORIGINS={csrf_trusted_origins}",
-                "",
-            ]
-        )
-        write_text(ORGANIZATION_ENV_PATH, organization_env)
-        if not organization_image:
-            raise RuntimeError("service-organization-registry image is missing from the runtime image map")
-        run(["docker", "pull", organization_image])
-        run(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--name",
-                "organization-master-api",
-                "--restart",
-                "unless-stopped",
-                "--network",
-                "ev-dashboard",
-                "--env-file",
-                str(ORGANIZATION_ENV_PATH),
-                "-p",
-                "8001:8000",
-                organization_image,
-            ]
-        )
-    run(["docker", "pull", gateway_image])
-    run(
-        [
-            "docker",
-            "run",
-            "-d",
-            "--name",
-            "edge-api-gateway",
-            "--restart",
-            "unless-stopped",
-            "--network",
-            "ev-dashboard",
-            "-p",
-            "8080:8080",
-            "-v",
-            f"{PROOF_GATEWAY_CONFIG_PATH}:/etc/nginx/nginx.conf:ro",
-            gateway_image,
-        ]
-    )
+        if env_path is not None:
+            command.extend(["--env-file", str(env_path)])
+        if service.get("container_port") and service.get("host_port"):
+            command.extend(["-p", f"{service['host_port']}:{service['container_port']}"])
+        command.append(service["image"])
+        run(command)
 
     return 0
+
+
+def _load_runtime_services(*, region: str, image_map: dict[str, str]) -> list[dict[str, object]]:
+    service_ids = [service_id.strip() for service_id in require_env("APP_SERVICE_IDS").split(",") if service_id.strip()]
+    services: list[dict[str, object]] = []
+
+    for service_id in service_ids:
+        prefix = f"SERVICE_{service_id}"
+        if optional_env(f"{prefix}_ENABLED") != "1":
+            continue
+
+        image_map_key = require_env(f"{prefix}_IMAGE_MAP_KEY")
+        image = image_map.get(image_map_key)
+        if not image:
+            raise RuntimeError(f"{image_map_key} image is missing from the runtime image map")
+
+        environment = _load_prefixed_values(prefix=prefix, kind="ENV")
+        secrets = _load_prefixed_values(prefix=prefix, kind="SECRET")
+        services.append(
+            {
+                "id": service_id,
+                "region": region,
+                "image": image,
+                "container_name": require_env(f"{prefix}_CONTAINER_NAME"),
+                "container_port": _parse_optional_int(optional_env(f"{prefix}_CONTAINER_PORT")),
+                "host_port": _parse_optional_int(optional_env(f"{prefix}_HOST_PORT")),
+                "environment": environment,
+                "secret_arns": secrets,
+            }
+        )
+
+    return services
+
+
+def _load_prefixed_values(*, prefix: str, kind: str) -> dict[str, str]:
+    keys = [key.strip() for key in optional_env(f"{prefix}_{kind}_KEYS").split(",") if key.strip()]
+    values: dict[str, str] = {}
+
+    for key in keys:
+        values[key] = require_env(f"{prefix}_{kind}_{key}")
+
+    return values
+
+
+def _parse_optional_int(value: str) -> int | None:
+    if not value:
+        return None
+    return int(value)
+
+
+def _write_service_env(
+    *, service: dict[str, object], region: str, secret_cache: dict[str, str]
+) -> Path | None:
+    environment = {str(key): str(value) for key, value in (service.get("environment") or {}).items()}
+    secret_arns = {str(key): str(value) for key, value in (service.get("secret_arns") or {}).items()}
+
+    if not environment and not secret_arns:
+        return None
+
+    lines = [f"{key}={value}" for key, value in environment.items()]
+    for key, secret_arn in secret_arns.items():
+        lines.append(f"{key}={_resolve_secret(secret_arn=secret_arn, region=region, cache=secret_cache)}")
+
+    env_path = SERVICE_ENV_DIR / f"{service['container_name']}.env"
+    write_text(env_path, "\n".join(lines) + "\n")
+    return env_path
+
+
+def _resolve_secret(*, secret_arn: str, region: str, cache: dict[str, str]) -> str:
+    if secret_arn in cache:
+        return cache[secret_arn]
+
+    secret_value = run_output(
+        [
+            "aws",
+            "secretsmanager",
+            "get-secret-value",
+            "--secret-id",
+            secret_arn,
+            "--region",
+            region,
+            "--query",
+            "SecretString",
+            "--output",
+            "text",
+        ]
+    )
+    cache[secret_arn] = secret_value
+    return secret_value
 
 
 def _remove_container(container_name: str) -> None:
@@ -289,96 +176,3 @@ def _remove_container(container_name: str) -> None:
         run(["docker", "rm", "-f", container_name])
     except Exception:
         pass
-
-
-def render_proof_gateway_config(*, organization_enabled: bool) -> str:
-    lines = [
-            "worker_processes auto;",
-            "",
-            "events {",
-            "    worker_connections 1024;",
-            "}",
-            "",
-            "http {",
-            "    map $http_upgrade $connection_upgrade {",
-            "        default upgrade;",
-            "        '' close;",
-            "    }",
-            "",
-            "    server {",
-            "        listen 8080;",
-            "",
-            "        location = /healthz {",
-            "            access_log off;",
-            "            return 200;",
-            "        }",
-            "",
-            "        location = /openapi.yaml {",
-            "            proxy_pass http://account-auth-api:8000;",
-            "            proxy_http_version 1.1;",
-            "            proxy_set_header Host $proxy_host;",
-            "        }",
-            "",
-            "        location /swagger/ {",
-            "            proxy_pass http://account-auth-api:8000;",
-            "            proxy_http_version 1.1;",
-            "            proxy_set_header Host $proxy_host;",
-            "        }",
-            "",
-            "        location /redoc/ {",
-            "            proxy_pass http://account-auth-api:8000;",
-            "            proxy_http_version 1.1;",
-            "            proxy_set_header Host $proxy_host;",
-            "        }",
-            "",
-            "        location = /admin/account-access {",
-            "            return 301 /admin/account-access/;",
-            "        }",
-            "",
-            "        location ^~ /admin/account-access/ {",
-            "            proxy_pass http://account-auth-api:8000;",
-            "            proxy_http_version 1.1;",
-            "            proxy_set_header Host $proxy_host;",
-            "        }",
-            "",
-            "        location ^~ /static/admin/ {",
-            "            proxy_pass http://account-auth-api:8000;",
-            "            proxy_http_version 1.1;",
-            "            proxy_set_header Host $proxy_host;",
-            "        }",
-            "",
-            "        location /api/auth/ {",
-            "            rewrite ^/api/auth/(.*)$ /$1 break;",
-            "            proxy_pass http://account-auth-api:8000;",
-            "            proxy_http_version 1.1;",
-            "            proxy_set_header Host $proxy_host;",
-            "        }",
-            "",
-        ]
-    if organization_enabled:
-        lines.extend(
-            [
-                "        location /api/org/ {",
-                "            rewrite ^/api/org/(.*)$ /$1 break;",
-                "            proxy_pass http://organization-master-api:8000;",
-                "            proxy_http_version 1.1;",
-                "            proxy_set_header Host $proxy_host;",
-                "        }",
-                "",
-            ]
-        )
-    lines.extend(
-        [
-            "        location / {",
-            "            proxy_pass http://web-console:5174;",
-            "            proxy_http_version 1.1;",
-            "            proxy_set_header Host $proxy_host;",
-            "            proxy_set_header Upgrade $http_upgrade;",
-            "            proxy_set_header Connection $connection_upgrade;",
-            "        }",
-            "    }",
-            "}",
-            "",
-        ]
-    )
-    return "\n".join(lines)

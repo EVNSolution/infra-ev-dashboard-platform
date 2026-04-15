@@ -18,6 +18,7 @@ import { Construct } from 'constructs';
 import type { PlatformConfig } from './config';
 import { getBootstrapAssetRoot } from './bootstrapPackage';
 import { Ec2AppHost } from './ec2-app-host';
+import type { AppHostRuntimeService } from './ec2-bootstrap';
 import { Ec2DataHost } from './ec2-data-host';
 
 type EvDashboardPlatformStackProps = cdk.StackProps & {
@@ -1642,6 +1643,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
   }): void {
     const { config, vpc, hostedZone, loadBalancer, httpsListener, serviceSecurityGroup, dataSecurityGroup } = input;
     const browserHosts = this.buildBrowserHosts(config);
+    const csrfTrustedOrigins = this.buildCsrfTrustedOrigins(config);
     const runtimeNamePrefix = this.stackName;
     const appHostSubnet = ec2.Subnet.fromSubnetAttributes(this, 'Ec2AppHostSubnet', {
       subnetId: config.appHostSubnetId!,
@@ -1659,13 +1661,295 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     const bootstrapPackageAsset = new s3assets.Asset(this, 'BootstrapPackageAsset', {
       path: getBootstrapAssetRoot()
     });
-    const postgresSecret = this.createGeneratedSecret('PostgresPasswordSecret');
-    const accountAccessDjangoSecret = this.createGeneratedSecret('AccountAccessDjangoSecretKey');
-    const organizationPostgresSecret =
-      config.organizationDesiredCount > 0 ? this.createGeneratedSecret('OrganizationPostgresPasswordSecret') : undefined;
-    const organizationDjangoSecret =
-      config.organizationDesiredCount > 0 ? this.createGeneratedSecret('OrganizationDjangoSecretKey') : undefined;
     const platformJwtSecret = this.createGeneratedSecret('PlatformJwtSecretKey');
+    const postgresSuperuserSecret = this.createGeneratedSecret('PostgresPasswordSecret');
+
+    const buildDatabaseBackedServiceSecrets = (prefix: string, databaseName: string, username: string) => {
+      const postgresSecret = this.createGeneratedSecret(`${prefix}PostgresPasswordSecret`);
+      const djangoSecret = this.createGeneratedSecret(`${prefix}DjangoSecretKey`);
+      return {
+        databaseName,
+        username,
+        postgresSecret,
+        djangoSecret
+      };
+    };
+
+    const buildDjangoOnlySecrets = (prefix: string) => ({
+      djangoSecret: this.createGeneratedSecret(`${prefix}DjangoSecretKey`)
+    });
+
+    const accountAccessSecrets = buildDatabaseBackedServiceSecrets('AccountAccess', 'account_auth', 'account_auth');
+    const organizationSecrets =
+      config.organizationDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('Organization', 'organization_master', 'organization_master')
+        : undefined;
+    const driverProfileSecrets =
+      config.driverProfileDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('DriverProfile', 'driver_profile', 'driver_profile')
+        : undefined;
+    const personnelDocumentSecrets =
+      config.personnelDocumentDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('PersonnelDocument', 'personnel_document', 'personnel_document')
+        : undefined;
+    const vehicleAssetSecrets =
+      config.vehicleAssetDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('VehicleAsset', 'vehicle_asset', 'vehicle_asset')
+        : undefined;
+    const driverVehicleAssignmentSecrets =
+      config.driverVehicleAssignmentDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets(
+            'DriverVehicleAssignment',
+            'driver_vehicle_assignment',
+            'driver_vehicle_assignment'
+          )
+        : undefined;
+    const attendanceRegistrySecrets =
+      config.attendanceRegistryDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('AttendanceRegistry', 'attendance_registry', 'attendance_registry')
+        : undefined;
+    const dispatchRegistrySecrets =
+      config.dispatchRegistryDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('DispatchRegistry', 'dispatch_registry', 'dispatch_registry')
+        : undefined;
+    const deliveryRecordSecrets =
+      config.deliveryRecordDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('DeliveryRecord', 'delivery_record', 'delivery_record')
+        : undefined;
+    const dispatchOpsSecrets =
+      config.dispatchOpsDesiredCount > 0 ? buildDjangoOnlySecrets('DispatchOps') : undefined;
+    const driverOpsSecrets = config.driverOpsDesiredCount > 0 ? buildDjangoOnlySecrets('DriverOps') : undefined;
+    const vehicleOpsSecrets = config.vehicleOpsDesiredCount > 0 ? buildDjangoOnlySecrets('VehicleOps') : undefined;
+    const settlementRegistrySecrets =
+      config.settlementRegistryDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('SettlementRegistry', 'settlement_registry', 'settlement_registry')
+        : undefined;
+    const settlementPayrollSecrets =
+      config.settlementPayrollDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('SettlementPayroll', 'settlement_payroll', 'settlement_payroll')
+        : undefined;
+    const settlementOpsSecrets =
+      config.settlementOpsDesiredCount > 0 ? buildDjangoOnlySecrets('SettlementOps') : undefined;
+    const regionRegistrySecrets =
+      config.regionRegistryDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('RegionRegistry', 'region_registry', 'region_registry')
+        : undefined;
+    const regionAnalyticsSecrets =
+      config.regionAnalyticsDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('RegionAnalytics', 'region_analytics', 'region_analytics')
+        : undefined;
+    const announcementRegistrySecrets =
+      config.announcementRegistryDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('AnnouncementRegistry', 'announcement_registry', 'announcement_registry')
+        : undefined;
+    const notificationHubSecrets =
+      config.notificationHubDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('NotificationHub', 'notification_hub', 'notification_hub')
+        : undefined;
+    const supportRegistrySecrets =
+      config.supportRegistryDesiredCount > 0
+        ? buildDatabaseBackedServiceSecrets('SupportRegistry', 'support_registry', 'support_registry')
+        : undefined;
+    const terminalRegistrySecrets =
+      (config.terminalRegistryDesiredCount ?? 0) > 0
+        ? buildDatabaseBackedServiceSecrets('TerminalRegistry', 'terminal_registry', 'terminal_registry')
+        : undefined;
+    const telemetryHubSecrets =
+      (config.telemetryHubDesiredCount ?? 0) > 0
+        ? {
+            ...buildDatabaseBackedServiceSecrets('TelemetryHub', 'telemetry_hub', 'telemetry_hub'),
+            ingestKeySecret: this.createGeneratedSecret('TelemetryHubIngestKey')
+          }
+        : undefined;
+    const telemetryDeadLetterSecrets =
+      (config.telemetryDeadLetterDesiredCount ?? 0) > 0
+        ? {
+            ...buildDatabaseBackedServiceSecrets(
+              'TelemetryDeadLetter',
+              'telemetry_dead_letter',
+              'telemetry_dead_letter'
+            ),
+            listenerKeySecret: this.createGeneratedSecret('TelemetryDeadLetterKeyServiceTelemetryListener'),
+            hubKeySecret: this.createGeneratedSecret('TelemetryDeadLetterKeyServiceTelemetryHub')
+          }
+        : undefined;
+    const telemetryListenerSecrets =
+      (config.telemetryListenerDesiredCount ?? 0) > 0 && telemetryHubSecrets && telemetryDeadLetterSecrets
+        ? {
+            ingestKeySecret: telemetryHubSecrets.ingestKeySecret,
+            deadLetterKeySecret: telemetryDeadLetterSecrets.listenerKeySecret
+          }
+        : undefined;
+
+    const dataHostDatabases = [
+      {
+        databaseName: accountAccessSecrets.databaseName,
+        username: accountAccessSecrets.username,
+        passwordSecretArn: accountAccessSecrets.postgresSecret.secretArn
+      },
+      ...(organizationSecrets
+        ? [
+            {
+              databaseName: organizationSecrets.databaseName,
+              username: organizationSecrets.username,
+              passwordSecretArn: organizationSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(driverProfileSecrets
+        ? [
+            {
+              databaseName: driverProfileSecrets.databaseName,
+              username: driverProfileSecrets.username,
+              passwordSecretArn: driverProfileSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(personnelDocumentSecrets
+        ? [
+            {
+              databaseName: personnelDocumentSecrets.databaseName,
+              username: personnelDocumentSecrets.username,
+              passwordSecretArn: personnelDocumentSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(vehicleAssetSecrets
+        ? [
+            {
+              databaseName: vehicleAssetSecrets.databaseName,
+              username: vehicleAssetSecrets.username,
+              passwordSecretArn: vehicleAssetSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(driverVehicleAssignmentSecrets
+        ? [
+            {
+              databaseName: driverVehicleAssignmentSecrets.databaseName,
+              username: driverVehicleAssignmentSecrets.username,
+              passwordSecretArn: driverVehicleAssignmentSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(attendanceRegistrySecrets
+        ? [
+            {
+              databaseName: attendanceRegistrySecrets.databaseName,
+              username: attendanceRegistrySecrets.username,
+              passwordSecretArn: attendanceRegistrySecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(dispatchRegistrySecrets
+        ? [
+            {
+              databaseName: dispatchRegistrySecrets.databaseName,
+              username: dispatchRegistrySecrets.username,
+              passwordSecretArn: dispatchRegistrySecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(deliveryRecordSecrets
+        ? [
+            {
+              databaseName: deliveryRecordSecrets.databaseName,
+              username: deliveryRecordSecrets.username,
+              passwordSecretArn: deliveryRecordSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(settlementRegistrySecrets
+        ? [
+            {
+              databaseName: settlementRegistrySecrets.databaseName,
+              username: settlementRegistrySecrets.username,
+              passwordSecretArn: settlementRegistrySecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(settlementPayrollSecrets
+        ? [
+            {
+              databaseName: settlementPayrollSecrets.databaseName,
+              username: settlementPayrollSecrets.username,
+              passwordSecretArn: settlementPayrollSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(regionRegistrySecrets
+        ? [
+            {
+              databaseName: regionRegistrySecrets.databaseName,
+              username: regionRegistrySecrets.username,
+              passwordSecretArn: regionRegistrySecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(regionAnalyticsSecrets
+        ? [
+            {
+              databaseName: regionAnalyticsSecrets.databaseName,
+              username: regionAnalyticsSecrets.username,
+              passwordSecretArn: regionAnalyticsSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(announcementRegistrySecrets
+        ? [
+            {
+              databaseName: announcementRegistrySecrets.databaseName,
+              username: announcementRegistrySecrets.username,
+              passwordSecretArn: announcementRegistrySecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(notificationHubSecrets
+        ? [
+            {
+              databaseName: notificationHubSecrets.databaseName,
+              username: notificationHubSecrets.username,
+              passwordSecretArn: notificationHubSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(supportRegistrySecrets
+        ? [
+            {
+              databaseName: supportRegistrySecrets.databaseName,
+              username: supportRegistrySecrets.username,
+              passwordSecretArn: supportRegistrySecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(terminalRegistrySecrets
+        ? [
+            {
+              databaseName: terminalRegistrySecrets.databaseName,
+              username: terminalRegistrySecrets.username,
+              passwordSecretArn: terminalRegistrySecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(telemetryHubSecrets
+        ? [
+            {
+              databaseName: telemetryHubSecrets.databaseName,
+              username: telemetryHubSecrets.username,
+              passwordSecretArn: telemetryHubSecrets.postgresSecret.secretArn
+            }
+          ]
+        : []),
+      ...(telemetryDeadLetterSecrets
+        ? [
+            {
+              databaseName: telemetryDeadLetterSecrets.databaseName,
+              username: telemetryDeadLetterSecrets.username,
+              passwordSecretArn: telemetryDeadLetterSecrets.postgresSecret.secretArn
+            }
+          ]
+        : [])
+    ];
 
     const dataHost = new Ec2DataHost(this, 'DataHost', {
       vpc,
@@ -1676,29 +1960,534 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       dataVolumeSizeGiB: config.dataVolumeSizeGiB,
       bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
       bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
-      postgresSuperuserSecretArn: postgresSecret.secretArn,
-      databases: [
-        {
-          databaseName: 'account_auth',
-          username: 'account_auth',
-          passwordSecretArn: postgresSecret.secretArn
-        },
-        ...(config.organizationDesiredCount > 0 && organizationPostgresSecret
-          ? [
-              {
-                databaseName: 'organization_master',
-                username: 'organization_master',
-                passwordSecretArn: organizationPostgresSecret.secretArn
-              }
-            ]
-          : [])
-      ],
+      postgresSuperuserSecretArn: postgresSuperuserSecret.secretArn,
+      databases: dataHostDatabases,
       mountPath: '/data',
       instanceName: `${runtimeNamePrefix}-data-host`
     });
     bootstrapPackageAsset.grantRead(dataHost.role);
-    postgresSecret.grantRead(dataHost.role);
-    organizationPostgresSecret?.grantRead(dataHost.role);
+    postgresSuperuserSecret.grantRead(dataHost.role);
+
+    const browserAllowedHosts = (internalHost: string) => this.buildBrowserAllowedHosts(config, internalHost);
+    const internalOnlyAllowedHosts = (internalHost: string) =>
+      this.uniqueValues([internalHost, 'localhost', '127.0.0.1']).join(',');
+    const databaseEnvironment = (databaseName: string, username: string) => ({
+      POSTGRES_HOST: dataHost.instance.instancePrivateIp,
+      POSTGRES_PORT: '5432',
+      POSTGRES_DB: databaseName,
+      POSTGRES_USER: username
+    });
+    const djangoSecretArns = (
+      djangoSecret: secretsmanager.Secret,
+      extra: Record<string, string> = {}
+    ): Record<string, string> => ({
+      DJANGO_SECRET_KEY: djangoSecret.secretArn,
+      JWT_SECRET_KEY: platformJwtSecret.secretArn,
+      ...extra
+    });
+
+    const appServices: AppHostRuntimeService[] = [
+      {
+        id: 'FRONT',
+        imageMapKey: 'front-web-console',
+        containerName: 'web-console',
+        enabled: config.frontDesiredCount > 0,
+        containerPort: 5174,
+        hostPort: 5174
+      },
+      {
+        id: 'ACCOUNT_ACCESS',
+        imageMapKey: 'service-account-access',
+        containerName: 'account-auth-api',
+        enabled: config.accountAccessDesiredCount > 0,
+        containerPort: 8000,
+        environment: {
+          ...databaseEnvironment('account_auth', 'account_auth'),
+          REDIS_URL: `redis://${dataHost.instance.instancePrivateIp}:6379/0`,
+          ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+          DJANGO_ALLOWED_HOSTS: browserAllowedHosts('account-auth-api'),
+          CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+        },
+        secretArns: {
+          POSTGRES_PASSWORD: accountAccessSecrets.postgresSecret.secretArn,
+          ...djangoSecretArns(accountAccessSecrets.djangoSecret)
+        }
+      },
+      {
+        id: 'ORGANIZATION',
+        imageMapKey: 'service-organization-registry',
+        containerName: 'organization-master-api',
+        enabled: config.organizationDesiredCount > 0,
+        containerPort: 8000,
+        environment: organizationSecrets
+          ? {
+              ...databaseEnvironment('organization_master', 'organization_master'),
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('organization-master-api')
+            }
+          : {},
+        secretArns: organizationSecrets
+          ? {
+              POSTGRES_PASSWORD: organizationSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(organizationSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'DRIVER_PROFILE',
+        imageMapKey: 'service-driver-profile',
+        containerName: 'driver-profile-api',
+        enabled: config.driverProfileDesiredCount > 0,
+        containerPort: 8000,
+        environment: driverProfileSecrets
+          ? {
+              ...databaseEnvironment('driver_profile', 'driver_profile'),
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('driver-profile-api')
+            }
+          : {},
+        secretArns: driverProfileSecrets
+          ? {
+              POSTGRES_PASSWORD: driverProfileSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(driverProfileSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'VEHICLE_ASSET',
+        imageMapKey: 'service-vehicle-registry',
+        containerName: 'vehicle-asset-api',
+        enabled: config.vehicleAssetDesiredCount > 0,
+        containerPort: 8000,
+        environment: vehicleAssetSecrets
+          ? {
+              ...databaseEnvironment('vehicle_asset', 'vehicle_asset'),
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('vehicle-asset-api')
+            }
+          : {},
+        secretArns: vehicleAssetSecrets
+          ? {
+              POSTGRES_PASSWORD: vehicleAssetSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(vehicleAssetSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'PERSONNEL_DOCUMENT',
+        imageMapKey: 'service-personnel-document-registry',
+        containerName: 'personnel-document-registry-api',
+        enabled: config.personnelDocumentDesiredCount > 0,
+        containerPort: 8000,
+        environment: personnelDocumentSecrets
+          ? {
+              ...databaseEnvironment('personnel_document', 'personnel_document'),
+              DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('personnel-document-registry-api')
+            }
+          : {},
+        secretArns: personnelDocumentSecrets
+          ? {
+              POSTGRES_PASSWORD: personnelDocumentSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(personnelDocumentSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'DRIVER_VEHICLE_ASSIGNMENT',
+        imageMapKey: 'service-vehicle-assignment',
+        containerName: 'driver-vehicle-assignment-api',
+        enabled: config.driverVehicleAssignmentDesiredCount > 0,
+        containerPort: 8000,
+        environment: driverVehicleAssignmentSecrets
+          ? {
+              ...databaseEnvironment('driver_vehicle_assignment', 'driver_vehicle_assignment'),
+              DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+              VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('driver-vehicle-assignment-api')
+            }
+          : {},
+        secretArns: driverVehicleAssignmentSecrets
+          ? {
+              POSTGRES_PASSWORD: driverVehicleAssignmentSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(driverVehicleAssignmentSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'ATTENDANCE_REGISTRY',
+        imageMapKey: 'service-attendance-registry',
+        containerName: 'attendance-registry-api',
+        enabled: config.attendanceRegistryDesiredCount > 0,
+        containerPort: 8000,
+        environment: attendanceRegistrySecrets
+          ? {
+              ...databaseEnvironment('attendance_registry', 'attendance_registry'),
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('attendance-registry-api')
+            }
+          : {},
+        secretArns: attendanceRegistrySecrets
+          ? {
+              POSTGRES_PASSWORD: attendanceRegistrySecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(attendanceRegistrySecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'DISPATCH_REGISTRY',
+        imageMapKey: 'service-dispatch-registry',
+        containerName: 'dispatch-registry-api',
+        enabled: config.dispatchRegistryDesiredCount > 0,
+        containerPort: 8000,
+        environment: dispatchRegistrySecrets
+          ? {
+              ...databaseEnvironment('dispatch_registry', 'dispatch_registry'),
+              VEHICLE_REGISTRY_BASE_URL: 'http://vehicle-asset-api:8000',
+              DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+              DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+              ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('dispatch-registry-api')
+            }
+          : {},
+        secretArns: dispatchRegistrySecrets
+          ? {
+              POSTGRES_PASSWORD: dispatchRegistrySecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(dispatchRegistrySecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'DELIVERY_RECORD',
+        imageMapKey: 'service-delivery-record',
+        containerName: 'delivery-record-api',
+        enabled: config.deliveryRecordDesiredCount > 0,
+        containerPort: 8000,
+        environment: deliveryRecordSecrets
+          ? {
+              ...databaseEnvironment('delivery_record', 'delivery_record'),
+              ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+              DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+              DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
+              ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
+              DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('delivery-record-api')
+            }
+          : {},
+        secretArns: deliveryRecordSecrets
+          ? {
+              POSTGRES_PASSWORD: deliveryRecordSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(deliveryRecordSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'SETTLEMENT_REGISTRY',
+        imageMapKey: 'service-settlement-registry',
+        containerName: 'settlement-registry-api',
+        enabled: config.settlementRegistryDesiredCount > 0,
+        containerPort: 8000,
+        environment: settlementRegistrySecrets
+          ? {
+              ...databaseEnvironment('settlement_registry', 'settlement_registry'),
+              ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('settlement-registry-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: settlementRegistrySecrets
+          ? {
+              POSTGRES_PASSWORD: settlementRegistrySecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(settlementRegistrySecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'SETTLEMENT_PAYROLL',
+        imageMapKey: 'service-settlement-payroll',
+        containerName: 'settlement-payroll-api',
+        enabled: config.settlementPayrollDesiredCount > 0,
+        containerPort: 8000,
+        environment: settlementPayrollSecrets
+          ? {
+              ...databaseEnvironment('settlement_payroll', 'settlement_payroll'),
+              SETTLEMENT_ORG_BASE_URL: 'http://organization-master-api:8000',
+              SETTLEMENT_DRIVER_BASE_URL: 'http://driver-profile-api:8000',
+              SETTLEMENT_REGISTRY_BASE_URL: 'http://settlement-registry-api:8000',
+              DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+              DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
+              ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('settlement-payroll-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: settlementPayrollSecrets
+          ? {
+              POSTGRES_PASSWORD: settlementPayrollSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(settlementPayrollSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'REGION_REGISTRY',
+        imageMapKey: 'service-region-registry',
+        containerName: 'region-registry-api',
+        enabled: config.regionRegistryDesiredCount > 0,
+        containerPort: 8000,
+        environment: regionRegistrySecrets
+          ? {
+              ...databaseEnvironment('region_registry', 'region_registry'),
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('region-registry-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: regionRegistrySecrets
+          ? {
+              POSTGRES_PASSWORD: regionRegistrySecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(regionRegistrySecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'REGION_ANALYTICS',
+        imageMapKey: 'service-region-analytics',
+        containerName: 'region-analytics-api',
+        enabled: config.regionAnalyticsDesiredCount > 0,
+        containerPort: 8000,
+        environment: regionAnalyticsSecrets
+          ? {
+              ...databaseEnvironment('region_analytics', 'region_analytics'),
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('region-analytics-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: regionAnalyticsSecrets
+          ? {
+              POSTGRES_PASSWORD: regionAnalyticsSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(regionAnalyticsSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'ANNOUNCEMENT_REGISTRY',
+        imageMapKey: 'service-announcement-registry',
+        containerName: 'announcement-registry-api',
+        enabled: config.announcementRegistryDesiredCount > 0,
+        containerPort: 8000,
+        environment: announcementRegistrySecrets
+          ? {
+              ...databaseEnvironment('announcement_registry', 'announcement_registry'),
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('announcement-registry-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: announcementRegistrySecrets
+          ? {
+              POSTGRES_PASSWORD: announcementRegistrySecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(announcementRegistrySecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'NOTIFICATION_HUB',
+        imageMapKey: 'service-notification-hub',
+        containerName: 'notification-hub-api',
+        enabled: config.notificationHubDesiredCount > 0,
+        containerPort: 8000,
+        environment: notificationHubSecrets
+          ? {
+              ...databaseEnvironment('notification_hub', 'notification_hub'),
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('notification-hub-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: notificationHubSecrets
+          ? {
+              POSTGRES_PASSWORD: notificationHubSecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(notificationHubSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'SUPPORT_REGISTRY',
+        imageMapKey: 'service-support-registry',
+        containerName: 'support-registry-api',
+        enabled: config.supportRegistryDesiredCount > 0,
+        containerPort: 8000,
+        environment: supportRegistrySecrets
+          ? {
+              ...databaseEnvironment('support_registry', 'support_registry'),
+              NOTIFICATION_HUB_BASE_URL: 'http://notification-hub-api:8000',
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('support-registry-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: supportRegistrySecrets
+          ? {
+              POSTGRES_PASSWORD: supportRegistrySecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(supportRegistrySecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'TERMINAL_REGISTRY',
+        imageMapKey: 'service-terminal-registry',
+        containerName: 'terminal-registry-api',
+        enabled: (config.terminalRegistryDesiredCount ?? 0) > 0,
+        containerPort: 8000,
+        environment: terminalRegistrySecrets
+          ? {
+              ...databaseEnvironment('terminal_registry', 'terminal_registry'),
+              VEHICLE_REGISTRY_BASE_URL: 'http://vehicle-asset-api:8000',
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('terminal-registry-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: terminalRegistrySecrets
+          ? {
+              POSTGRES_PASSWORD: terminalRegistrySecrets.postgresSecret.secretArn,
+              ...djangoSecretArns(terminalRegistrySecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'TELEMETRY_HUB',
+        imageMapKey: 'service-telemetry-hub',
+        containerName: 'telemetry-hub-api',
+        enabled: (config.telemetryHubDesiredCount ?? 0) > 0,
+        containerPort: 8000,
+        environment: telemetryHubSecrets
+          ? {
+              ...databaseEnvironment('telemetry_hub', 'telemetry_hub'),
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('telemetry-hub-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: telemetryHubSecrets
+          ? {
+              POSTGRES_PASSWORD: telemetryHubSecrets.postgresSecret.secretArn,
+              TELEMETRY_HUB_INGEST_KEY: telemetryHubSecrets.ingestKeySecret.secretArn,
+              ...djangoSecretArns(telemetryHubSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'TELEMETRY_DEAD_LETTER',
+        imageMapKey: 'service-telemetry-dead-letter',
+        containerName: 'telemetry-dead-letter-api',
+        enabled: (config.telemetryDeadLetterDesiredCount ?? 0) > 0,
+        containerPort: 8000,
+        environment: telemetryDeadLetterSecrets
+          ? {
+              ...databaseEnvironment('telemetry_dead_letter', 'telemetry_dead_letter'),
+              DJANGO_ALLOWED_HOSTS: browserAllowedHosts('telemetry-dead-letter-api'),
+              CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+            }
+          : {},
+        secretArns: telemetryDeadLetterSecrets
+          ? {
+              POSTGRES_PASSWORD: telemetryDeadLetterSecrets.postgresSecret.secretArn,
+              TELEMETRY_DEAD_LETTER_KEY_SERVICE_TELEMETRY_LISTENER:
+                telemetryDeadLetterSecrets.listenerKeySecret.secretArn,
+              TELEMETRY_DEAD_LETTER_KEY_SERVICE_TELEMETRY_HUB: telemetryDeadLetterSecrets.hubKeySecret.secretArn,
+              ...djangoSecretArns(telemetryDeadLetterSecrets.djangoSecret)
+            }
+          : {}
+      },
+      {
+        id: 'DISPATCH_OPS',
+        imageMapKey: 'service-dispatch-operations-view',
+        containerName: 'dispatch-ops-api',
+        enabled: config.dispatchOpsDesiredCount > 0,
+        containerPort: 8000,
+        environment: {
+          DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
+          DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
+          VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
+          DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+          DJANGO_ALLOWED_HOSTS: browserAllowedHosts('dispatch-ops-api'),
+          CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+        },
+        secretArns: dispatchOpsSecrets ? djangoSecretArns(dispatchOpsSecrets.djangoSecret) : {}
+      },
+      {
+        id: 'DRIVER_OPS',
+        imageMapKey: 'service-driver-operations-view',
+        containerName: 'driver-ops-api',
+        enabled: config.driverOpsDesiredCount > 0,
+        containerPort: 8000,
+        environment: {
+          ACCOUNT_AUTH_BASE_URL: 'http://account-auth-api:8000',
+          DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+          ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+          SETTLEMENT_OPS_BASE_URL: config.settlementOpsBaseUrl,
+          PERSONNEL_DOCUMENT_BASE_URL: 'http://personnel-document-registry-api:8000',
+          DJANGO_ALLOWED_HOSTS: browserAllowedHosts('driver-ops-api'),
+          CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+        },
+        secretArns: driverOpsSecrets ? djangoSecretArns(driverOpsSecrets.djangoSecret) : {}
+      },
+      {
+        id: 'VEHICLE_OPS',
+        imageMapKey: 'service-vehicle-operations-view',
+        containerName: 'vehicle-ops-api',
+        enabled: config.vehicleOpsDesiredCount > 0,
+        containerPort: 8000,
+        environment: {
+          VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
+          DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
+          ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
+          TELEMETRY_HUB_BASE_URL: config.telemetryHubBaseUrl,
+          TERMINAL_REGISTRY_BASE_URL: config.terminalRegistryBaseUrl,
+          DJANGO_ALLOWED_HOSTS: browserAllowedHosts('vehicle-ops-api'),
+          CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+        },
+        secretArns: vehicleOpsSecrets ? djangoSecretArns(vehicleOpsSecrets.djangoSecret) : {}
+      },
+      {
+        id: 'SETTLEMENT_OPS',
+        imageMapKey: 'service-settlement-operations-view',
+        containerName: 'settlement-ops-api',
+        enabled: config.settlementOpsDesiredCount > 0,
+        containerPort: 8000,
+        environment: {
+          SETTLEMENT_PAYROLL_BASE_URL: 'http://settlement-payroll-api:8000',
+          DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+          DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
+          DJANGO_ALLOWED_HOSTS: browserAllowedHosts('settlement-ops-api'),
+          CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
+        },
+        secretArns: settlementOpsSecrets ? djangoSecretArns(settlementOpsSecrets.djangoSecret) : {}
+      },
+      {
+        id: 'GATEWAY',
+        imageMapKey: 'edge-api-gateway',
+        containerName: 'edge-api-gateway',
+        enabled: config.gatewayDesiredCount > 0,
+        containerPort: 8080,
+        hostPort: 8080
+      },
+      {
+        id: 'TELEMETRY_LISTENER',
+        imageMapKey: 'service-telemetry-listener',
+        containerName: 'service-telemetry-listener',
+        enabled: (config.telemetryListenerDesiredCount ?? 0) > 0,
+        environment: {
+          TELEMETRY_HUB_BASE_URL: 'http://telemetry-hub-api:8000',
+          TELEMETRY_DEAD_LETTER_BASE_URL: 'http://telemetry-dead-letter-api:8000',
+          TELEMETRY_DEAD_LETTER_SOURCE_SERVICE: 'service-telemetry-listener',
+          TELEMETRY_LISTENER_MQTT_HOST: config.telemetryListenerMqttHost ?? '',
+          TELEMETRY_LISTENER_MQTT_PORT: String(config.telemetryListenerMqttPort ?? 1883),
+          TELEMETRY_LISTENER_MQTT_TOPICS: (config.telemetryListenerMqttTopics ?? ['telemetry/#']).join(','),
+          TELEMETRY_LISTENER_CLIENT_ID: config.telemetryListenerClientId ?? 'service-telemetry-listener',
+          TELEMETRY_LISTENER_RETRY_COUNT: String(config.telemetryListenerRetryCount ?? 3),
+          TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS: String(config.telemetryListenerRetryBackoffSeconds ?? 1),
+          TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS: String(config.telemetryListenerIdleSleepSeconds ?? 5)
+        },
+        secretArns: telemetryListenerSecrets
+          ? {
+              TELEMETRY_HUB_INGEST_KEY: telemetryListenerSecrets.ingestKeySecret.secretArn,
+              TELEMETRY_DEAD_LETTER_KEY_SERVICE_TELEMETRY_LISTENER:
+                telemetryListenerSecrets.deadLetterKeySecret.secretArn
+            }
+          : {}
+      }
+    ];
 
     const appHost = new Ec2AppHost(this, 'AppHost', {
       vpc,
@@ -1707,28 +2496,15 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       instanceType: config.appHostInstanceType,
       imageMapSsmParam: runtimeImageMapParam.parameterName,
       region: config.region,
-      dataHostAddress: dataHost.instance.instancePrivateIp,
-      apexDomain: config.apexDomain,
-      apiDomain: config.apiDomain,
-      csrfTrustedOrigins: this.buildCsrfTrustedOrigins(config),
       bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
       bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
-      accountAccessPostgresSecretArn: postgresSecret.secretArn,
-      accountAccessDjangoSecretArn: accountAccessDjangoSecret.secretArn,
-      accountAccessJwtSecretArn: platformJwtSecret.secretArn,
-      organizationEnabled: config.organizationDesiredCount > 0,
-      organizationPostgresSecretArn: organizationPostgresSecret?.secretArn,
-      organizationDjangoSecretArn: organizationDjangoSecret?.secretArn,
-      organizationJwtSecretArn: platformJwtSecret.secretArn,
+      services: appServices,
       instanceName: `${runtimeNamePrefix}-app-host`
     });
     bootstrapPackageAsset.grantRead(appHost.role);
     runtimeImageMapParam.grantRead(appHost.role);
-    postgresSecret.grantRead(appHost.role);
-    accountAccessDjangoSecret.grantRead(appHost.role);
+    postgresSuperuserSecret.grantRead(appHost.role);
     platformJwtSecret.grantRead(appHost.role);
-    organizationPostgresSecret?.grantRead(appHost.role);
-    organizationDjangoSecret?.grantRead(appHost.role);
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
       port: 5174,
@@ -1790,7 +2566,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AppHostInstanceId', { value: appHost.instance.instanceId });
     new cdk.CfnOutput(this, 'DataHostInstanceId', { value: dataHost.instance.instanceId });
     new cdk.CfnOutput(this, 'RuntimeImageMapParameterName', { value: runtimeImageMapParam.parameterName });
-    new cdk.CfnOutput(this, 'PostgresSecretName', { value: postgresSecret.secretName });
+    new cdk.CfnOutput(this, 'PostgresSecretName', { value: postgresSuperuserSecret.secretName });
   }
 
   private createFargateService(

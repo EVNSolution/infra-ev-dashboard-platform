@@ -1,7 +1,7 @@
 import { aws_ec2 as ec2, aws_iam as iam } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
-import { renderAppHostBootstrap } from './ec2-bootstrap';
+import { AppHostRuntimeService, renderAppHostBootstrap } from './ec2-bootstrap';
 
 export type Ec2AppHostProps = {
   vpc: ec2.IVpc;
@@ -10,19 +10,9 @@ export type Ec2AppHostProps = {
   instanceType: string;
   imageMapSsmParam: string;
   region: string;
-  dataHostAddress: string;
-  apexDomain: string;
-  apiDomain: string;
-  csrfTrustedOrigins: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
-  accountAccessPostgresSecretArn?: string;
-  accountAccessDjangoSecretArn?: string;
-  accountAccessJwtSecretArn?: string;
-  organizationEnabled: boolean;
-  organizationPostgresSecretArn?: string;
-  organizationDjangoSecretArn?: string;
-  organizationJwtSecretArn?: string;
+  services: AppHostRuntimeService[];
   instanceName?: string;
 };
 
@@ -67,19 +57,9 @@ export class Ec2AppHost extends Construct {
       ...renderAppHostBootstrap({
         region: props.region,
         imageMapSsmParam: props.imageMapSsmParam,
-        dataHostAddress: props.dataHostAddress,
-        apexDomain: props.apexDomain,
-        apiDomain: props.apiDomain,
-        csrfTrustedOrigins: props.csrfTrustedOrigins,
         bootstrapPackageBucketName: props.bootstrapPackageBucketName,
         bootstrapPackageObjectKey: props.bootstrapPackageObjectKey,
-        accountAccessPostgresSecretArn: props.accountAccessPostgresSecretArn,
-        accountAccessDjangoSecretArn: props.accountAccessDjangoSecretArn,
-        accountAccessJwtSecretArn: props.accountAccessJwtSecretArn,
-        organizationEnabled: props.organizationEnabled,
-        organizationPostgresSecretArn: props.organizationPostgresSecretArn,
-        organizationDjangoSecretArn: props.organizationDjangoSecretArn,
-        organizationJwtSecretArn: props.organizationJwtSecretArn
+        services: props.services
       })
     );
 

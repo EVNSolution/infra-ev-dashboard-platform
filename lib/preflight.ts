@@ -240,20 +240,6 @@ function validateSliceDependencies(
     errors.push('Gateway desired count must stay above zero when any API slice is enabled.');
   }
 
-  if (
-    config.runtimeMode === 'ec2' &&
-    (slices.peopleAndAssets ||
-      slices.dispatchInputs ||
-      slices.dispatchReadModels ||
-      slices.settlement ||
-      slices.supportSurface ||
-      slices.terminalAndTelemetry)
-  ) {
-    errors.push(
-      'Current EC2 runtime proof supports shell/auth/company-governance only: front-web-console + edge-api-gateway + service-account-access + service-organization-registry. Set all later slice desired counts to zero before deploy.'
-    );
-  }
-
   if (config.runtimeMode === 'ec2' && !config.publicSubnetIds.includes(config.appHostSubnetId!)) {
     errors.push(
       'Current EC2 runtime proof requires APP_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the app host stays inside an ALB-enabled AZ and has internet egress for bootstrap.'
@@ -345,9 +331,6 @@ function buildWaitSignals(config: PlatformConfig, slices: SliceState): string[] 
   if (config.runtimeMode === 'ec2') {
     signals.push(
       'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
-    );
-    signals.push(
-      'Current EC2 runtime proof currently covers shell/auth/company-governance only. Keep all later slice desired counts at zero until their host-level runtime contracts are implemented.'
     );
     signals.push(
       'Current EC2 runtime proof expects app/data hosts in PUBLIC_SUBNET_IDS with public IPs because the imported private subnets do not yet provide NAT or VPC endpoints for bootstrap, SSM, ECR, and Secrets Manager access.'

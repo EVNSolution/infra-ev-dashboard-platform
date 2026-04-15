@@ -8,21 +8,33 @@ describe('EC2 host bootstrap renderers', () => {
     const script = renderAppHostBootstrap({
       region: 'ap-northeast-2',
       imageMapSsmParam: '/ev-dashboard/runtime/images',
-      dataHostAddress: '10.20.1.15',
-      apexDomain: 'candidate.ev-dashboard.com',
-      apiDomain: 'api.candidate.ev-dashboard.com',
-      csrfTrustedOrigins: 'https://candidate.ev-dashboard.com,https://api.candidate.ev-dashboard.com,https://cheonha.ev-dashboard.com',
       bootstrapPackageBucketName: 'clever-bootstrap-bucket',
       bootstrapPackageObjectKey: 'bootstrap/runtime.zip',
-      accountAccessPostgresSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres',
-      accountAccessDjangoSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:django',
-      accountAccessJwtSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:jwt',
-      organizationEnabled: true,
-      organizationPostgresSecretArn:
-        'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:organization-postgres',
-      organizationDjangoSecretArn:
-        'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:organization-django',
-      organizationJwtSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:organization-jwt'
+      services: [
+        {
+          id: 'ACCOUNT_ACCESS',
+          imageMapKey: 'service-account-access',
+          containerName: 'account-auth-api',
+          enabled: true,
+          containerPort: 8000,
+          environment: {
+            POSTGRES_HOST: '10.20.1.15',
+            POSTGRES_DB: 'account_auth'
+          },
+          secretArns: {
+            POSTGRES_PASSWORD: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres',
+            DJANGO_SECRET_KEY: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:django'
+          }
+        },
+        {
+          id: 'GATEWAY',
+          imageMapKey: 'edge-api-gateway',
+          containerName: 'edge-api-gateway',
+          enabled: true,
+          containerPort: 8080,
+          hostPort: 8080
+        }
+      ]
     }).join('\n');
 
     expect(script).toContain('docker');
@@ -32,6 +44,10 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).toContain('aws s3 cp s3://clever-bootstrap-bucket/bootstrap/runtime.zip /tmp/ev-dashboard-bootstrap.zip');
     expect(script).toContain('unzip -o /tmp/ev-dashboard-bootstrap.zip -d /opt/ev-dashboard/bootstrap');
     expect(script).toContain('python3 /opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py reconcile-app');
+    expect(script).toContain('Environment=APP_SERVICE_IDS=ACCOUNT_ACCESS,GATEWAY');
+    expect(script).toContain('Environment=SERVICE_ACCOUNT_ACCESS_ENV_KEYS=POSTGRES_HOST,POSTGRES_DB');
+    expect(script).toContain('Environment=SERVICE_ACCOUNT_ACCESS_SECRET_KEYS=POSTGRES_PASSWORD,DJANGO_SECRET_KEY');
+    expect(script).toContain('Environment=SERVICE_GATEWAY_CONTAINER_NAME=edge-api-gateway');
     expect(script.length).toBeLessThan(16384);
     expect(script).not.toContain('docker run -d --name web-console');
     expect(script).not.toContain('docker run -d --name account-auth-api');
@@ -40,7 +56,6 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).not.toContain('common.py');
     expect(script).not.toContain('app_host.py');
     expect(script).not.toContain('data_host.py');
-    expect(script).toContain('Environment=ORGANIZATION_ENABLED=1');
   });
 
   test('renders thin data host bootstrap that stages python runtime package', () => {
@@ -79,16 +94,16 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).not.toContain('data_host.py');
   });
 
-  test('runtime package reconciles organization service and org proof route', () => {
+  test('runtime package reconciles generic services without proof-only gateway overrides', () => {
     const source = readFileSync(
       join(__dirname, '..', 'bootstrap', 'ev_dashboard_runtime', 'app_host.py'),
       'utf8'
     );
 
-    expect(source).toContain('service-organization-registry');
-    expect(source).toContain('organization-master-api');
-    expect(source).toContain('ORGANIZATION_POSTGRES_SECRET_ARN');
-    expect(source).toContain('location /api/org/');
+    expect(source).toContain('APP_SERVICE_IDS');
+    expect(source).toContain('SERVICE_ENV_DIR');
+    expect(source).not.toContain('PROOF_GATEWAY_CONFIG_PATH');
+    expect(source).not.toContain('render_proof_gateway_config');
   });
 
   test('data host construct treats bootstrap drift as replacement-worthy', () => {

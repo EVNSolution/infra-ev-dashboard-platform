@@ -5,19 +5,20 @@ import { renderBootstrapPackageFetchCommands } from './bootstrapPackage';
 export type AppHostBootstrapProps = {
   region: string;
   imageMapSsmParam: string;
-  dataHostAddress: string;
-  apexDomain: string;
-  apiDomain: string;
-  csrfTrustedOrigins: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
-  accountAccessPostgresSecretArn?: string;
-  accountAccessDjangoSecretArn?: string;
-  accountAccessJwtSecretArn?: string;
-  organizationEnabled: boolean;
-  organizationPostgresSecretArn?: string;
-  organizationDjangoSecretArn?: string;
-  organizationJwtSecretArn?: string;
+  services: AppHostRuntimeService[];
+};
+
+export type AppHostRuntimeService = {
+  id: string;
+  imageMapKey: string;
+  containerName: string;
+  enabled: boolean;
+  containerPort?: number;
+  hostPort?: number;
+  environment?: Record<string, string>;
+  secretArns?: Record<string, string>;
 };
 
 export type DataHostDatabaseBootstrap = {
@@ -44,6 +45,8 @@ const APP_RECONCILE_UNIT_PATH = '/etc/systemd/system/ev-dashboard-app-reconcile.
 const DATA_BOOTSTRAP_UNIT_PATH = '/etc/systemd/system/ev-dashboard-data-bootstrap.service';
 
 export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
+  const serviceIds = props.services.map((service) => service.id);
+
   return [
     'set -euxo pipefail',
     'dnf install -y docker jq python3 unzip',
@@ -66,52 +69,8 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     'EOF',
     appendTokenizedEnvironmentLine(APP_RECONCILE_UNIT_PATH, 'IMAGE_MAP_PARAM', 'ImageMapParam', props.imageMapSsmParam),
     `printf '%s\n' 'Environment=AWS_REGION=${props.region}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'DATA_HOST_ADDRESS',
-      'DataHostAddress',
-      props.dataHostAddress
-    ),
-    `printf '%s\n' 'Environment=APEX_DOMAIN=${props.apexDomain}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    `printf '%s\n' 'Environment=API_DOMAIN=${props.apiDomain}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    `printf '%s\n' 'Environment=CSRF_TRUSTED_ORIGINS=${props.csrfTrustedOrigins}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    `printf '%s\n' 'Environment=ORGANIZATION_ENABLED=${props.organizationEnabled ? '1' : '0'}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'ACCOUNT_ACCESS_POSTGRES_SECRET_ARN',
-      'AccountAccessPostgresSecretArn',
-      props.accountAccessPostgresSecretArn ?? ''
-    ),
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'ACCOUNT_ACCESS_DJANGO_SECRET_ARN',
-      'AccountAccessDjangoSecretArn',
-      props.accountAccessDjangoSecretArn ?? ''
-    ),
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'ACCOUNT_ACCESS_JWT_SECRET_ARN',
-      'AccountAccessJwtSecretArn',
-      props.accountAccessJwtSecretArn ?? ''
-    ),
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'ORGANIZATION_POSTGRES_SECRET_ARN',
-      'OrganizationPostgresSecretArn',
-      props.organizationPostgresSecretArn ?? ''
-    ),
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'ORGANIZATION_DJANGO_SECRET_ARN',
-      'OrganizationDjangoSecretArn',
-      props.organizationDjangoSecretArn ?? ''
-    ),
-    appendTokenizedEnvironmentLine(
-      APP_RECONCILE_UNIT_PATH,
-      'ORGANIZATION_JWT_SECRET_ARN',
-      'OrganizationJwtSecretArn',
-      props.organizationJwtSecretArn ?? ''
-    ),
+    `printf '%s\n' 'Environment=APP_SERVICE_IDS=${serviceIds.join(',')}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    ...props.services.flatMap((service) => renderAppServiceEnvironmentUnitLines(service)),
     `cat <<'EOF' >> ${APP_RECONCILE_UNIT_PATH}`,
     `ExecStart=/usr/bin/python3 ${PYTHON_CLI_PATH} reconcile-app`,
     '',
@@ -134,6 +93,42 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     'systemctl enable --now ev-dashboard-app-reconcile.timer',
     'systemctl start ev-dashboard-app-reconcile.service'
   ];
+}
+
+function renderAppServiceEnvironmentUnitLines(service: AppHostRuntimeService): string[] {
+  const prefix = `SERVICE_${service.id}`;
+  const environmentKeys = Object.keys(service.environment ?? {});
+  const secretKeys = Object.keys(service.secretArns ?? {});
+
+  return [
+    `printf '%s\n' 'Environment=${prefix}_ENABLED=${service.enabled ? '1' : '0'}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=${prefix}_IMAGE_MAP_KEY=${service.imageMapKey}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=${prefix}_CONTAINER_NAME=${service.containerName}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=${prefix}_CONTAINER_PORT=${service.containerPort ?? ''}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=${prefix}_HOST_PORT=${service.hostPort ?? ''}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=${prefix}_ENV_KEYS=${environmentKeys.join(',')}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    ...environmentKeys.map(
+      (key) =>
+        `printf '%s\n' 'Environment=${prefix}_ENV_${key}=${(service.environment ?? {})[key]}' >> ${APP_RECONCILE_UNIT_PATH}`
+    ),
+    `printf '%s\n' 'Environment=${prefix}_SECRET_KEYS=${secretKeys.join(',')}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    ...secretKeys.map((key) =>
+      appendTokenizedEnvironmentLine(
+        APP_RECONCILE_UNIT_PATH,
+        `${prefix}_SECRET_${key}`,
+        `${prefix}Secret${normalizeEnvironmentVariableSegment(key)}`,
+        (service.secretArns ?? {})[key]
+      )
+    )
+  ];
+}
+
+function normalizeEnvironmentVariableSegment(value: string): string {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0) + segment.slice(1).toLowerCase())
+    .join('');
 }
 
 export function renderDataHostBootstrap(props: DataHostBootstrapProps): string[] {
