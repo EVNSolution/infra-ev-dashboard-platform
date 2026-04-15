@@ -1,7 +1,3 @@
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
-
 import * as cdk from 'aws-cdk-lib';
 import { aws_certificatemanager as acm } from 'aws-cdk-lib';
 import { aws_ec2 as ec2 } from 'aws-cdk-lib';
@@ -13,8 +9,8 @@ import { aws_elasticloadbalancingv2_targets as elbv2Targets } from 'aws-cdk-lib'
 import { aws_rds as rds } from 'aws-cdk-lib';
 import { aws_route53 as route53 } from 'aws-cdk-lib';
 import { aws_route53_targets as route53Targets } from 'aws-cdk-lib';
-import { aws_secretsmanager as secretsmanager } from 'aws-cdk-lib';
 import { aws_s3_assets as s3assets } from 'aws-cdk-lib';
+import { aws_secretsmanager as secretsmanager } from 'aws-cdk-lib';
 import { aws_servicediscovery as servicediscovery } from 'aws-cdk-lib';
 import { aws_ssm as ssm } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
@@ -2493,22 +2489,26 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       }
     ];
 
-    const appServiceManifestAsset = this.createJsonAsset(
-      'AppServiceManifestAsset',
-      'app-services.json',
-      appServices.map((service) => ({
-        id: service.id,
-        imageMapKey: service.imageMapKey,
-        containerName: service.containerName,
-        enabled: service.enabled,
-        containerPort: service.containerPort,
-        hostPort: service.hostPort,
-        environment: service.environment ?? {},
-        secretKeys: Object.keys(service.secretArns ?? {})
-      }))
-    );
+    const appServiceManifest = new secretsmanager.Secret(this, 'AppServiceManifest', {
+      description: 'Resolved runtime manifest for ev-dashboard EC2 app host services',
+      secretStringValue: cdk.SecretValue.unsafePlainText(
+        cdk.Stack.of(this).toJsonString(
+          appServices.map((service) => ({
+            id: service.id,
+            imageMapKey: service.imageMapKey,
+            containerName: service.containerName,
+            enabled: service.enabled,
+            containerPort: service.containerPort,
+            hostPort: service.hostPort,
+            environment: service.environment ?? {},
+            secretKeys: Object.keys(service.secretArns ?? {})
+          }))
+        )
+      )
+    });
 
     const appServiceSecretMap = new secretsmanager.Secret(this, 'AppServiceSecretMap', {
+      description: 'Resolved secret ARN map for ev-dashboard EC2 app host services',
       secretStringValue: cdk.SecretValue.unsafePlainText(
         cdk.Stack.of(this).toJsonString(
           Object.fromEntries(
@@ -2532,13 +2532,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       region: config.region,
       bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
       bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
-      serviceManifestBucketName: appServiceManifestAsset.s3BucketName,
-      serviceManifestObjectKey: appServiceManifestAsset.s3ObjectKey,
+      serviceManifestSecretArn: appServiceManifest.secretArn,
       serviceSecretMapSecretArn: appServiceSecretMap.secretArn,
       instanceName: `${runtimeNamePrefix}-app-host`
     });
     bootstrapPackageAsset.grantRead(appHost.role);
-    appServiceManifestAsset.grantRead(appHost.role);
+    appServiceManifest.grantRead(appHost.role);
     appServiceSecretMap.grantRead(appHost.role);
     runtimeImageMapParam.grantRead(appHost.role);
     postgresSuperuserSecret.grantRead(appHost.role);
@@ -2857,16 +2856,4 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         : {})
     };
   }
-
-  private createJsonAsset(id: string, fileName: string, value: unknown): s3assets.Asset {
-    const assetDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-dashboard-runtime-asset-'));
-    const assetPath = path.join(assetDirectory, fileName);
-
-    fs.writeFileSync(assetPath, JSON.stringify(value, null, 2));
-
-    return new s3assets.Asset(this, id, {
-      path: assetPath
-    });
-  }
-
 }

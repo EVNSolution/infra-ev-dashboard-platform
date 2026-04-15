@@ -18,7 +18,7 @@ def verify_app() -> int:
 def reconcile_app() -> int:
     region = require_env("AWS_REGION")
     image_map_param = require_env("IMAGE_MAP_PARAM")
-    service_manifest_path = Path(require_env("SERVICE_MANIFEST_PATH"))
+    service_manifest_secret_arn = require_env("SERVICE_MANIFEST_SECRET_ARN")
     service_secret_map_secret_arn = require_env("SERVICE_SECRET_MAP_SECRET_ARN")
 
     image_map_json = run_output(
@@ -55,11 +55,27 @@ def reconcile_app() -> int:
         ]
     )
     secret_map = json.loads(secret_map_json)
+    service_manifest_json = run_output(
+        [
+            "aws",
+            "secretsmanager",
+            "get-secret-value",
+            "--secret-id",
+            service_manifest_secret_arn,
+            "--region",
+            region,
+            "--query",
+            "SecretString",
+            "--output",
+            "text",
+        ]
+    )
+    service_manifest = json.loads(service_manifest_json)
 
     services = _load_runtime_services(
         region=region,
         image_map=image_map,
-        service_manifest_path=service_manifest_path,
+        service_manifest=service_manifest,
         secret_map=secret_map,
     )
     registries = sorted({service["image"].split("/", 1)[0] for service in services})
@@ -106,12 +122,11 @@ def reconcile_app() -> int:
 
 
 def _load_runtime_services(
-    *, region: str, image_map: dict[str, str], service_manifest_path: Path, secret_map: dict[str, str]
+    *, region: str, image_map: dict[str, str], service_manifest: list[dict[str, object]], secret_map: dict[str, str]
 ) -> list[dict[str, object]]:
-    service_definitions = json.loads(service_manifest_path.read_text(encoding="utf-8"))
     services: list[dict[str, object]] = []
 
-    for service_definition in service_definitions:
+    for service_definition in service_manifest:
         if not service_definition.get("enabled", False):
             continue
 

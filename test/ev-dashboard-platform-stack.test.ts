@@ -205,6 +205,14 @@ describe('EvDashboardPlatformStack', () => {
       AliasTarget: Match.anyValue()
     });
 
+    template.hasResourceProperties('AWS::SecretsManager::Secret', {
+      Description: 'Resolved runtime manifest for ev-dashboard EC2 app host services'
+    });
+
+    template.hasResourceProperties('AWS::SecretsManager::Secret', {
+      Description: 'Resolved secret ARN map for ev-dashboard EC2 app host services'
+    });
+
     const instanceResources = template.findResources('AWS::EC2::Instance');
     expect(Object.keys(instanceResources)).toEqual(
       expect.arrayContaining([

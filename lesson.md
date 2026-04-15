@@ -269,3 +269,5 @@ EC2 user-data size is a real deployment limit, not an academic warning. The firs
 - add or keep a user-data length assertion in tests so future bootstrap growth fails before CloudFormation
 
 If a bootstrap change requires copying real source files into user-data, that change is pointed at the wrong layer.
+
+Deploy-time tokens cannot be frozen into static runtime manifests. The widened EC2 app-host proof failed even with a healthy data host because the app service manifest was written through `JSON.stringify(...)` into an S3 asset, which turned `dataHost.instance.instancePrivateIp` into a literal `${Token[TOKEN...]}` string. Django then tried to connect to PostgreSQL and Redis at that fake hostname. For this repo, any runtime manifest that contains deploy-time values must be delivered through a deploy-time-resolved carrier such as Secrets Manager or SSM, not a static asset file produced directly from tokenized CDK objects.
