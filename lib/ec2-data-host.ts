@@ -1,0 +1,79 @@
+import { aws_ec2 as ec2, aws_iam as iam } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+import { renderDataHostBootstrap } from './ec2-bootstrap';
+
+export type Ec2DataHostProps = {
+  vpc: ec2.IVpc;
+  subnet: ec2.ISubnet;
+  securityGroup: ec2.ISecurityGroup;
+  instanceType: string;
+  dataVolumeSizeGiB: number;
+  mountPath?: string;
+  instanceName?: string;
+};
+
+export class Ec2DataHost extends Construct {
+  readonly instance: ec2.Instance;
+  readonly role: iam.Role;
+  readonly volume: ec2.CfnVolume;
+  readonly volumeAttachment: ec2.CfnVolumeAttachment;
+
+  constructor(scope: Construct, id: string, props: Ec2DataHostProps) {
+    super(scope, id);
+
+    this.role = new iam.Role(this, 'Role', {
+      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+      managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')]
+    });
+
+    const userData = ec2.UserData.forLinux();
+    userData.addCommands(
+      renderDataHostBootstrap({
+        deviceName: '/dev/xvdf',
+        mountPath: props.mountPath ?? '/data',
+        postgresVersion: '16',
+        redisVersion: '7'
+      })
+    );
+
+    this.instance = new ec2.Instance(this, 'Instance', {
+      vpc: props.vpc,
+      vpcSubnets: { subnets: [props.subnet] },
+      securityGroup: props.securityGroup,
+      instanceType: new ec2.InstanceType(props.instanceType),
+      machineImage: machineImageForInstanceType(props.instanceType),
+      role: this.role,
+      userData
+    });
+
+    this.volume = new ec2.CfnVolume(this, 'DataVolume', {
+      availabilityZone: this.instance.instanceAvailabilityZone,
+      encrypted: true,
+      size: props.dataVolumeSizeGiB,
+      volumeType: 'gp3'
+    });
+
+    this.volumeAttachment = new ec2.CfnVolumeAttachment(this, 'DataVolumeAttachment', {
+      device: '/dev/sdf',
+      instanceId: this.instance.instanceId,
+      volumeId: this.volume.ref
+    });
+
+    if (props.instanceName) {
+      this.instance.instance.addPropertyOverride('Tags', [
+        { Key: 'Name', Value: props.instanceName }
+      ]);
+    }
+  }
+}
+
+function machineImageForInstanceType(instanceType: string): ec2.IMachineImage {
+  return ec2.MachineImage.latestAmazonLinux2023({
+    cpuType: isArmInstanceType(instanceType) ? ec2.AmazonLinuxCpuType.ARM_64 : ec2.AmazonLinuxCpuType.X86_64
+  });
+}
+
+function isArmInstanceType(instanceType: string): boolean {
+  return /(g\.)/.test(instanceType);
+}
