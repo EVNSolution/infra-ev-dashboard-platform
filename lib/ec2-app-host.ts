@@ -59,7 +59,7 @@ export class Ec2AppHost extends Construct {
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
-      renderAppHostBootstrap({
+      ...renderAppHostBootstrap({
         region: props.region,
         imageMapSsmParam: props.imageMapSsmParam,
         dataHostAddress: props.dataHostAddress,

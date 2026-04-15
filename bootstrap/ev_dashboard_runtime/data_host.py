@@ -21,7 +21,7 @@ def bootstrap_data() -> int:
     postgres_version = require_env("POSTGRES_VERSION")
     redis_version = require_env("REDIS_VERSION")
     postgres_superuser_secret_arn = require_env("POSTGRES_SUPERUSER_SECRET_ARN")
-    databases = json.loads(base64.b64decode(require_env("DATA_HOST_DATABASES_B64")).decode("utf8"))
+    databases = _load_database_bootstrap_config()
 
     for _ in range(60):
         if Path(device_name).exists():
@@ -199,6 +199,27 @@ def bootstrap_data() -> int:
             )
 
     return 0
+
+
+def _load_database_bootstrap_config() -> list[dict[str, str]]:
+    try:
+        value = require_env("DATA_HOST_DATABASES_B64")
+    except RuntimeError:
+        count = int(require_env("BOOTSTRAP_DATABASE_COUNT"))
+        databases: list[dict[str, str]] = []
+
+        for index in range(1, count + 1):
+            databases.append(
+                {
+                    "databaseName": require_env(f"BOOTSTRAP_DATABASE_{index}_NAME"),
+                    "username": require_env(f"BOOTSTRAP_DATABASE_{index}_USERNAME"),
+                    "passwordSecretArn": require_env(f"BOOTSTRAP_DATABASE_{index}_PASSWORD_SECRET_ARN"),
+                }
+            )
+
+        return databases
+
+    return json.loads(base64.b64decode(value).decode("utf8"))
 
 
 def _remove_container(container_name: str) -> None:

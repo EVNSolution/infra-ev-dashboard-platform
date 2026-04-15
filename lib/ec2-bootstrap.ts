@@ -1,4 +1,4 @@
-import { Buffer } from 'node:buffer';
+import * as cdk from 'aws-cdk-lib';
 
 import { renderBootstrapPackageFetchCommands } from './bootstrapPackage';
 
@@ -35,10 +35,11 @@ export type DataHostBootstrapProps = {
 
 const BOOTSTRAP_ROOT = '/opt/ev-dashboard/bootstrap';
 const PYTHON_CLI_PATH = `${BOOTSTRAP_ROOT}/ev_dashboard_runtime/cli.py`;
+const APP_RECONCILE_UNIT_PATH = '/etc/systemd/system/ev-dashboard-app-reconcile.service';
+const DATA_BOOTSTRAP_UNIT_PATH = '/etc/systemd/system/ev-dashboard-data-bootstrap.service';
 
-export function renderAppHostBootstrap(props: AppHostBootstrapProps): string {
+export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
   return [
-    '#!/bin/bash',
     'set -euxo pipefail',
     'dnf install -y docker jq python3 unzip',
     'systemctl enable --now docker',
@@ -48,7 +49,7 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string {
       props.bootstrapPackageBucketName,
       props.bootstrapPackageObjectKey
     ),
-    'cat <<EOF > /etc/systemd/system/ev-dashboard-app-reconcile.service',
+    `cat <<'EOF' > ${APP_RECONCILE_UNIT_PATH}`,
     '[Unit]',
     'Description=Reconcile ev-dashboard app containers from runtime image map',
     'After=docker.service network-online.target',
@@ -57,14 +58,36 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string {
     '[Service]',
     'Type=oneshot',
     `Environment=PYTHONPATH=${BOOTSTRAP_ROOT}`,
-    `Environment=IMAGE_MAP_PARAM=${props.imageMapSsmParam}`,
-    `Environment=AWS_REGION=${props.region}`,
-    `Environment=DATA_HOST_ADDRESS=${props.dataHostAddress}`,
-    `Environment=APEX_DOMAIN=${props.apexDomain}`,
-    `Environment=API_DOMAIN=${props.apiDomain}`,
-    `Environment=ACCOUNT_ACCESS_POSTGRES_SECRET_ARN=${props.accountAccessPostgresSecretArn ?? ''}`,
-    `Environment=ACCOUNT_ACCESS_DJANGO_SECRET_ARN=${props.accountAccessDjangoSecretArn ?? ''}`,
-    `Environment=ACCOUNT_ACCESS_JWT_SECRET_ARN=${props.accountAccessJwtSecretArn ?? ''}`,
+    'EOF',
+    appendTokenizedEnvironmentLine(APP_RECONCILE_UNIT_PATH, 'IMAGE_MAP_PARAM', 'ImageMapParam', props.imageMapSsmParam),
+    `printf '%s\n' 'Environment=AWS_REGION=${props.region}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'DATA_HOST_ADDRESS',
+      'DataHostAddress',
+      props.dataHostAddress
+    ),
+    `printf '%s\n' 'Environment=APEX_DOMAIN=${props.apexDomain}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=API_DOMAIN=${props.apiDomain}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'ACCOUNT_ACCESS_POSTGRES_SECRET_ARN',
+      'AccountAccessPostgresSecretArn',
+      props.accountAccessPostgresSecretArn ?? ''
+    ),
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'ACCOUNT_ACCESS_DJANGO_SECRET_ARN',
+      'AccountAccessDjangoSecretArn',
+      props.accountAccessDjangoSecretArn ?? ''
+    ),
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'ACCOUNT_ACCESS_JWT_SECRET_ARN',
+      'AccountAccessJwtSecretArn',
+      props.accountAccessJwtSecretArn ?? ''
+    ),
+    `cat <<'EOF' >> ${APP_RECONCILE_UNIT_PATH}`,
     `ExecStart=/usr/bin/python3 ${PYTHON_CLI_PATH} reconcile-app`,
     '',
     '[Install]',
@@ -85,14 +108,11 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string {
     'systemctl daemon-reload',
     'systemctl enable --now ev-dashboard-app-reconcile.timer',
     'systemctl start ev-dashboard-app-reconcile.service'
-  ].join('\n');
+  ];
 }
 
-export function renderDataHostBootstrap(props: DataHostBootstrapProps): string {
-  const databasesB64 = Buffer.from(JSON.stringify(props.databases), 'utf8').toString('base64');
-
+export function renderDataHostBootstrap(props: DataHostBootstrapProps): string[] {
   return [
-    '#!/bin/bash',
     'set -euxo pipefail',
     'dnf install -y docker jq python3 unzip',
     'systemctl enable --now docker',
@@ -102,7 +122,7 @@ export function renderDataHostBootstrap(props: DataHostBootstrapProps): string {
       props.bootstrapPackageBucketName,
       props.bootstrapPackageObjectKey
     ),
-    'cat <<EOF > /etc/systemd/system/ev-dashboard-data-bootstrap.service',
+    `cat <<'EOF' > ${DATA_BOOTSTRAP_UNIT_PATH}`,
     '[Unit]',
     'Description=Bootstrap ev-dashboard data host volumes and containers',
     'After=docker.service network-online.target',
@@ -116,8 +136,29 @@ export function renderDataHostBootstrap(props: DataHostBootstrapProps): string {
     `Environment=AWS_REGION=${props.region}`,
     `Environment=POSTGRES_VERSION=${props.postgresVersion}`,
     `Environment=REDIS_VERSION=${props.redisVersion}`,
-    `Environment=POSTGRES_SUPERUSER_SECRET_ARN=${props.postgresSuperuserSecretArn}`,
-    `Environment=DATA_HOST_DATABASES_B64=${databasesB64}`,
+    'EOF',
+    appendTokenizedEnvironmentLine(
+      DATA_BOOTSTRAP_UNIT_PATH,
+      'POSTGRES_SUPERUSER_SECRET_ARN',
+      'PostgresSuperuserSecretArn',
+      props.postgresSuperuserSecretArn
+    ),
+    `printf '%s\n' 'Environment=BOOTSTRAP_DATABASE_COUNT=${props.databases.length}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
+    ...props.databases.flatMap((database, index) => {
+      const number = index + 1;
+
+      return [
+        `printf '%s\n' 'Environment=BOOTSTRAP_DATABASE_${number}_NAME=${database.databaseName}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
+        `printf '%s\n' 'Environment=BOOTSTRAP_DATABASE_${number}_USERNAME=${database.username}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
+        appendTokenizedEnvironmentLine(
+          DATA_BOOTSTRAP_UNIT_PATH,
+          `BOOTSTRAP_DATABASE_${number}_PASSWORD_SECRET_ARN`,
+          `Database${number}PasswordSecretArn`,
+          database.passwordSecretArn
+        )
+      ];
+    }),
+    `cat <<'EOF' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
     `ExecStart=/usr/bin/python3 ${PYTHON_CLI_PATH} bootstrap-data`,
     '',
     '[Install]',
@@ -125,5 +166,16 @@ export function renderDataHostBootstrap(props: DataHostBootstrapProps): string {
     'EOF',
     'systemctl daemon-reload',
     'systemctl enable --now ev-dashboard-data-bootstrap.service'
-  ].join('\n');
+  ];
+}
+
+function appendTokenizedEnvironmentLine(
+  unitPath: string,
+  envName: string,
+  variableName: string,
+  value: string
+): string {
+  return cdk.Fn.sub(`printf '%s\\n' 'Environment=${envName}=\${${variableName}}' >> ${unitPath}`, {
+    [variableName]: value
+  });
 }

@@ -40,7 +40,7 @@ export class Ec2DataHost extends Construct {
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
-      renderDataHostBootstrap({
+      ...renderDataHostBootstrap({
         region: props.region,
         deviceName: '/dev/sdf',
         mountPath: props.mountPath ?? '/data',

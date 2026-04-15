@@ -10,6 +10,7 @@ import {
   buildBootstrapPrecheckExecutionPlan,
   buildBootstrapPrecheckReport,
   formatBootstrapPrecheckReport,
+  resolveBootstrapPrecheckEnv,
   runBootstrapPrecheck
 } from '../lib/bootstrapPrecheck';
 
@@ -163,5 +164,65 @@ describe('bootstrap precheck contract', () => {
         DEPLOY_ENVIRONMENT: 'prod'
       })
     ).toThrow('Unable to resolve bootstrap stack context for EvDashboardPlatformStack');
+  });
+
+  test('resolves hashed logical resource ids when stack resources add suffixes', () => {
+    (childProcess.execFileSync as jest.Mock).mockImplementation((command: string, args: string[]) => {
+      const joined = `${command} ${args.join(' ')}`;
+
+      if (joined.includes('cloudformation describe-stacks')) {
+        return JSON.stringify({
+          Stacks: [
+            {
+              Outputs: [
+                { OutputKey: 'AppHostInstanceId', OutputValue: 'i-app' },
+                { OutputKey: 'DataHostInstanceId', OutputValue: 'i-data' },
+                { OutputKey: 'RuntimeImageMapParameterName', OutputValue: '/EvDashboardPlatformDevStack/runtime/images' },
+                { OutputKey: 'PostgresSecretName', OutputValue: 'postgres-secret' }
+              ]
+            }
+          ]
+        });
+      }
+
+      if (joined.includes('cloudformation describe-stack-resources')) {
+        return JSON.stringify({
+          StackResources: [
+            {
+              LogicalResourceId: 'AccountAccessDjangoSecretKeyA5BA0AAE',
+              PhysicalResourceId: 'django-secret'
+            },
+            {
+              LogicalResourceId: 'PlatformJwtSecretKeyD00247A0',
+              PhysicalResourceId: 'jwt-secret'
+            }
+          ]
+        });
+      }
+
+      if (joined.includes('cloudformation describe-stack-resource')) {
+        throw new Error('Resource does not exist for stack');
+      }
+
+      if (joined.includes('ec2 describe-instances')) {
+        return JSON.stringify({
+          Reservations: [{ Instances: [{ PrivateIpAddress: '10.20.0.225' }] }]
+        });
+      }
+
+      throw new Error(`Unexpected aws call: ${joined}`);
+    });
+
+    const resolved = resolveBootstrapPrecheckEnv({
+      DEPLOY_ENVIRONMENT: 'dev',
+      AWS_REGION: 'ap-northeast-2',
+      APEX_DOMAIN: 'candidate.ev-dashboard.com',
+      API_DOMAIN: 'api.candidate.ev-dashboard.com'
+    });
+
+    expect(resolved.BOOTSTRAP_ACCOUNT_ACCESS_DJANGO_SECRET_ARN).toBe('django-secret');
+    expect(resolved.BOOTSTRAP_ACCOUNT_ACCESS_JWT_SECRET_ARN).toBe('jwt-secret');
+    expect(resolved.BOOTSTRAP_IMAGE_MAP_PARAM).toBe('/EvDashboardPlatformDevStack/runtime/images');
+    expect(resolved.BOOTSTRAP_DATA_HOST_ADDRESS).toBe('10.20.0.225');
   });
 });

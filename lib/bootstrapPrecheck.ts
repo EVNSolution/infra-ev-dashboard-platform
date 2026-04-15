@@ -506,22 +506,43 @@ function describeStackOutputs(stackName: string): Record<string, string> {
 }
 
 function describeStackPhysicalResourceId(stackName: string, logicalResourceId: string): string | undefined {
+  try {
+    const response = childProcess.execFileSync(
+      'aws',
+      [
+        'cloudformation',
+        'describe-stack-resource',
+        '--stack-name',
+        stackName,
+        '--logical-resource-id',
+        logicalResourceId,
+        '--output',
+        'json'
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const parsed = JSON.parse(response) as { StackResourceDetail?: { PhysicalResourceId?: string } };
+    const exactMatch = parsed.StackResourceDetail?.PhysicalResourceId?.trim();
+    if (exactMatch) {
+      return exactMatch;
+    }
+  } catch {
+    // Fall back to a stack-wide scan because CDK appends hashes to many logical ids.
+  }
+
   const response = childProcess.execFileSync(
     'aws',
-    [
-      'cloudformation',
-      'describe-stack-resource',
-      '--stack-name',
-      stackName,
-      '--logical-resource-id',
-      logicalResourceId,
-      '--output',
-      'json'
-    ],
+    ['cloudformation', 'describe-stack-resources', '--stack-name', stackName, '--output', 'json'],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
-  const parsed = JSON.parse(response) as { StackResourceDetail?: { PhysicalResourceId?: string } };
-  return parsed.StackResourceDetail?.PhysicalResourceId?.trim() || undefined;
+  const parsed = JSON.parse(response) as {
+    StackResources?: Array<{ LogicalResourceId?: string; PhysicalResourceId?: string }>;
+  };
+  const matched = parsed.StackResources?.find((resource) =>
+    resource.LogicalResourceId?.trim().startsWith(logicalResourceId)
+  );
+
+  return matched?.PhysicalResourceId?.trim() || undefined;
 }
 
 function describeInstancePrivateIp(instanceId: string): string | undefined {

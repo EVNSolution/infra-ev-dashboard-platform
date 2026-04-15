@@ -13,7 +13,7 @@ describe('EC2 host bootstrap renderers', () => {
       accountAccessPostgresSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres',
       accountAccessDjangoSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:django',
       accountAccessJwtSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:jwt'
-    });
+    }).join('\n');
 
     expect(script).toContain('docker');
     expect(script).toContain('python3');
@@ -49,7 +49,7 @@ describe('EC2 host bootstrap renderers', () => {
           passwordSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:account-auth'
         }
       ]
-    });
+    }).join('\n');
 
     expect(script).toContain('/dev/sdf');
     expect(script).toContain('/data');
@@ -57,6 +57,8 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).toContain('aws s3 cp s3://clever-bootstrap-bucket/bootstrap/runtime.zip /tmp/ev-dashboard-bootstrap.zip');
     expect(script).toContain('unzip -o /tmp/ev-dashboard-bootstrap.zip -d /opt/ev-dashboard/bootstrap');
     expect(script).toContain('python3 /opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py bootstrap-data');
+    expect(script).toContain('BOOTSTRAP_DATABASE_1_NAME=account_auth');
+    expect(script).toContain('BOOTSTRAP_DATABASE_1_USERNAME=account_auth');
     expect(script.length).toBeLessThan(16384);
     expect(script).not.toContain('docker pull postgres:16');
     expect(script).not.toContain('docker pull redis:7');

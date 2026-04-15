@@ -35,11 +35,9 @@ export function renderBootstrapPackageStageCommands(targetRoot: string): string[
 
   for (const file of listBootstrapPackageFiles()) {
     const targetPath = path.posix.join(targetRoot, file.relativePath);
-    const marker = `BOOTSTRAP_${file.relativePath.replace(/[^A-Za-z0-9]/g, '_').toUpperCase()}`;
+    const encoded = Buffer.from(file.contents, 'utf8').toString('base64');
 
-    lines.push(`cat <<'${marker}' > ${targetPath}`);
-    lines.push(file.contents.trimEnd());
-    lines.push(marker);
+    lines.push(`printf '%s' '${encoded}' | base64 -d > ${targetPath}`);
   }
 
   return lines;
