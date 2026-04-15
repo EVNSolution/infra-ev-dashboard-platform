@@ -76,24 +76,22 @@ npm test -- --runInBand
 npx cdk synth
 ```
 
-If the change touches EC2 host bootstrap and the dev/candidate lane hosts already exist, run the bootstrap precheck before any full deploy:
+For EC2 runtime bring-up, use workflow `run_profile` instead of editing the YAML by hand:
 
-```bash
-cd /Users/jiin/Documents/Files/02_EVnSolution/00_Source_code/CLEVER/clever-msa-platform/development/infra-ev-dashboard-platform
-BOOTSTRAP_LANE=dev \
-BOOTSTRAP_PRECHECK_MODE=proof \
-BOOTSTRAP_APP_HOST_INSTANCE_ID=i-xxxxxxxxxxxxxxxxx \
-BOOTSTRAP_DATA_HOST_INSTANCE_ID=i-yyyyyyyyyyyyyyyyy \
-npm run bootstrap:precheck
-```
-
-`bootstrap:precheck` is not a dry-run. It syncs the current Python bootstrap package to the existing lane hosts over SSM and runs `verify-app` / `verify-data` there. Use it to validate bootstrap drift directly on the hosts before the next full `cdk deploy`, and skip it only when the first EC2 lane hosts do not exist yet.
+- `full`
+  - `preflight -> unit tests -> synth -> deploy -> post-deploy smoke`
+- `bootstrap-proof`
+  - `synth -> deploy -> post-deploy smoke`
+  - use this when the purpose is to validate stack/bootstrap/runtime bring-up quickly
+- `smoke-only`
+  - `post-deploy smoke` only against the current live lane
+  - use this when stack topology is already up and only edge proof needs to be rerun
 
 For EC2 lanes, keep user-data thin. The current contract is:
 
 - user-data installs base packages and systemd units
 - the Python bootstrap package is delivered as a CDK-managed S3 asset
-- host-side verification happens through `bootstrap:precheck`, not by embedding Python source in user-data
+- host bootstrap stays inside the packaged Python runtime, not inline user-data shell
 
 If bootstrap package changes start inflating user-data again, stop and move the new logic into the packaged Python runtime instead of adding more inline shell.
 
@@ -175,11 +173,6 @@ Repository or environment variables:
 - optional: `APP_HOST_INSTANCE_TYPE`
 - optional: `DATA_HOST_INSTANCE_TYPE`
 - optional: `DATA_VOLUME_SIZE_GIB`
-- optional: `BOOTSTRAP_PRECHECK_MODE`
-- optional: `BOOTSTRAP_LANE`
-- optional: `BOOTSTRAP_APP_HOST_INSTANCE_ID`
-- optional: `BOOTSTRAP_DATA_HOST_INSTANCE_ID`
-- optional: `BOOTSTRAP_SYNC_ROOT`
 - optional: `FRONT_DESIRED_COUNT`
 - optional: `GATEWAY_DESIRED_COUNT`
 - optional: `ACCOUNT_ACCESS_DESIRED_COUNT`

@@ -216,16 +216,13 @@ Nitro device naming matters on the data host. The EBS attachment was present, bu
 
 EC2 runtime fixes are not real until the hosts ingest the new bootstrap. The first patch added a proof-only gateway config and corrected the data device name, but the live candidate still booted the old scripts because the instances were updated in place. For this repo, app/data hosts must treat user-data drift as replacement-worthy (`userDataCausesReplacement`) or CloudFormation can report success while the hosts keep running stale bootstrap logic.
 
-Once bootstrap moved into a Python package, repeating full `cdk deploy` runs stopped being the right debugging loop. The faster and safer sequence is:
+Once bootstrap moved into a Python package, repeating the full release workflow for every bootstrap bug stopped making sense. The honest fix is not a report-only precheck layer; it is a separate fast deploy profile. For this repo:
 
-1. change the Python bootstrap package
-2. sync it to the existing dev/candidate app/data hosts
-3. run `verify-app` and `verify-data`
-4. only then run the next full deploy
+1. keep `full` for release-grade proof
+2. use `bootstrap-proof` when the goal is `synth -> deploy -> smoke`
+3. use `smoke-only` when the stack already exists and only edge verification needs rerun
 
-Use full deploys for topology proof, ALB wiring, and public smoke. Use `bootstrap:precheck` for quoting, device, package staging, and SQL bootstrap mistakes.
-
-Another bootstrap-precheck lesson: a report-only script is a false positive. The command must execute real SSM sync/verify steps, and it must inject the same host-level environment contract that user-data/systemd uses. Otherwise the workflow says "precheck ran" while no bootstrap code actually ran. Also, when no EC2 lane stack or host exists yet, the command should fail with a direct stack/host resolution error instead of silently printing a plan.
+If a bootstrap helper becomes slower than the stack update it is supposed to save, remove it and collapse back to the smallest honest workflow profile.
 
 EC2 user-data size is a real deployment limit, not an academic warning. The first `EvDashboardPlatformDevStack` create failed before either host booted because the data-host user-data exceeded EC2's 16 KB raw limit when the Python bootstrap package was inlined with `cat <<EOF` blocks. For this repo's EC2 lanes:
 
