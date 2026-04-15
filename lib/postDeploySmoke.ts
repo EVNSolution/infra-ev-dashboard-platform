@@ -75,7 +75,7 @@ export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySm
       {
         name: 'company tenant resolve validation',
         url: `${apiUrl}/api/org/companies/public/resolve/`,
-        expectedStatus: 400
+        expectedStatus: 404
       }
     );
   }

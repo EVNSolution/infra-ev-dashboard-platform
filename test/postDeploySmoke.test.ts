@@ -151,7 +151,7 @@ describe('post-deploy smoke', () => {
         expect.objectContaining({
           name: 'company tenant resolve validation',
           url: 'https://api.ev-dashboard.com/api/org/companies/public/resolve/',
-          expectedStatus: 400
+          expectedStatus: 404
         }),
         expect.objectContaining({
           name: 'drivers protected list',
@@ -182,7 +182,7 @@ describe('post-deploy smoke', () => {
   test('passes when every required endpoint returns its expected status', async () => {
     const fetchMock = jest.fn(async (input: string, init?: RequestInit) => {
       if (String(input).includes('/companies/public/resolve/')) {
-        return { status: 400 } as Response;
+        return { status: 404 } as Response;
       }
 
       const status = init?.redirect === 'manual' ? 302 : 200;
@@ -228,7 +228,7 @@ describe('post-deploy smoke', () => {
         return { status: 502 } as Response;
       }
       if (String(input).includes('/companies/public/resolve/')) {
-        return { status: 400 } as Response;
+        return { status: 404 } as Response;
       }
 
       return { status: init?.redirect === 'manual' ? 302 : 200 } as Response;
