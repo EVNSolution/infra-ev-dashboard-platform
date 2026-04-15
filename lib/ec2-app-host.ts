@@ -10,6 +10,12 @@ export type Ec2AppHostProps = {
   instanceType: string;
   imageMapSsmParam: string;
   region: string;
+  dataHostAddress: string;
+  apexDomain: string;
+  apiDomain: string;
+  accountAccessPostgresSecretArn?: string;
+  accountAccessDjangoSecretArn?: string;
+  accountAccessJwtSecretArn?: string;
   instanceName?: string;
 };
 
@@ -42,9 +48,26 @@ export class Ec2AppHost extends Construct {
         resources: ['*']
       })
     );
+    this.role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+        resources: ['*']
+      })
+    );
 
     const userData = ec2.UserData.forLinux();
-    userData.addCommands(renderAppHostBootstrap({ region: props.region, imageMapSsmParam: props.imageMapSsmParam }));
+    userData.addCommands(
+      renderAppHostBootstrap({
+        region: props.region,
+        imageMapSsmParam: props.imageMapSsmParam,
+        dataHostAddress: props.dataHostAddress,
+        apexDomain: props.apexDomain,
+        apiDomain: props.apiDomain,
+        accountAccessPostgresSecretArn: props.accountAccessPostgresSecretArn,
+        accountAccessDjangoSecretArn: props.accountAccessDjangoSecretArn,
+        accountAccessJwtSecretArn: props.accountAccessJwtSecretArn
+      })
+    );
 
     this.instance = new ec2.Instance(this, 'Instance', {
       vpc: props.vpc,

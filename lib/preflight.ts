@@ -241,6 +241,21 @@ function validateSliceDependencies(
   }
 
   if (
+    config.runtimeMode === 'ec2' &&
+    (slices.companyGovernance ||
+      slices.peopleAndAssets ||
+      slices.dispatchInputs ||
+      slices.dispatchReadModels ||
+      slices.settlement ||
+      slices.supportSurface ||
+      slices.terminalAndTelemetry)
+  ) {
+    errors.push(
+      'Current EC2 runtime proof only supports the shell/auth slice: front-web-console + edge-api-gateway + service-account-access. Set all later slice desired counts to zero before deploy.'
+    );
+  }
+
+  if (
     (
       slices.companyGovernance ||
       slices.peopleAndAssets ||
@@ -319,6 +334,9 @@ function buildWaitSignals(config: PlatformConfig, slices: SliceState): string[] 
   if (config.runtimeMode === 'ec2') {
     signals.push(
       'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
+    );
+    signals.push(
+      'Current EC2 runtime proof is shell/auth only. Keep later slice desired counts at zero until host-level runtime contracts for those services exist.'
     );
 
     if (hasStatefulSlices(slices)) {

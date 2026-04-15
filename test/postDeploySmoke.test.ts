@@ -17,6 +17,8 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
     APP_HOST_SUBNET_ID: 'subnet-ccc',
     DATA_HOST_SUBNET_ID: 'subnet-ddd',
+    APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+    DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2b',
     FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
     GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
     ACCOUNT_ACCESS_IMAGE_URI:

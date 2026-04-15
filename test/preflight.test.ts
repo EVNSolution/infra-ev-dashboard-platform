@@ -21,6 +21,8 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
     APP_HOST_SUBNET_ID: 'subnet-ccc',
     DATA_HOST_SUBNET_ID: 'subnet-ddd',
+    APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+    DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2b',
     FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
     GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
     ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account',
@@ -62,20 +64,20 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     FRONT_DESIRED_COUNT: '1',
     GATEWAY_DESIRED_COUNT: '1',
     ACCOUNT_ACCESS_DESIRED_COUNT: '1',
-    ORGANIZATION_DESIRED_COUNT: '1',
-    DRIVER_PROFILE_DESIRED_COUNT: '1',
-    PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
-    VEHICLE_ASSET_DESIRED_COUNT: '1',
-    DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '1',
-    DISPATCH_REGISTRY_DESIRED_COUNT: '1',
-    DELIVERY_RECORD_DESIRED_COUNT: '1',
-    ATTENDANCE_REGISTRY_DESIRED_COUNT: '1',
-    DISPATCH_OPS_DESIRED_COUNT: '1',
-    DRIVER_OPS_DESIRED_COUNT: '1',
-    VEHICLE_OPS_DESIRED_COUNT: '1',
-    SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
-    SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
-    SETTLEMENT_OPS_DESIRED_COUNT: '1',
+    ORGANIZATION_DESIRED_COUNT: '0',
+    DRIVER_PROFILE_DESIRED_COUNT: '0',
+    PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
+    VEHICLE_ASSET_DESIRED_COUNT: '0',
+    DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+    DISPATCH_REGISTRY_DESIRED_COUNT: '0',
+    DELIVERY_RECORD_DESIRED_COUNT: '0',
+    ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
+    DISPATCH_OPS_DESIRED_COUNT: '0',
+    DRIVER_OPS_DESIRED_COUNT: '0',
+    VEHICLE_OPS_DESIRED_COUNT: '0',
+    SETTLEMENT_REGISTRY_DESIRED_COUNT: '0',
+    SETTLEMENT_PAYROLL_DESIRED_COUNT: '0',
+    SETTLEMENT_OPS_DESIRED_COUNT: '0',
     REGION_REGISTRY_DESIRED_COUNT: '0',
     REGION_ANALYTICS_DESIRED_COUNT: '0',
     ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
@@ -106,6 +108,9 @@ describe('deploy preflight', () => {
   test('rejects dispatch read models when dispatch inputs are not enabled', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
+        DISPATCH_OPS_DESIRED_COUNT: '1',
+        DRIVER_OPS_DESIRED_COUNT: '1',
+        VEHICLE_OPS_DESIRED_COUNT: '1',
         DISPATCH_REGISTRY_DESIRED_COUNT: '0',
         DELIVERY_RECORD_DESIRED_COUNT: '0',
         ATTENDANCE_REGISTRY_DESIRED_COUNT: '0'
@@ -218,6 +223,16 @@ describe('deploy preflight', () => {
     expect(report.errors).toContain('Missing required environment variable: APP_HOST_SUBNET_ID');
   });
 
+  test('surfaces ec2 runtime host availability-zone input errors through preflight', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        APP_HOST_SUBNET_AVAILABILITY_ZONE: ''
+      })
+    );
+
+    expect(report.errors).toContain('Missing required environment variable: APP_HOST_SUBNET_AVAILABILITY_ZONE');
+  });
+
   test('rejects image tags that do not exist in ECR', () => {
     (childProcess.execFileSync as jest.Mock).mockImplementation(() => {
       throw new Error('Image not found');
@@ -234,30 +249,35 @@ describe('deploy preflight', () => {
     );
   });
 
+  test('rejects later slices in ec2 runtime proof mode', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        ORGANIZATION_DESIRED_COUNT: '1'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Current EC2 runtime proof only supports the shell/auth slice: front-web-console + edge-api-gateway + service-account-access. Set all later slice desired counts to zero before deploy.'
+    );
+  });
+
   test('summarizes enabled slices and wait signals', () => {
     const report = buildDeployPreflightReport(createBaseEnv());
     const formatted = formatDeployPreflightReport(report);
 
     expect(report.runtimeMode).toBe('ec2');
-    expect(report.enabledSlices).toEqual([
-      'Auth Surface',
-      'Company Governance',
-      'People And Assets',
-      'Dispatch Inputs',
-      'Dispatch Read Models',
-      'Settlement'
-    ]);
-    expect(report.waitSignals).toContain(
-      'Stateful slices are enabled on the data host. Expect EBS attach/mount and PostgreSQL/Redis bootstrap before public smoke settles.'
-    );
+    expect(report.enabledSlices).toEqual(['Auth Surface']);
     expect(report.waitSignals).toContain(
       'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
+    );
+    expect(report.waitSignals).toContain(
+      'Current EC2 runtime proof is shell/auth only. Keep later slice desired counts at zero until host-level runtime contracts for those services exist.'
     );
     expect(report.waitSignals).not.toContain(
       'New or updated direct Service Connect upstreams are enabled. Expect a later edge-api-gateway rollout after backend services register.'
     );
     expect(formatted).toContain('Runtime mode: ec2');
-    expect(formatted).toContain('Enabled slices: Auth Surface -> Company Governance -> People And Assets');
+    expect(formatted).toContain('Enabled slices: Auth Surface');
     expect(formatted).toContain('ALB target draining can keep CloudFormation open for up to 300s');
   });
 });

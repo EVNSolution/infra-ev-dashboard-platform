@@ -1636,14 +1636,42 @@ export class EvDashboardPlatformStack extends cdk.Stack {
   }): void {
     const { config, vpc, hostedZone, loadBalancer, httpsListener, serviceSecurityGroup, dataSecurityGroup } = input;
     const runtimeNamePrefix = this.stackName;
-    const appHostSubnet = this.importSubnetWithAvailabilityZone('Ec2AppHostSubnet', config, config.appHostSubnetId!);
-    const dataHostSubnet = this.importSubnetWithAvailabilityZone('Ec2DataHostSubnet', config, config.dataHostSubnetId!);
+    const appHostSubnet = ec2.Subnet.fromSubnetAttributes(this, 'Ec2AppHostSubnet', {
+      subnetId: config.appHostSubnetId!,
+      availabilityZone: config.appHostSubnetAvailabilityZone!
+    });
+    const dataHostSubnet = ec2.Subnet.fromSubnetAttributes(this, 'Ec2DataHostSubnet', {
+      subnetId: config.dataHostSubnetId!,
+      availabilityZone: config.dataHostSubnetAvailabilityZone!
+    });
     const runtimeImageMap = this.buildRuntimeImageMap(config);
     const runtimeImageMapParam = new ssm.StringParameter(this, 'RuntimeImageMapParam', {
       parameterName: `/${runtimeNamePrefix}/runtime/images`,
       stringValue: JSON.stringify(runtimeImageMap)
     });
     const postgresSecret = this.createGeneratedSecret('PostgresPasswordSecret');
+    const accountAccessDjangoSecret = this.createGeneratedSecret('AccountAccessDjangoSecretKey');
+    const platformJwtSecret = this.createGeneratedSecret('PlatformJwtSecretKey');
+
+    const dataHost = new Ec2DataHost(this, 'DataHost', {
+      vpc,
+      subnet: dataHostSubnet,
+      securityGroup: dataSecurityGroup,
+      instanceType: config.dataHostInstanceType,
+      region: config.region,
+      dataVolumeSizeGiB: config.dataVolumeSizeGiB,
+      postgresSuperuserSecretArn: postgresSecret.secretArn,
+      databases: [
+        {
+          databaseName: 'account_auth',
+          username: 'account_auth',
+          passwordSecretArn: postgresSecret.secretArn
+        }
+      ],
+      mountPath: '/data',
+      instanceName: `${runtimeNamePrefix}-data-host`
+    });
+    postgresSecret.grantRead(dataHost.role);
 
     const appHost = new Ec2AppHost(this, 'AppHost', {
       vpc,
@@ -1652,20 +1680,18 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       instanceType: config.appHostInstanceType,
       imageMapSsmParam: runtimeImageMapParam.parameterName,
       region: config.region,
+      dataHostAddress: dataHost.instance.instancePrivateIp,
+      apexDomain: config.apexDomain,
+      apiDomain: config.apiDomain,
+      accountAccessPostgresSecretArn: postgresSecret.secretArn,
+      accountAccessDjangoSecretArn: accountAccessDjangoSecret.secretArn,
+      accountAccessJwtSecretArn: platformJwtSecret.secretArn,
       instanceName: `${runtimeNamePrefix}-app-host`
     });
     runtimeImageMapParam.grantRead(appHost.role);
     postgresSecret.grantRead(appHost.role);
-
-    const dataHost = new Ec2DataHost(this, 'DataHost', {
-      vpc,
-      subnet: dataHostSubnet,
-      securityGroup: dataSecurityGroup,
-      instanceType: config.dataHostInstanceType,
-      dataVolumeSizeGiB: config.dataVolumeSizeGiB,
-      mountPath: '/data',
-      instanceName: `${runtimeNamePrefix}-data-host`
-    });
+    accountAccessDjangoSecret.grantRead(appHost.role);
+    platformJwtSecret.grantRead(appHost.role);
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
       port: 5174,
@@ -1919,30 +1945,5 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         ? { 'service-telemetry-listener': config.telemetryListenerImageUri }
         : {})
     };
-  }
-
-  private importSubnetWithAvailabilityZone(
-    id: string,
-    config: PlatformConfig,
-    subnetId: string
-  ): ec2.ISubnet {
-    return ec2.Subnet.fromSubnetAttributes(this, id, {
-      subnetId,
-      availabilityZone: this.lookupSubnetAvailabilityZone(config, subnetId)
-    });
-  }
-
-  private lookupSubnetAvailabilityZone(config: PlatformConfig, subnetId: string): string {
-    const privateIndex = config.privateSubnetIds.indexOf(subnetId);
-    if (privateIndex >= 0 && config.availabilityZones[privateIndex]) {
-      return config.availabilityZones[privateIndex];
-    }
-
-    const publicIndex = config.publicSubnetIds.indexOf(subnetId);
-    if (publicIndex >= 0 && config.availabilityZones[publicIndex]) {
-      return config.availabilityZones[publicIndex];
-    }
-
-    return config.availabilityZones[0];
   }
 }

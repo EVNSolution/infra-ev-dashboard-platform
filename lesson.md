@@ -166,3 +166,27 @@ For future temporary lanes:
 - make the stack id and stack name environment-aware
 - scope any fixed resource names, especially SSM parameters, to the lane
 - treat different domains without different stack identity as a false separation
+
+## Subnet IDs And Availability Zones Need An Explicit Pair, Not An Ordered Guess
+
+The first EC2 dev rehearsal reached CloudFormation and then rolled back because the app and data hosts were launched with the wrong availability zones for their subnets. Mapping `PRIVATE_SUBNET_IDS` to `AVAILABILITY_ZONES` by list index was not trustworthy in this account. The actual AWS subnet metadata said:
+
+- `subnet-0c11dd64028c21521` -> `ap-northeast-2c`
+- `subnet-06906a03d6e956a4f` -> `ap-northeast-2b`
+
+Future EC2 runtime cutovers must carry explicit host subnet AZ values:
+
+- `APP_HOST_SUBNET_ID` + `APP_HOST_SUBNET_AVAILABILITY_ZONE`
+- `DATA_HOST_SUBNET_ID` + `DATA_HOST_SUBNET_AVAILABILITY_ZONE`
+
+Do not infer host subnet AZ from shared subnet lists.
+
+The first honest EC2 proof has to be narrower than the final topology. App host bootstrap was initially only strong enough to fetch image metadata, not to start containers, and the data host still needed explicit DB/user provisioning. The pragmatic fix was to codify a shell/auth-only proof first:
+
+- `front-web-console`
+- `edge-api-gateway`
+- `service-account-access`
+
+If the host-level runtime contract does not exist yet, do not pretend a later slice is ready just because its image URI exists. Make preflight fail until the host bootstrap can actually run that slice.
+
+EC2 image deploys need a host-side reconcile loop, not just user-data that runs once. Updating the runtime image-map SSM parameter does nothing for a running EC2 host unless the host has a timer or explicit deploy command that re-pulls images and restarts containers. For this repo, the app host now needs a reconcile service/timer, not just boot-time ECR login.

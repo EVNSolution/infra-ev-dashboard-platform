@@ -1,7 +1,7 @@
 import { aws_ec2 as ec2, aws_iam as iam } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
-import { renderDataHostBootstrap } from './ec2-bootstrap';
+import { DataHostDatabaseBootstrap, renderDataHostBootstrap } from './ec2-bootstrap';
 
 export type Ec2DataHostProps = {
   vpc: ec2.IVpc;
@@ -9,6 +9,9 @@ export type Ec2DataHostProps = {
   securityGroup: ec2.ISecurityGroup;
   instanceType: string;
   dataVolumeSizeGiB: number;
+  region: string;
+  postgresSuperuserSecretArn: string;
+  databases?: DataHostDatabaseBootstrap[];
   mountPath?: string;
   instanceName?: string;
 };
@@ -26,14 +29,23 @@ export class Ec2DataHost extends Construct {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
       managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')]
     });
+    this.role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+        resources: ['*']
+      })
+    );
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
       renderDataHostBootstrap({
+        region: props.region,
         deviceName: '/dev/xvdf',
         mountPath: props.mountPath ?? '/data',
         postgresVersion: '16',
-        redisVersion: '7'
+        redisVersion: '7',
+        postgresSuperuserSecretArn: props.postgresSuperuserSecretArn,
+        databases: props.databases ?? []
       })
     );
 

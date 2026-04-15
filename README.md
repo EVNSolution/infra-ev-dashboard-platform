@@ -97,6 +97,14 @@ npm run smoke:postdeploy
 - a later backend slice is enabled without the earlier slices it depends on
 - `edge-api-gateway` is disabled while API slices are still enabled
 
+Current EC2 runtime proof is narrower than the long-term target. At this stage, `RUNTIME_MODE=ec2` only supports:
+
+- `front-web-console`
+- `edge-api-gateway`
+- `service-account-access`
+
+Keep all later slice desired counts at `0` until their host-level runtime contracts are implemented. The deploy gate now enforces that boundary.
+
 The command also prints the expected deploy wait signals so operators do not overreact to normal `UPDATE_IN_PROGRESS` windows.
 
 ## Required GitHub Configuration
@@ -139,6 +147,8 @@ Repository or environment variables:
 - `PUBLIC_SUBNET_IDS`
 - `APP_HOST_SUBNET_ID`
 - `DATA_HOST_SUBNET_ID`
+- `APP_HOST_SUBNET_AVAILABILITY_ZONE`
+- `DATA_HOST_SUBNET_AVAILABILITY_ZONE`
 - optional: `PRIVATE_SUBNET_IDS`
 - optional: `AVAILABILITY_ZONES`
 - optional: `APP_HOST_INSTANCE_TYPE`
@@ -237,7 +247,7 @@ Repository secrets:
 
 The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates. The actual CDK deploy runs with the shared infra role because the existing `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles remain EC2/SSM deploy roles for `clever-deploy-control`.
 
-For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID` and `DATA_HOST_SUBNET_ID` are required. `PRIVATE_SUBNET_IDS` is still used for imported network metadata and should stay aligned with the app/data host private lanes.
+For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`, `APP_HOST_SUBNET_AVAILABILITY_ZONE`, and `DATA_HOST_SUBNET_AVAILABILITY_ZONE` are required. `PRIVATE_SUBNET_IDS` is still used for imported network metadata and should stay aligned with the app/data host private lanes.
 
 GitHub variable scope matters for the EC2 runtime cutover. The shared network values in this repo currently live at repo scope, but the new host-placement keys (`APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`) may need environment-specific values. If those keys are absent from the selected GitHub Environment, the workflow still starts but preflight fails before deploy.
 

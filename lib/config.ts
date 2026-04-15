@@ -12,6 +12,8 @@ export type PlatformConfigInput = {
   serviceConnectNamespace?: string;
   appHostSubnetId?: string;
   dataHostSubnetId?: string;
+  appHostSubnetAvailabilityZone?: string;
+  dataHostSubnetAvailabilityZone?: string;
   appHostInstanceType?: string;
   dataHostInstanceType?: string;
   dataVolumeSizeGiB?: number;
@@ -163,6 +165,8 @@ export type PlatformConfig = PlatformConfigInput & {
   serviceConnectNamespace: string;
   appHostSubnetId?: string;
   dataHostSubnetId?: string;
+  appHostSubnetAvailabilityZone?: string;
+  dataHostSubnetAvailabilityZone?: string;
   appHostInstanceType: string;
   dataHostInstanceType: string;
   dataVolumeSizeGiB: number;
@@ -201,6 +205,14 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
 
   if (runtimeMode === 'ec2' && !input.dataHostSubnetId) {
     throw new Error('Missing required environment variable: DATA_HOST_SUBNET_ID');
+  }
+
+  if (runtimeMode === 'ec2' && !input.appHostSubnetAvailabilityZone) {
+    throw new Error('Missing required environment variable: APP_HOST_SUBNET_AVAILABILITY_ZONE');
+  }
+
+  if (runtimeMode === 'ec2' && !input.dataHostSubnetAvailabilityZone) {
+    throw new Error('Missing required environment variable: DATA_HOST_SUBNET_AVAILABILITY_ZONE');
   }
 
   return {
@@ -278,6 +290,8 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     serviceConnectNamespace,
     appHostSubnetId: emptyToUndefined(env.APP_HOST_SUBNET_ID),
     dataHostSubnetId: emptyToUndefined(env.DATA_HOST_SUBNET_ID),
+    appHostSubnetAvailabilityZone: emptyToUndefined(env.APP_HOST_SUBNET_AVAILABILITY_ZONE),
+    dataHostSubnetAvailabilityZone: emptyToUndefined(env.DATA_HOST_SUBNET_AVAILABILITY_ZONE),
     appHostInstanceType: emptyToUndefined(env.APP_HOST_INSTANCE_TYPE),
     dataHostInstanceType: emptyToUndefined(env.DATA_HOST_INSTANCE_TYPE),
     dataVolumeSizeGiB: toNumber(env.DATA_VOLUME_SIZE_GIB, 'DATA_VOLUME_SIZE_GIB', 100),

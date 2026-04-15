@@ -411,6 +411,8 @@ describe('buildPlatformConfigFromEnv', () => {
         PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
         RUNTIME_MODE: 'ec2',
         DATA_HOST_SUBNET_ID: 'subnet-ddd',
+        APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+        DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2b',
         FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
         GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
         ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
@@ -453,6 +455,63 @@ describe('buildPlatformConfigFromEnv', () => {
     ).toThrow('APP_HOST_SUBNET_ID');
   });
 
+  test('requires app host subnet availability zone when ec2 runtime mode is enabled', () => {
+    expect(() =>
+      buildPlatformConfigFromEnv({
+        AWS_REGION: 'ap-northeast-2',
+        HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+        HOSTED_ZONE_NAME: 'ev-dashboard.com',
+        APEX_DOMAIN: 'ev-dashboard.com',
+        API_DOMAIN: 'api.ev-dashboard.com',
+        VPC_ID: 'vpc-015c89247f96e9221',
+        PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+        PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
+        RUNTIME_MODE: 'ec2',
+        APP_HOST_SUBNET_ID: 'subnet-ccc',
+        DATA_HOST_SUBNET_ID: 'subnet-ddd',
+        DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2b',
+        FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+        GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+        ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
+        ORGANIZATION_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:test',
+        DRIVER_PROFILE_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test',
+        PERSONNEL_DOCUMENT_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
+        VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
+        DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+        DISPATCH_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+        DELIVERY_RECORD_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+        ATTENDANCE_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test',
+        DISPATCH_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:test',
+        DRIVER_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
+        VEHICLE_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+        SETTLEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+        SETTLEMENT_PAYROLL_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+        SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+        REGION_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+        REGION_ANALYTICS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+        ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+        SUPPORT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+        NOTIFICATION_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
+      })
+    ).toThrow('APP_HOST_SUBNET_AVAILABILITY_ZONE');
+  });
+
   test('requires data host subnet when ec2 runtime mode is enabled', () => {
     expect(() =>
       buildPlatformConfigFromEnv({
@@ -466,6 +525,7 @@ describe('buildPlatformConfigFromEnv', () => {
         PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
         RUNTIME_MODE: 'ec2',
         APP_HOST_SUBNET_ID: 'subnet-ccc',
+        APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
         FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
         GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
         ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
@@ -508,6 +568,63 @@ describe('buildPlatformConfigFromEnv', () => {
     ).toThrow('DATA_HOST_SUBNET_ID');
   });
 
+  test('requires data host subnet availability zone when ec2 runtime mode is enabled', () => {
+    expect(() =>
+      buildPlatformConfigFromEnv({
+        AWS_REGION: 'ap-northeast-2',
+        HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+        HOSTED_ZONE_NAME: 'ev-dashboard.com',
+        APEX_DOMAIN: 'ev-dashboard.com',
+        API_DOMAIN: 'api.ev-dashboard.com',
+        VPC_ID: 'vpc-015c89247f96e9221',
+        PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+        PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
+        RUNTIME_MODE: 'ec2',
+        APP_HOST_SUBNET_ID: 'subnet-ccc',
+        DATA_HOST_SUBNET_ID: 'subnet-ddd',
+        APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+        FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+        GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+        ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
+        ORGANIZATION_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:test',
+        DRIVER_PROFILE_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test',
+        PERSONNEL_DOCUMENT_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
+        VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
+        DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+        DISPATCH_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+        DELIVERY_RECORD_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+        ATTENDANCE_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test',
+        DISPATCH_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:test',
+        DRIVER_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
+        VEHICLE_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+        SETTLEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+        SETTLEMENT_PAYROLL_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+        SETTLEMENT_OPS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+        REGION_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+        REGION_ANALYTICS_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+        ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+        SUPPORT_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+        NOTIFICATION_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
+      })
+    ).toThrow('DATA_HOST_SUBNET_AVAILABILITY_ZONE');
+  });
+
   test('returns ec2 runtime host defaults when ec2 runtime mode is enabled', () => {
     const config = buildPlatformConfigFromEnv({
       AWS_REGION: 'ap-northeast-2',
@@ -521,6 +638,8 @@ describe('buildPlatformConfigFromEnv', () => {
       RUNTIME_MODE: 'ec2',
       APP_HOST_SUBNET_ID: 'subnet-ccc',
       DATA_HOST_SUBNET_ID: 'subnet-ddd',
+      APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+      DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2b',
       FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
       GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
       ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
@@ -564,6 +683,8 @@ describe('buildPlatformConfigFromEnv', () => {
     expect(config.runtimeMode).toBe('ec2');
     expect(config.appHostSubnetId).toBe('subnet-ccc');
     expect(config.dataHostSubnetId).toBe('subnet-ddd');
+    expect(config.appHostSubnetAvailabilityZone).toBe('ap-northeast-2c');
+    expect(config.dataHostSubnetAvailabilityZone).toBe('ap-northeast-2b');
     expect(config.appHostInstanceType).toBe('t4g.small');
     expect(config.dataHostInstanceType).toBe('t4g.small');
     expect(config.dataVolumeSizeGiB).toBe(100);
