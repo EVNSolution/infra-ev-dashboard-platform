@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 
-import { renderBootstrapPackageStageCommands } from './bootstrapPackage';
+import { renderBootstrapPackageFetchCommands } from './bootstrapPackage';
 
 export type AppHostBootstrapProps = {
   region: string;
@@ -8,6 +8,8 @@ export type AppHostBootstrapProps = {
   dataHostAddress: string;
   apexDomain: string;
   apiDomain: string;
+  bootstrapPackageBucketName: string;
+  bootstrapPackageObjectKey: string;
   accountAccessPostgresSecretArn?: string;
   accountAccessDjangoSecretArn?: string;
   accountAccessJwtSecretArn?: string;
@@ -25,6 +27,8 @@ export type DataHostBootstrapProps = {
   mountPath: string;
   postgresVersion: string;
   redisVersion: string;
+  bootstrapPackageBucketName: string;
+  bootstrapPackageObjectKey: string;
   postgresSuperuserSecretArn: string;
   databases: DataHostDatabaseBootstrap[];
 };
@@ -36,10 +40,14 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string {
   return [
     '#!/bin/bash',
     'set -euxo pipefail',
-    'dnf install -y docker jq python3',
+    'dnf install -y docker jq python3 unzip',
     'systemctl enable --now docker',
     'mkdir -p /opt/ev-dashboard /etc/systemd/system',
-    ...renderBootstrapPackageStageCommands(BOOTSTRAP_ROOT),
+    ...renderBootstrapPackageFetchCommands(
+      BOOTSTRAP_ROOT,
+      props.bootstrapPackageBucketName,
+      props.bootstrapPackageObjectKey
+    ),
     'cat <<EOF > /etc/systemd/system/ev-dashboard-app-reconcile.service',
     '[Unit]',
     'Description=Reconcile ev-dashboard app containers from runtime image map',
@@ -86,10 +94,14 @@ export function renderDataHostBootstrap(props: DataHostBootstrapProps): string {
   return [
     '#!/bin/bash',
     'set -euxo pipefail',
-    'dnf install -y docker jq python3',
+    'dnf install -y docker jq python3 unzip',
     'systemctl enable --now docker',
     'mkdir -p /opt/ev-dashboard /opt/ev-dashboard-data /etc/systemd/system',
-    ...renderBootstrapPackageStageCommands(BOOTSTRAP_ROOT),
+    ...renderBootstrapPackageFetchCommands(
+      BOOTSTRAP_ROOT,
+      props.bootstrapPackageBucketName,
+      props.bootstrapPackageObjectKey
+    ),
     'cat <<EOF > /etc/systemd/system/ev-dashboard-data-bootstrap.service',
     '[Unit]',
     'Description=Bootstrap ev-dashboard data host volumes and containers',

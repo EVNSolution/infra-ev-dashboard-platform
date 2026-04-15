@@ -89,6 +89,14 @@ npm run bootstrap:precheck
 
 `bootstrap:precheck` is not a dry-run. It syncs the current Python bootstrap package to the existing lane hosts over SSM and runs `verify-app` / `verify-data` there. Use it to validate bootstrap drift directly on the hosts before the next full `cdk deploy`, and skip it only when the first EC2 lane hosts do not exist yet.
 
+For EC2 lanes, keep user-data thin. The current contract is:
+
+- user-data installs base packages and systemd units
+- the Python bootstrap package is delivered as a CDK-managed S3 asset
+- host-side verification happens through `bootstrap:precheck`, not by embedding Python source in user-data
+
+If bootstrap package changes start inflating user-data again, stop and move the new logic into the packaged Python runtime instead of adding more inline shell.
+
 After `cdk deploy`, the workflow now runs `npm run smoke:postdeploy` automatically. A green deploy requires both:
 
 - stack deploy success

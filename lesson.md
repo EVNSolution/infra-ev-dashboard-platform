@@ -226,3 +226,11 @@ Once bootstrap moved into a Python package, repeating full `cdk deploy` runs sto
 Use full deploys for topology proof, ALB wiring, and public smoke. Use `bootstrap:precheck` for quoting, device, package staging, and SQL bootstrap mistakes.
 
 Another bootstrap-precheck lesson: a report-only script is a false positive. The command must execute real SSM sync/verify steps, and it must inject the same host-level environment contract that user-data/systemd uses. Otherwise the workflow says "precheck ran" while no bootstrap code actually ran. Also, when no EC2 lane stack or host exists yet, the command should fail with a direct stack/host resolution error instead of silently printing a plan.
+
+EC2 user-data size is a real deployment limit, not an academic warning. The first `EvDashboardPlatformDevStack` create failed before either host booted because the data-host user-data exceeded EC2's 16 KB raw limit when the Python bootstrap package was inlined with `cat <<EOF` blocks. For this repo's EC2 lanes:
+
+- keep user-data thin enough to install packages, fetch assets, and register systemd units
+- stage the Python bootstrap runtime as a CDK S3 asset and download it on the host
+- add or keep a user-data length assertion in tests so future bootstrap growth fails before CloudFormation
+
+If a bootstrap change requires copying real source files into user-data, that change is pointed at the wrong layer.

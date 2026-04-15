@@ -26,6 +26,10 @@ export function getBootstrapPackageRoot(): string {
   return path.resolve(__dirname, '..', 'bootstrap', 'ev_dashboard_runtime');
 }
 
+export function getBootstrapAssetRoot(): string {
+  return path.resolve(__dirname, '..', 'bootstrap');
+}
+
 export function renderBootstrapPackageStageCommands(targetRoot: string): string[] {
   const lines = [`mkdir -p ${targetRoot}/ev_dashboard_runtime`];
 
@@ -39,4 +43,21 @@ export function renderBootstrapPackageStageCommands(targetRoot: string): string[
   }
 
   return lines;
+}
+
+export function renderBootstrapPackageFetchCommands(
+  targetRoot: string,
+  bucketName: string,
+  objectKey: string
+): string[] {
+  const archivePath = '/tmp/ev-dashboard-bootstrap.zip';
+
+  return [
+    `mkdir -p ${targetRoot}`,
+    'command -v aws >/dev/null 2>&1 || dnf install -y awscli',
+    `rm -rf ${targetRoot}/ev_dashboard_runtime`,
+    `aws s3 cp s3://${bucketName}/${objectKey} ${archivePath}`,
+    `unzip -o ${archivePath} -d ${targetRoot}`,
+    `rm -f ${archivePath}`
+  ];
 }

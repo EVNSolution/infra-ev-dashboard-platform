@@ -10,11 +10,13 @@ import { aws_rds as rds } from 'aws-cdk-lib';
 import { aws_route53 as route53 } from 'aws-cdk-lib';
 import { aws_route53_targets as route53Targets } from 'aws-cdk-lib';
 import { aws_secretsmanager as secretsmanager } from 'aws-cdk-lib';
+import { aws_s3_assets as s3assets } from 'aws-cdk-lib';
 import { aws_servicediscovery as servicediscovery } from 'aws-cdk-lib';
 import { aws_ssm as ssm } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 import type { PlatformConfig } from './config';
+import { getBootstrapAssetRoot } from './bootstrapPackage';
 import { Ec2AppHost } from './ec2-app-host';
 import { Ec2DataHost } from './ec2-data-host';
 
@@ -1649,6 +1651,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       parameterName: `/${runtimeNamePrefix}/runtime/images`,
       stringValue: JSON.stringify(runtimeImageMap)
     });
+    const bootstrapPackageAsset = new s3assets.Asset(this, 'BootstrapPackageAsset', {
+      path: getBootstrapAssetRoot()
+    });
     const postgresSecret = this.createGeneratedSecret('PostgresPasswordSecret');
     const accountAccessDjangoSecret = this.createGeneratedSecret('AccountAccessDjangoSecretKey');
     const platformJwtSecret = this.createGeneratedSecret('PlatformJwtSecretKey');
@@ -1660,6 +1665,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       instanceType: config.dataHostInstanceType,
       region: config.region,
       dataVolumeSizeGiB: config.dataVolumeSizeGiB,
+      bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
+      bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
       postgresSuperuserSecretArn: postgresSecret.secretArn,
       databases: [
         {
@@ -1671,6 +1678,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       mountPath: '/data',
       instanceName: `${runtimeNamePrefix}-data-host`
     });
+    bootstrapPackageAsset.grantRead(dataHost.role);
     postgresSecret.grantRead(dataHost.role);
 
     const appHost = new Ec2AppHost(this, 'AppHost', {
@@ -1683,11 +1691,14 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       dataHostAddress: dataHost.instance.instancePrivateIp,
       apexDomain: config.apexDomain,
       apiDomain: config.apiDomain,
+      bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
+      bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
       accountAccessPostgresSecretArn: postgresSecret.secretArn,
       accountAccessDjangoSecretArn: accountAccessDjangoSecret.secretArn,
       accountAccessJwtSecretArn: platformJwtSecret.secretArn,
       instanceName: `${runtimeNamePrefix}-app-host`
     });
+    bootstrapPackageAsset.grantRead(appHost.role);
     runtimeImageMapParam.grantRead(appHost.role);
     postgresSecret.grantRead(appHost.role);
     accountAccessDjangoSecret.grantRead(appHost.role);

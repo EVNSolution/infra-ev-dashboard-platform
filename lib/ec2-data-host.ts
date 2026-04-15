@@ -10,6 +10,8 @@ export type Ec2DataHostProps = {
   instanceType: string;
   dataVolumeSizeGiB: number;
   region: string;
+  bootstrapPackageBucketName: string;
+  bootstrapPackageObjectKey: string;
   postgresSuperuserSecretArn: string;
   databases?: DataHostDatabaseBootstrap[];
   mountPath?: string;
@@ -44,6 +46,8 @@ export class Ec2DataHost extends Construct {
         mountPath: props.mountPath ?? '/data',
         postgresVersion: '16',
         redisVersion: '7',
+        bootstrapPackageBucketName: props.bootstrapPackageBucketName,
+        bootstrapPackageObjectKey: props.bootstrapPackageObjectKey,
         postgresSuperuserSecretArn: props.postgresSuperuserSecretArn,
         databases: props.databases ?? []
       })

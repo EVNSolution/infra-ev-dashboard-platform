@@ -13,6 +13,8 @@ export type Ec2AppHostProps = {
   dataHostAddress: string;
   apexDomain: string;
   apiDomain: string;
+  bootstrapPackageBucketName: string;
+  bootstrapPackageObjectKey: string;
   accountAccessPostgresSecretArn?: string;
   accountAccessDjangoSecretArn?: string;
   accountAccessJwtSecretArn?: string;
@@ -63,6 +65,8 @@ export class Ec2AppHost extends Construct {
         dataHostAddress: props.dataHostAddress,
         apexDomain: props.apexDomain,
         apiDomain: props.apiDomain,
+        bootstrapPackageBucketName: props.bootstrapPackageBucketName,
+        bootstrapPackageObjectKey: props.bootstrapPackageObjectKey,
         accountAccessPostgresSecretArn: props.accountAccessPostgresSecretArn,
         accountAccessDjangoSecretArn: props.accountAccessDjangoSecretArn,
         accountAccessJwtSecretArn: props.accountAccessJwtSecretArn
