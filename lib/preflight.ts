@@ -4,6 +4,7 @@ import { buildPlatformConfigFromEnv, PlatformConfig } from './config';
 
 export type DeployPreflightReport = {
   environment: string;
+  runtimeMode: PlatformConfig['runtimeMode'] | 'unknown';
   enabledSlices: string[];
   warnings: string[];
   errors: string[];
@@ -52,6 +53,7 @@ const IMAGE_ENV_KEYS: Array<keyof NodeJS.ProcessEnv> = [
 
 export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPreflightReport {
   const environment = normalizeEnvironment(env.DEPLOY_ENVIRONMENT);
+  const runtimeMode = normalizeRuntimeMode(env.RUNTIME_MODE);
   const warnings: string[] = [];
   const errors: string[] = [];
 
@@ -73,6 +75,7 @@ export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPrefli
   if (!config) {
     return {
       environment,
+      runtimeMode,
       enabledSlices: [],
       warnings,
       errors,
@@ -89,6 +92,7 @@ export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPrefli
 
   return {
     environment,
+    runtimeMode: config.runtimeMode,
     enabledSlices: formatEnabledSlices(slices),
     warnings,
     errors,
@@ -101,6 +105,7 @@ export function formatDeployPreflightReport(report: DeployPreflightReport): stri
 
   lines.push('ev-dashboard deploy preflight');
   lines.push(`Environment: ${report.environment}`);
+  lines.push(`Runtime mode: ${report.runtimeMode}`);
   lines.push(`Enabled slices: ${report.enabledSlices.length > 0 ? report.enabledSlices.join(' -> ') : 'none'}`);
 
   if (report.errors.length > 0) {
@@ -311,6 +316,20 @@ function buildWaitSignals(config: PlatformConfig, slices: SliceState): string[] 
     'ALB target draining can keep CloudFormation open for up to 300s after public smoke already looks healthy.'
   ];
 
+  if (config.runtimeMode === 'ec2') {
+    signals.push(
+      'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
+    );
+
+    if (hasStatefulSlices(slices)) {
+      signals.push(
+        'Stateful slices are enabled on the data host. Expect EBS attach/mount and PostgreSQL/Redis bootstrap before public smoke settles.'
+      );
+    }
+
+    return signals;
+  }
+
   if (hasStatefulSlices(slices)) {
     signals.push(
       'Stateful slices are enabled. Expect an RDS create-or-update quiet period before public smoke settles.'
@@ -430,6 +449,18 @@ function parseTaggedEcrImageUri(imageUri: string): { repositoryName: string; tag
     repositoryName: match[1],
     tag: match[2]
   };
+}
+
+function normalizeRuntimeMode(value: string | undefined): DeployPreflightReport['runtimeMode'] {
+  if (value === 'ec2' || value === 'ecs') {
+    return value;
+  }
+
+  if (!value || value.trim() === '') {
+    return 'ecs';
+  }
+
+  return 'unknown';
 }
 
 function trimDot(value: string): string {

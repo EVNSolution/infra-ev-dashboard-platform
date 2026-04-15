@@ -7,6 +7,7 @@ import {
 function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     AWS_REGION: 'ap-northeast-2',
+    RUNTIME_MODE: 'ec2',
     HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
     HOSTED_ZONE_NAME: 'ev-dashboard.com',
     APEX_DOMAIN: 'ev-dashboard.com',
@@ -14,6 +15,8 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     VPC_ID: 'vpc-015c89247f96e9221',
     PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
     PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
+    APP_HOST_SUBNET_ID: 'subnet-ccc',
+    DATA_HOST_SUBNET_ID: 'subnet-ddd',
     FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
     GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
     ACCOUNT_ACCESS_IMAGE_URI:

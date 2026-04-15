@@ -9,6 +9,7 @@ import { buildDeployPreflightReport, formatDeployPreflightReport } from '../lib/
 function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     DEPLOY_ENVIRONMENT: 'prod',
+    RUNTIME_MODE: 'ec2',
     INFRA_ROLE_ARN: 'arn:aws:iam::902837199612:role/GitHubActionsRole',
     AWS_REGION: 'ap-northeast-2',
     HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
@@ -18,6 +19,8 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     VPC_ID: 'vpc-015c89247f96e9221',
     PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
     PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
+    APP_HOST_SUBNET_ID: 'subnet-ccc',
+    DATA_HOST_SUBNET_ID: 'subnet-ddd',
     FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
     GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
     ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account',
@@ -208,8 +211,7 @@ describe('deploy preflight', () => {
   test('surfaces ec2 runtime host input errors through preflight', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
-        RUNTIME_MODE: 'ec2',
-        PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd'
+        APP_HOST_SUBNET_ID: ''
       })
     );
 
@@ -236,6 +238,7 @@ describe('deploy preflight', () => {
     const report = buildDeployPreflightReport(createBaseEnv());
     const formatted = formatDeployPreflightReport(report);
 
+    expect(report.runtimeMode).toBe('ec2');
     expect(report.enabledSlices).toEqual([
       'Auth Surface',
       'Company Governance',
@@ -245,11 +248,15 @@ describe('deploy preflight', () => {
       'Settlement'
     ]);
     expect(report.waitSignals).toContain(
-      'Stateful slices are enabled. Expect an RDS create-or-update quiet period before public smoke settles.'
+      'Stateful slices are enabled on the data host. Expect EBS attach/mount and PostgreSQL/Redis bootstrap before public smoke settles.'
     );
     expect(report.waitSignals).toContain(
+      'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
+    );
+    expect(report.waitSignals).not.toContain(
       'New or updated direct Service Connect upstreams are enabled. Expect a later edge-api-gateway rollout after backend services register.'
     );
+    expect(formatted).toContain('Runtime mode: ec2');
     expect(formatted).toContain('Enabled slices: Auth Surface -> Company Governance -> People And Assets');
     expect(formatted).toContain('ALB target draining can keep CloudFormation open for up to 300s');
   });
