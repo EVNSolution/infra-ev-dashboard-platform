@@ -62,6 +62,8 @@ The second `502` window is a different signal. In Slice 2, `service-driver-profi
 
 When a runtime mode changes, lock the host contract in config before touching the stack. For the EC2 app/data host migration, `RUNTIME_MODE=ec2` had to fail fast on `APP_HOST_SUBNET_ID` and `DATA_HOST_SUBNET_ID` in both config parsing and preflight tests before any topology rewrite started. That keeps later stack work from hiding simple operator input mistakes.
 
+EC2 host paths need stronger imported subnet metadata than ECS task paths. `ec2.Instance` on imported subnets broke until the stack switched from `Subnet.fromSubnetId()` to `Subnet.fromSubnetAttributes()` with an explicit availability zone lookup. Keep that helper local to infra and reuse it for future EC2-based surfaces instead of rediscovering the same failure in each stack.
+
 Slice 4 added one more wait pattern. Even after the new gateway task was serving good public smoke, the workflow and stack still stayed open because the old ALB target was draining. In this stack, `deregistration_delay.timeout_seconds` is `300`, so target draining can be the last long pole after the new tasks are already healthy. When the public endpoints have flipped to the expected `200/404` shape, check target-group draining before firing another redeploy.
 
 Temporary bridge envs are runtime compatibility, not trust compatibility. `SETTLEMENT_OPS_BASE_URL`, `TELEMETRY_HUB_BASE_URL`, and `TERMINAL_REGISTRY_BASE_URL` can keep a Slice 4 task graph alive while later slices are still on the old public hub, but the old hub does not automatically trust the new platform JWT. If a bridge remains optional, the service code must degrade gracefully instead of expecting those upstream calls to succeed.

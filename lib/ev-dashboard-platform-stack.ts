@@ -5,14 +5,18 @@ import { aws_elasticache as elasticache } from 'aws-cdk-lib';
 import { aws_ecr as ecr } from 'aws-cdk-lib';
 import { aws_ecs as ecs } from 'aws-cdk-lib';
 import { aws_elasticloadbalancingv2 as elbv2 } from 'aws-cdk-lib';
+import { aws_elasticloadbalancingv2_targets as elbv2Targets } from 'aws-cdk-lib';
 import { aws_rds as rds } from 'aws-cdk-lib';
 import { aws_route53 as route53 } from 'aws-cdk-lib';
 import { aws_route53_targets as route53Targets } from 'aws-cdk-lib';
 import { aws_secretsmanager as secretsmanager } from 'aws-cdk-lib';
 import { aws_servicediscovery as servicediscovery } from 'aws-cdk-lib';
+import { aws_ssm as ssm } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 import type { PlatformConfig } from './config';
+import { Ec2AppHost } from './ec2-app-host';
+import { Ec2DataHost } from './ec2-data-host';
 
 type EvDashboardPlatformStackProps = cdk.StackProps & {
   config: PlatformConfig;
@@ -42,15 +46,6 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       domainName: config.apexDomain,
       subjectAlternativeNames: [config.apiDomain],
       validation: acm.CertificateValidation.fromDns(hostedZone)
-    });
-    const cluster = new ecs.Cluster(this, 'Cluster', {
-      clusterName: 'ev-dashboard-platform',
-      vpc,
-      defaultCloudMapNamespace: {
-        name: config.serviceConnectNamespace,
-        type: servicediscovery.NamespaceType.DNS_PRIVATE,
-        useForServiceConnect: true
-      }
     });
 
     const albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
@@ -104,6 +99,29 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         contentType: 'text/plain',
         messageBody: 'not found'
       })
+    });
+
+    if (config.runtimeMode === 'ec2') {
+      this.buildEc2Runtime({
+        config,
+        vpc,
+        hostedZone,
+        loadBalancer,
+        httpsListener,
+        serviceSecurityGroup,
+        dataSecurityGroup
+      });
+      return;
+    }
+
+    const cluster = new ecs.Cluster(this, 'Cluster', {
+      clusterName: 'ev-dashboard-platform',
+      vpc,
+      defaultCloudMapNamespace: {
+        name: config.serviceConnectNamespace,
+        type: servicediscovery.NamespaceType.DNS_PRIVATE,
+        useForServiceConnect: true
+      }
     });
 
     const frontService = this.createFargateService('FrontWebConsole', {
@@ -1607,6 +1625,108 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     });
   }
 
+  private buildEc2Runtime(input: {
+    config: PlatformConfig;
+    vpc: ec2.IVpc;
+    hostedZone: route53.IHostedZone;
+    loadBalancer: elbv2.ApplicationLoadBalancer;
+    httpsListener: elbv2.ApplicationListener;
+    serviceSecurityGroup: ec2.SecurityGroup;
+    dataSecurityGroup: ec2.SecurityGroup;
+  }): void {
+    const { config, vpc, hostedZone, loadBalancer, httpsListener, serviceSecurityGroup, dataSecurityGroup } = input;
+    const appHostSubnet = this.importSubnetWithAvailabilityZone('Ec2AppHostSubnet', config, config.appHostSubnetId!);
+    const dataHostSubnet = this.importSubnetWithAvailabilityZone('Ec2DataHostSubnet', config, config.dataHostSubnetId!);
+    const runtimeImageMap = this.buildRuntimeImageMap(config);
+    const runtimeImageMapParam = new ssm.StringParameter(this, 'RuntimeImageMapParam', {
+      parameterName: '/ev-dashboard/runtime/images',
+      stringValue: JSON.stringify(runtimeImageMap)
+    });
+    const postgresSecret = this.createGeneratedSecret('PostgresPasswordSecret');
+
+    const appHost = new Ec2AppHost(this, 'AppHost', {
+      vpc,
+      subnet: appHostSubnet,
+      securityGroup: serviceSecurityGroup,
+      instanceType: config.appHostInstanceType,
+      imageMapSsmParam: runtimeImageMapParam.parameterName,
+      region: config.region,
+      instanceName: 'ev-dashboard-app-host'
+    });
+    runtimeImageMapParam.grantRead(appHost.role);
+    postgresSecret.grantRead(appHost.role);
+
+    const dataHost = new Ec2DataHost(this, 'DataHost', {
+      vpc,
+      subnet: dataHostSubnet,
+      securityGroup: dataSecurityGroup,
+      instanceType: config.dataHostInstanceType,
+      dataVolumeSizeGiB: config.dataVolumeSizeGiB,
+      mountPath: '/data',
+      instanceName: 'ev-dashboard-data-host'
+    });
+
+    const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
+      port: 5174,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      targetType: elbv2.TargetType.INSTANCE,
+      vpc,
+      healthCheck: {
+        path: config.frontHealthCheckPath
+      }
+    });
+    frontTargetGroup.addTarget(new elbv2Targets.InstanceTarget(appHost.instance, 5174));
+
+    const gatewayTargetGroup = new elbv2.ApplicationTargetGroup(this, 'GatewayTargetGroup', {
+      port: 8080,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      targetType: elbv2.TargetType.INSTANCE,
+      vpc,
+      healthCheck: {
+        path: config.gatewayHealthCheckPath
+      }
+    });
+    gatewayTargetGroup.addTarget(new elbv2Targets.InstanceTarget(appHost.instance, 8080));
+
+    httpsListener.addTargetGroups('FrontRule', {
+      priority: 20,
+      conditions: [elbv2.ListenerCondition.hostHeaders([config.apexDomain])],
+      targetGroups: [frontTargetGroup]
+    });
+
+    httpsListener.addTargetGroups('ApexApiRule', {
+      priority: 10,
+      conditions: [
+        elbv2.ListenerCondition.hostHeaders([config.apexDomain]),
+        elbv2.ListenerCondition.pathPatterns(['/api/*'])
+      ],
+      targetGroups: [gatewayTargetGroup]
+    });
+
+    httpsListener.addTargetGroups('ApiRule', {
+      priority: 30,
+      conditions: [elbv2.ListenerCondition.hostHeaders([config.apiDomain])],
+      targetGroups: [gatewayTargetGroup]
+    });
+
+    new route53.ARecord(this, 'ApexAliasRecord', {
+      zone: hostedZone,
+      recordName: this.recordName(config.apexDomain, config.hostedZoneName),
+      target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadBalancer))
+    });
+
+    new route53.ARecord(this, 'ApiAliasRecord', {
+      zone: hostedZone,
+      recordName: this.recordName(config.apiDomain, config.hostedZoneName),
+      target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadBalancer))
+    });
+
+    new cdk.CfnOutput(this, 'AppHostInstanceId', { value: appHost.instance.instanceId });
+    new cdk.CfnOutput(this, 'DataHostInstanceId', { value: dataHost.instance.instanceId });
+    new cdk.CfnOutput(this, 'RuntimeImageMapParameterName', { value: runtimeImageMapParam.parameterName });
+    new cdk.CfnOutput(this, 'PostgresSecretName', { value: postgresSecret.secretName });
+  }
+
   private createFargateService(
     id: string,
     input: {
@@ -1763,5 +1883,65 @@ export class EvDashboardPlatformStack extends cdk.Stack {
 
     const suffix = `.${hostedZoneName}`;
     return fqdn.endsWith(suffix) ? fqdn.slice(0, -suffix.length) : fqdn;
+  }
+
+  private buildRuntimeImageMap(config: PlatformConfig): Record<string, string> {
+    return {
+      'front-web-console': config.frontImageUri,
+      'edge-api-gateway': config.gatewayImageUri,
+      'service-account-access': config.accountAccessImageUri,
+      'service-organization-registry': config.organizationImageUri,
+      'service-driver-profile': config.driverProfileImageUri,
+      'service-personnel-document-registry': config.personnelDocumentImageUri,
+      'service-vehicle-registry': config.vehicleAssetImageUri,
+      'service-vehicle-assignment': config.driverVehicleAssignmentImageUri,
+      'service-dispatch-registry': config.dispatchRegistryImageUri,
+      'service-delivery-record': config.deliveryRecordImageUri,
+      'service-attendance-registry': config.attendanceRegistryImageUri,
+      'service-dispatch-operations-view': config.dispatchOpsImageUri,
+      'service-driver-operations-view': config.driverOpsImageUri,
+      'service-vehicle-operations-view': config.vehicleOpsImageUri,
+      'service-settlement-registry': config.settlementRegistryImageUri,
+      'service-settlement-payroll': config.settlementPayrollImageUri,
+      'service-settlement-operations-view': config.settlementOpsImageUri,
+      'service-region-registry': config.regionRegistryImageUri,
+      'service-region-analytics': config.regionAnalyticsImageUri,
+      'service-announcement-registry': config.announcementRegistryImageUri,
+      'service-support-registry': config.supportRegistryImageUri,
+      'service-notification-hub': config.notificationHubImageUri,
+      ...(config.terminalRegistryImageUri ? { 'service-terminal-registry': config.terminalRegistryImageUri } : {}),
+      ...(config.telemetryHubImageUri ? { 'service-telemetry-hub': config.telemetryHubImageUri } : {}),
+      ...(config.telemetryDeadLetterImageUri
+        ? { 'service-telemetry-dead-letter': config.telemetryDeadLetterImageUri }
+        : {}),
+      ...(config.telemetryListenerImageUri
+        ? { 'service-telemetry-listener': config.telemetryListenerImageUri }
+        : {})
+    };
+  }
+
+  private importSubnetWithAvailabilityZone(
+    id: string,
+    config: PlatformConfig,
+    subnetId: string
+  ): ec2.ISubnet {
+    return ec2.Subnet.fromSubnetAttributes(this, id, {
+      subnetId,
+      availabilityZone: this.lookupSubnetAvailabilityZone(config, subnetId)
+    });
+  }
+
+  private lookupSubnetAvailabilityZone(config: PlatformConfig, subnetId: string): string {
+    const privateIndex = config.privateSubnetIds.indexOf(subnetId);
+    if (privateIndex >= 0 && config.availabilityZones[privateIndex]) {
+      return config.availabilityZones[privateIndex];
+    }
+
+    const publicIndex = config.publicSubnetIds.indexOf(subnetId);
+    if (publicIndex >= 0 && config.availabilityZones[publicIndex]) {
+      return config.availabilityZones[publicIndex];
+    }
+
+    return config.availabilityZones[0];
   }
 }
