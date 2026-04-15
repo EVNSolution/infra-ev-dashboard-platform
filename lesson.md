@@ -271,3 +271,13 @@ EC2 user-data size is a real deployment limit, not an academic warning. The firs
 If a bootstrap change requires copying real source files into user-data, that change is pointed at the wrong layer.
 
 Deploy-time tokens cannot be frozen into static runtime manifests. The widened EC2 app-host proof failed even with a healthy data host because the app service manifest was written through `JSON.stringify(...)` into an S3 asset, which turned `dataHost.instance.instancePrivateIp` into a literal `${Token[TOKEN...]}` string. Django then tried to connect to PostgreSQL and Redis at that fake hostname. For this repo, any runtime manifest that contains deploy-time values must be delivered through a deploy-time-resolved carrier such as Secrets Manager or SSM, not a static asset file produced directly from tokenized CDK objects.
+
+For `bootstrap-proof`, service startup order is part of the deploy contract, not an implementation detail. The EC2 app host reconciles containers sequentially, so if `edge-api-gateway` is listed after the later slices, every slow image pull or later-slice failure turns `api.candidate.ev-dashboard.com` smoke into a structural false negative. Keep the runtime manifest ordered so the edge proof comes up first:
+
+- `FRONT`
+- `ACCOUNT_ACCESS`
+- `ORGANIZATION`
+- `GATEWAY`
+- later slices after that
+
+If the proof goal is shell/auth/org reachability, do not bury the gateway behind services that the smoke does not need.

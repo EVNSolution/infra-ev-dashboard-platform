@@ -2033,6 +2033,14 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           : {}
       },
       {
+        id: 'GATEWAY',
+        imageMapKey: 'edge-api-gateway',
+        containerName: 'edge-api-gateway',
+        enabled: config.gatewayDesiredCount > 0,
+        containerPort: 8080,
+        hostPort: 8080
+      },
+      {
         id: 'DRIVER_PROFILE',
         imageMapKey: 'service-driver-profile',
         containerName: 'driver-profile-api',
@@ -2453,14 +2461,6 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
         },
         secretArns: settlementOpsSecrets ? djangoSecretArns(settlementOpsSecrets.djangoSecret) : {}
-      },
-      {
-        id: 'GATEWAY',
-        imageMapKey: 'edge-api-gateway',
-        containerName: 'edge-api-gateway',
-        enabled: config.gatewayDesiredCount > 0,
-        containerPort: 8080,
-        hostPort: 8080
       },
       {
         id: 'TELEMETRY_LISTENER',

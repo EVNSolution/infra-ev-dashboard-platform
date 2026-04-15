@@ -134,4 +134,23 @@ describe('EC2 host bootstrap renderers', () => {
     expect(source).toContain('blockDevices:');
     expect(source).toContain('rootVolumeSizeGiB');
   });
+
+  test('runtime manifest starts bootstrap-proof edge services before later slices', () => {
+    const source = readFileSync(join(__dirname, '..', 'lib', 'ev-dashboard-platform-stack.ts'), 'utf8');
+    const manifestStart = source.indexOf('const appServices: AppHostRuntimeService[] = [');
+    const manifestEnd = source.indexOf('const appServiceManifest = new secretsmanager.Secret');
+    const manifestSource = source.slice(manifestStart, manifestEnd);
+
+    const frontIndex = manifestSource.indexOf("id: 'FRONT'");
+    const accountIndex = manifestSource.indexOf("id: 'ACCOUNT_ACCESS'");
+    const organizationIndex = manifestSource.indexOf("id: 'ORGANIZATION'");
+    const gatewayIndex = manifestSource.indexOf("id: 'GATEWAY'");
+    const firstLaterSliceIndex = manifestSource.indexOf("id: 'DRIVER_PROFILE'");
+
+    expect(frontIndex).toBeGreaterThanOrEqual(0);
+    expect(accountIndex).toBeGreaterThan(frontIndex);
+    expect(organizationIndex).toBeGreaterThan(accountIndex);
+    expect(gatewayIndex).toBeGreaterThan(organizationIndex);
+    expect(gatewayIndex).toBeLessThan(firstLaterSliceIndex);
+  });
 });
