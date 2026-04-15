@@ -219,6 +219,14 @@ The first EC2 shell/auth proof also showed that a partial slice cannot reuse the
 - `service-organization-registry`
 - docs/admin routes
 
+Cockpit candidate proof also needs one more operational check after deploy: confirm the app host actually pulled the new image SHAs from the runtime image-map parameter. In the first `cheonha` proof, CloudFormation and post-deploy smoke both passed while `organization-master-api`, `account-auth-api`, and `web-console` were still old images on the host. The honest order is:
+
+1. build service images on each repo `main`
+2. update `*_IMAGE_URI` vars in the selected infra environment
+3. deploy the stack
+4. verify app-host container image SHAs
+5. only then seed cockpit tenant data and debug `/api/org/companies/public/resolve/`
+
 Do not call a shell/auth/company-governance EC2 proof "failed" just because the full route map is absent; the route map has to match the slice.
 
 Nitro device naming matters on the data host. The EBS attachment was present, but the bootstrap service waited forever for `/dev/xvdf` while the instance exposed the attached disk as `/dev/sdf -> /dev/nvme1n1`. For this repo's current EC2 proof, keep the attachment and bootstrap device path aligned on `/dev/sdf` or PostgreSQL/Redis will never start.
