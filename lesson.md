@@ -203,3 +203,13 @@ The first EC2 proof also showed that instance-family cost optimizations come aft
 Do not widen that conclusion to the data host. PostgreSQL and Redis on the data host do not need the app image architecture, and changing the data-host family forces an EC2 replacement plus EBS reattachment. For the current proof lane, keep the data host on its existing Graviton default unless there is a separate data-runtime reason to move it.
 
 CloudFormation finishing an EC2 app-host update is not the same thing as the app being ready. In this proof lane, the new x86 host needed extra time for `cloud-init`, `dnf install docker jq`, Docker enablement, and the first reconcile loop before ALB health checks and public smoke could pass. The post-deploy smoke gate needs a retry window for EC2 runtimes, or it will report a false failure even when the host is still progressing normally.
+
+The first EC2 shell/auth proof also showed that a partial slice cannot reuse the full gateway route map verbatim. `edge-api-gateway` crashed on boot because nginx resolves static upstream names at startup, and the shell/auth proof intentionally does not start `driver-profile-api` or the later slice services. For this narrow proof lane, the app host has to mount a proof-only nginx config that exposes only:
+
+- `front-web-console`
+- `service-account-access`
+- docs/admin routes
+
+Do not call a shell/auth EC2 proof "failed" just because the full route map is absent; the route map has to match the slice.
+
+Nitro device naming matters on the data host. The EBS attachment was present, but the bootstrap service waited forever for `/dev/xvdf` while the instance exposed the attached disk as `/dev/sdf -> /dev/nvme1n1`. For this repo's current EC2 proof, keep the attachment and bootstrap device path aligned on `/dev/sdf` or PostgreSQL/Redis will never start.

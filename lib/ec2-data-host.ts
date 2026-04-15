@@ -40,7 +40,7 @@ export class Ec2DataHost extends Construct {
     userData.addCommands(
       renderDataHostBootstrap({
         region: props.region,
-        deviceName: '/dev/xvdf',
+        deviceName: '/dev/sdf',
         mountPath: props.mountPath ?? '/data',
         postgresVersion: '16',
         redisVersion: '7',
