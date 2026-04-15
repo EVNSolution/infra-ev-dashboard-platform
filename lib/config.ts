@@ -16,6 +16,7 @@ export type PlatformConfigInput = {
   appHostSubnetAvailabilityZone?: string;
   dataHostSubnetAvailabilityZone?: string;
   appHostInstanceType?: string;
+  appHostVolumeSizeGiB?: number;
   dataHostInstanceType?: string;
   dataVolumeSizeGiB?: number;
   frontImageUri: string;
@@ -170,6 +171,7 @@ export type PlatformConfig = PlatformConfigInput & {
   appHostSubnetAvailabilityZone?: string;
   dataHostSubnetAvailabilityZone?: string;
   appHostInstanceType: string;
+  appHostVolumeSizeGiB: number;
   dataHostInstanceType: string;
   dataVolumeSizeGiB: number;
 };
@@ -224,6 +226,7 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     privateSubnetIds,
     serviceConnectNamespace: input.serviceConnectNamespace ?? 'ev-dashboard.internal',
     appHostInstanceType: input.appHostInstanceType ?? 't3.small',
+    appHostVolumeSizeGiB: input.appHostVolumeSizeGiB ?? 32,
     dataHostInstanceType: input.dataHostInstanceType ?? 't4g.small',
     dataVolumeSizeGiB: input.dataVolumeSizeGiB ?? 100,
     availabilityZones:
@@ -297,6 +300,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     appHostSubnetAvailabilityZone: emptyToUndefined(env.APP_HOST_SUBNET_AVAILABILITY_ZONE),
     dataHostSubnetAvailabilityZone: emptyToUndefined(env.DATA_HOST_SUBNET_AVAILABILITY_ZONE),
     appHostInstanceType: emptyToUndefined(env.APP_HOST_INSTANCE_TYPE),
+    appHostVolumeSizeGiB: toNumber(env.APP_HOST_VOLUME_SIZE_GIB, 'APP_HOST_VOLUME_SIZE_GIB', 32),
     dataHostInstanceType: emptyToUndefined(env.DATA_HOST_INSTANCE_TYPE),
     dataVolumeSizeGiB: toNumber(env.DATA_VOLUME_SIZE_GIB, 'DATA_VOLUME_SIZE_GIB', 100),
     frontImageUri: required(env.FRONT_IMAGE_URI, 'FRONT_IMAGE_URI'),

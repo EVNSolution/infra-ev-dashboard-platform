@@ -126,4 +126,12 @@ describe('EC2 host bootstrap renderers', () => {
     expect(source).toContain('blockDevices:');
     expect(source).not.toContain('CfnVolumeAttachment');
   });
+
+  test('app host construct provisions an explicit root volume for image-heavy runtime', () => {
+    const source = readFileSync(join(__dirname, '..', 'lib', 'ec2-app-host.ts'), 'utf8');
+
+    expect(source).toContain('userDataCausesReplacement: true');
+    expect(source).toContain('blockDevices:');
+    expect(source).toContain('rootVolumeSizeGiB');
+  });
 });

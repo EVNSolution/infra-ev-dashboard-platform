@@ -172,6 +172,7 @@ Repository or environment variables:
 - optional: `PRIVATE_SUBNET_IDS`
 - optional: `AVAILABILITY_ZONES`
 - optional: `APP_HOST_INSTANCE_TYPE`
+- optional: `APP_HOST_VOLUME_SIZE_GIB`
 - optional: `DATA_HOST_INSTANCE_TYPE`
 - optional: `DATA_VOLUME_SIZE_GIB`
 - optional: `FRONT_DESIRED_COUNT`

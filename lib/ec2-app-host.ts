@@ -8,6 +8,7 @@ export type Ec2AppHostProps = {
   subnet: ec2.ISubnet;
   securityGroup: ec2.ISecurityGroup;
   instanceType: string;
+  rootVolumeSizeGiB: number;
   imageMapSsmParam: string;
   region: string;
   bootstrapPackageBucketName: string;
@@ -72,6 +73,16 @@ export class Ec2AppHost extends Construct {
       instanceType: new ec2.InstanceType(props.instanceType),
       machineImage: machineImageForInstanceType(props.instanceType),
       role: this.role,
+      blockDevices: [
+        {
+          deviceName: '/dev/xvda',
+          volume: ec2.BlockDeviceVolume.ebs(props.rootVolumeSizeGiB, {
+            encrypted: true,
+            volumeType: ec2.EbsDeviceVolumeType.GP3,
+            deleteOnTermination: true
+          })
+        }
+      ],
       userData,
       userDataCausesReplacement: true
     });

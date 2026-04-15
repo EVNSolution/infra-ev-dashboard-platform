@@ -113,6 +113,7 @@ describe('buildPlatformConfigFromEnv', () => {
     expect(config.cockpitHosts).toEqual(['cheonha.ev-dashboard.com', 'hanbit.ev-dashboard.com']);
     expect(config.frontCpu).toBe(256);
     expect(config.frontMemoryMiB).toBe(512);
+    expect(config.appHostVolumeSizeGiB).toBe(32);
     expect(config.frontHealthCheckPath).toBe('/healthz');
     expect(config.gatewayHealthCheckPath).toBe('/healthz');
     expect(config.accountAccessHealthCheckPath).toBe('/healthz');

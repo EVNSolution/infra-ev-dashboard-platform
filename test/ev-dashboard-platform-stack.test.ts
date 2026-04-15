@@ -224,6 +224,20 @@ describe('EvDashboardPlatformStack', () => {
     template.hasResourceProperties('AWS::EC2::Instance', {
       BlockDeviceMappings: Match.arrayWith([
         Match.objectLike({
+          DeviceName: '/dev/xvda',
+          Ebs: Match.objectLike({
+            DeleteOnTermination: true,
+            Encrypted: true,
+            VolumeSize: 32,
+            VolumeType: 'gp3'
+          })
+        })
+      ])
+    });
+
+    template.hasResourceProperties('AWS::EC2::Instance', {
+      BlockDeviceMappings: Match.arrayWith([
+        Match.objectLike({
           DeviceName: '/dev/sdf',
           Ebs: Match.objectLike({
             DeleteOnTermination: true,

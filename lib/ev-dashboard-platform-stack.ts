@@ -2528,6 +2528,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       subnet: appHostSubnet,
       securityGroup: serviceSecurityGroup,
       instanceType: config.appHostInstanceType,
+      rootVolumeSizeGiB: config.appHostVolumeSizeGiB,
       imageMapSsmParam: runtimeImageMapParam.parameterName,
       region: config.region,
       bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
