@@ -90,4 +90,10 @@ describe('EC2 host bootstrap renderers', () => {
     expect(source).toContain('ORGANIZATION_POSTGRES_SECRET_ARN');
     expect(source).toContain('location /api/org/');
   });
+
+  test('data host construct treats bootstrap drift as replacement-worthy', () => {
+    const source = readFileSync(join(__dirname, '..', 'lib', 'ec2-data-host.ts'), 'utf8');
+
+    expect(source).toContain('userDataCausesReplacement: true');
+  });
 });
