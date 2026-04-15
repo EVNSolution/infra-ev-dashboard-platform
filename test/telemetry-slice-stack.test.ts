@@ -242,7 +242,10 @@ describe('Terminal and telemetry slice stack', () => {
           Environment: Match.arrayWith([
             Match.objectLike({ Name: 'POSTGRES_DB', Value: 'terminal_registry' }),
             Match.objectLike({ Name: 'VEHICLE_REGISTRY_BASE_URL', Value: 'http://vehicle-asset-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'terminal-registry-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'terminal-registry-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])
@@ -253,7 +256,10 @@ describe('Terminal and telemetry slice stack', () => {
           Name: 'ServiceTelemetryHubContainer',
           Environment: Match.arrayWith([
             Match.objectLike({ Name: 'POSTGRES_DB', Value: 'telemetry_hub' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'telemetry-hub-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'telemetry-hub-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])
@@ -264,7 +270,10 @@ describe('Terminal and telemetry slice stack', () => {
           Name: 'ServiceTelemetryDeadLetterContainer',
           Environment: Match.arrayWith([
             Match.objectLike({ Name: 'POSTGRES_DB', Value: 'telemetry_dead_letter' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'telemetry-dead-letter-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'telemetry-dead-letter-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])

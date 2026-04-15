@@ -242,7 +242,10 @@ describe('Support slice stack', () => {
           Environment: Match.arrayWith([
             Match.objectLike({ Name: 'POSTGRES_DB', Value: 'support_registry' }),
             Match.objectLike({ Name: 'NOTIFICATION_HUB_BASE_URL', Value: 'http://notification-hub-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'support-registry-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'support-registry-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])
@@ -253,7 +256,10 @@ describe('Support slice stack', () => {
           Name: 'ServiceNotificationHubContainer',
           Environment: Match.arrayWith([
             Match.objectLike({ Name: 'POSTGRES_DB', Value: 'notification_hub' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'notification-hub-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'notification-hub-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])

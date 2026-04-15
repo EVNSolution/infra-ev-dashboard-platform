@@ -204,7 +204,10 @@ describe('Settlement slice stack', () => {
           Environment: Match.arrayWith([
             Match.objectLike({ Name: 'POSTGRES_DB', Value: 'settlement_registry' }),
             Match.objectLike({ Name: 'ORGANIZATION_MASTER_BASE_URL', Value: 'http://organization-master-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'settlement-registry-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'settlement-registry-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])
@@ -221,7 +224,10 @@ describe('Settlement slice stack', () => {
             Match.objectLike({ Name: 'DELIVERY_RECORD_BASE_URL', Value: 'http://delivery-record-api:8000' }),
             Match.objectLike({ Name: 'DISPATCH_REGISTRY_BASE_URL', Value: 'http://dispatch-registry-api:8000' }),
             Match.objectLike({ Name: 'ATTENDANCE_REGISTRY_BASE_URL', Value: 'http://attendance-registry-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'settlement-payroll-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'settlement-payroll-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])
@@ -234,7 +240,10 @@ describe('Settlement slice stack', () => {
             Match.objectLike({ Name: 'SETTLEMENT_PAYROLL_BASE_URL', Value: 'http://settlement-payroll-api:8000' }),
             Match.objectLike({ Name: 'DELIVERY_RECORD_BASE_URL', Value: 'http://delivery-record-api:8000' }),
             Match.objectLike({ Name: 'DRIVER_PROFILE_BASE_URL', Value: 'http://driver-profile-api:8000' }),
-            Match.objectLike({ Name: 'DJANGO_ALLOWED_HOSTS', Value: 'settlement-ops-api,localhost,127.0.0.1' })
+            Match.objectLike({
+              Name: 'DJANGO_ALLOWED_HOSTS',
+              Value: 'settlement-ops-api,api.ev-dashboard.com,ev-dashboard.com,localhost,127.0.0.1'
+            })
           ])
         })
       ])
