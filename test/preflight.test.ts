@@ -257,11 +257,11 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).not.toContain(
-      'Current EC2 runtime proof supports shell/auth/company-governance only: front-web-console + edge-api-gateway + service-account-access + service-organization-registry. Set all later slice desired counts to zero before deploy.'
+      'Current EC2 verification scope supports front/gateway/auth/organization only. Set all remaining business-service desired counts to zero before deploy.'
     );
   });
 
-  test('allows later slices in ec2 runtime when dependency rules are satisfied', () => {
+  test('allows remaining business services in ec2 runtime when dependency rules are satisfied', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
         APP_HOST_INSTANCE_TYPE: 'm6i.2xlarge',
@@ -288,11 +288,11 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).not.toContain(
-      'Current EC2 runtime proof supports shell/auth/company-governance only: front-web-console + edge-api-gateway + service-account-access + service-organization-registry. Set all later slice desired counts to zero before deploy.'
+      'Current EC2 verification scope supports front/gateway/auth/organization only. Set all remaining business-service desired counts to zero before deploy.'
     );
   });
 
-  test('rejects later slices in ec2 full profile when app host stays on a burstable t-family instance', () => {
+  test('rejects remaining business services in ec2 full profile when app host stays on a burstable t-family instance', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
         APP_HOST_INSTANCE_TYPE: 't3.large',
@@ -319,7 +319,7 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).toContain(
-      'EC2 full-fleet proof requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when later slices are enabled.'
+      'EC2 full-service verification requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when remaining business services are enabled.'
     );
   });
 
@@ -369,7 +369,7 @@ describe('deploy preflight', () => {
       'New or updated direct Service Connect upstreams are enabled. Expect a later edge-api-gateway rollout after backend services register.'
     );
     expect(formatted).toContain('Runtime mode: ec2');
-    expect(formatted).toContain('Enabled slices: Auth Surface -> Company Governance');
+    expect(formatted).toContain('Enabled service groups: Auth Surface -> Company Governance');
     expect(formatted).toContain('ALB target draining can keep CloudFormation open for up to 300s');
   });
 });

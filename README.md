@@ -65,6 +65,30 @@ The deploy workflow now reads immutable image URIs from repository variables for
 
 Image tags are SHA-only. This repo should not guess or discover a `latest` image on its own. Before a deploy, update the repo variables to the exact SHAs that belong to the rollout.
 
+## Operator Terms
+
+This repo keeps the workflow input values as-is, but the operator-facing meaning should stay plain:
+
+- `bootstrap-proof`
+  - core-entry verification
+  - deploys only the minimum user-entry services:
+    - `front-web-console`
+    - `edge-api-gateway`
+    - `service-account-access`
+    - `service-organization-registry`
+- `full`
+  - full-service verification
+  - keeps the configured remaining business services enabled
+- `smoke-only`
+  - live-lane status recheck
+  - does not change the stack
+
+In prose, avoid old slice/proof shorthand. Use:
+
+- `core-entry services`
+- `remaining business services`
+- `full-service bring-up`
+
 ## Mandatory Preflight Gate
 
 Before every `workflow_dispatch` deploy, run the same gate locally that the workflow now enforces in CI:
@@ -79,12 +103,15 @@ npx cdk synth
 For EC2 runtime bring-up, use workflow `run_profile` instead of editing the YAML by hand:
 
 - `full`
+  - full-service verification
   - `preflight -> unit tests -> synth -> deploy -> post-deploy smoke`
 - `bootstrap-proof`
+  - core-entry verification
   - `synth -> deploy -> post-deploy smoke`
   - use this when the purpose is to validate stack/bootstrap/runtime bring-up quickly
   - in `RUNTIME_MODE=ec2`, this profile automatically narrows the runtime to `front-web-console + edge-api-gateway + service-account-access + service-organization-registry`
 - `smoke-only`
+  - live-lane status recheck
   - `post-deploy smoke` only against the current live lane
   - use this when stack topology is already up and only edge proof needs to be rerun
 
@@ -114,18 +141,18 @@ npm run smoke:postdeploy
 - a mutable image tag such as `:latest` is used
 - the selected environment and domains do not match
 - `RUNTIME_MODE=ec2` is missing app/data host subnet inputs
-- a later backend slice is enabled without the earlier slices it depends on
+- a remaining business service is enabled without the service groups it depends on
 - `edge-api-gateway` is disabled while API slices are still enabled
 
-Current EC2 runtime proof is narrower than the long-term target, but that narrow scope now belongs to the `bootstrap-proof` profile, not to EC2 runtime as a whole. In this repo:
+Current EC2 core-entry verification is narrower than the long-term target, but that narrow scope now belongs to the `bootstrap-proof` profile, not to EC2 runtime as a whole. In this repo:
 
 - `front-web-console`
 - `edge-api-gateway`
 - `service-account-access`
 - `service-organization-registry`
 
-- `bootstrap-proof` automatically forces all later slice desired counts to `0` so stack, manifest, and smoke all see the same proof-critical surface.
-- `full` keeps the configured later slice desired counts and is the only honest profile for full-fleet bring-up.
+- `bootstrap-proof` automatically forces all remaining business-service desired counts to `0` so stack, manifest, and smoke all see the same core-entry service scope.
+- `full` keeps the configured remaining business-service desired counts and is the only honest profile for full-service bring-up.
 
 The command also prints the expected deploy wait signals so operators do not overreact to normal `UPDATE_IN_PROGRESS` windows.
 
@@ -272,7 +299,7 @@ Repository secrets:
 
 The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates. The actual CDK deploy runs with the shared infra role because the existing `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles remain EC2/SSM deploy roles for `clever-deploy-control`.
 
-For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`, `APP_HOST_SUBNET_AVAILABILITY_ZONE`, and `DATA_HOST_SUBNET_AVAILABILITY_ZONE` are required. The current shell/auth proof expects both host subnets to be chosen from `PUBLIC_SUBNET_IDS`, and both hosts must receive public IPs from those subnet defaults so bootstrap can reach SSM, ECR, Secrets Manager, and package mirrors. `PRIVATE_SUBNET_IDS` is still imported as network metadata for later hardening, but the current proof does not run the hosts inside those private lanes because the imported VPC has no NAT or VPC endpoints there yet. The default app host stays on x86_64 (`t3.small`) because the live service image fleet is still `linux/amd64` only, but that default is bootstrap-proof only. If later slices are enabled under `RUN_PROFILE=full`, set `APP_HOST_INSTANCE_TYPE` explicitly to a non-burstable x86 host such as `m6i.2xlarge`; preflight now rejects t-family app hosts for full-fleet EC2 bring-up. The data host keeps its Graviton default (`t4g.small`) because it runs PostgreSQL and Redis locally and should avoid unnecessary EBS reattachment churn during proof updates. The EC2 data bootstrap currently expects the attached EBS volume at `/dev/sdf`; using `/dev/xvdf` on these Nitro instances leaves PostgreSQL and Redis permanently down even though the attachment exists.
+For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`, `APP_HOST_SUBNET_AVAILABILITY_ZONE`, and `DATA_HOST_SUBNET_AVAILABILITY_ZONE` are required. The current core-entry verification expects both host subnets to be chosen from `PUBLIC_SUBNET_IDS`, and both hosts must receive public IPs from those subnet defaults so bootstrap can reach SSM, ECR, Secrets Manager, and package mirrors. `PRIVATE_SUBNET_IDS` is still imported as network metadata for later hardening, but the current verification does not run the hosts inside those private lanes because the imported VPC has no NAT or VPC endpoints there yet. The default app host stays on x86_64 (`t3.small`) because the live service image fleet is still `linux/amd64` only, but that default is for `bootstrap-proof` only. If remaining business services are enabled under `RUN_PROFILE=full`, set `APP_HOST_INSTANCE_TYPE` explicitly to a non-burstable x86 host such as `m6i.2xlarge`; preflight now rejects t-family app hosts for full-service EC2 bring-up. The data host keeps its Graviton default (`t4g.small`) because it runs PostgreSQL and Redis locally and should avoid unnecessary EBS reattachment churn during verification updates. The EC2 data bootstrap currently expects the attached EBS volume at `/dev/sdf`; using `/dev/xvdf` on these Nitro instances leaves PostgreSQL and Redis permanently down even though the attachment exists.
 
 GitHub variable scope matters for the EC2 runtime cutover. The shared network values in this repo currently live at repo scope, but the new host-placement keys (`APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`) may need environment-specific values. If those keys are absent from the selected GitHub Environment, the workflow still starts but preflight fails before deploy.
 

@@ -179,7 +179,7 @@ describe('post-deploy smoke', () => {
     );
   });
 
-  test('limits bootstrap-proof smoke to the proof-critical surface even when later env counts are set', () => {
+  test('limits bootstrap-proof smoke to the core-entry services even when remaining service env counts are set', () => {
     const checks = buildPostDeploySmokeChecks(
       createBaseEnv({
         RUN_PROFILE: 'bootstrap-proof',

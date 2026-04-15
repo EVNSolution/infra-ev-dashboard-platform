@@ -106,7 +106,7 @@ export function formatDeployPreflightReport(report: DeployPreflightReport): stri
   lines.push('ev-dashboard deploy preflight');
   lines.push(`Environment: ${report.environment}`);
   lines.push(`Runtime mode: ${report.runtimeMode}`);
-  lines.push(`Enabled slices: ${report.enabledSlices.length > 0 ? report.enabledSlices.join(' -> ') : 'none'}`);
+  lines.push(`Enabled service groups: ${report.enabledSlices.length > 0 ? report.enabledSlices.join(' -> ') : 'none'}`);
 
   if (report.errors.length > 0) {
     lines.push('Errors:');
@@ -255,7 +255,7 @@ function validateSliceDependencies(
   if (config.runtimeMode === 'ec2' && config.runProfile === 'full' && hasHeavyFullFleetSlices(slices)) {
     if (isBurstableInstanceType(config.appHostInstanceType)) {
       errors.push(
-        'EC2 full-fleet proof requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when later slices are enabled.'
+        'EC2 full-service verification requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when remaining business services are enabled.'
       );
     }
   }
@@ -271,7 +271,7 @@ function validateSliceDependencies(
     ) &&
     !slices.authSurface
   ) {
-    errors.push('Auth Surface must stay enabled before any later slice can deploy.');
+    errors.push('Auth Surface must stay enabled before any remaining business service can deploy.');
   }
 
   if (slices.peopleAndAssets && !slices.companyGovernance) {

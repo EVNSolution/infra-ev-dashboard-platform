@@ -147,7 +147,7 @@ describe('EC2 host bootstrap renderers', () => {
     expect(bootstrapSource).toContain('RUNTIME_FINGERPRINT');
   });
 
-  test('runtime manifest starts bootstrap-proof edge services before later slices', () => {
+  test('runtime manifest starts bootstrap-proof edge services before remaining business services', () => {
     const source = readFileSync(join(__dirname, '..', 'lib', 'ev-dashboard-platform-stack.ts'), 'utf8');
     const manifestStart = source.indexOf('const appServices: AppHostRuntimeService[] = [');
     const manifestEnd = source.indexOf('const appServiceManifest = new secretsmanager.Secret');

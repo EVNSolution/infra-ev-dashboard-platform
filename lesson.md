@@ -2,6 +2,18 @@ Source: https://lessons.md
 
 # infra-ev-dashboard-platform Lessons.md
 
+## Use Plain Deploy Terms
+
+In this repo, keep the machine values but explain them in plain language:
+
+- `bootstrap-proof` = core-entry verification
+- `full` = full-service verification
+- `smoke-only` = live-lane status recheck
+- `core-entry services` = `front-web-console + edge-api-gateway + service-account-access + service-organization-registry`
+- `remaining business services` = every service outside that core-entry set
+
+When writing README, runbooks, or operator notes, avoid old slice/proof shorthand. Those phrases slow down deploy conversations.
+
 Start with a single runtime slice. This repo owns the shared `ev-dashboard.com` ECS/CDK runtime only. Do not expand it into a catch-all infra repo before the first cutover passes real smoke checks.
 
 Seed the repo before you wire the submodule. A brand-new empty remote cannot be added cleanly as a linked child repo until `main` has at least one commit.
@@ -70,7 +82,7 @@ Deploy gates have to speak the active runtime, not the previous one. Once `runti
 
 Slice 4 added one more wait pattern. Even after the new gateway task was serving good public smoke, the workflow and stack still stayed open because the old ALB target was draining. In this stack, `deregistration_delay.timeout_seconds` is `300`, so target draining can be the last long pole after the new tasks are already healthy. When the public endpoints have flipped to the expected `200/404` shape, check target-group draining before firing another redeploy.
 
-Temporary bridge envs are runtime compatibility, not trust compatibility. `SETTLEMENT_OPS_BASE_URL`, `TELEMETRY_HUB_BASE_URL`, and `TERMINAL_REGISTRY_BASE_URL` can keep a Slice 4 task graph alive while later slices are still on the old public hub, but the old hub does not automatically trust the new platform JWT. If a bridge remains optional, the service code must degrade gracefully instead of expecting those upstream calls to succeed.
+Temporary bridge envs are runtime compatibility, not trust compatibility. `SETTLEMENT_OPS_BASE_URL`, `TELEMETRY_HUB_BASE_URL`, and `TERMINAL_REGISTRY_BASE_URL` can keep a Slice 4 task graph alive while remaining business services are still on the old public hub, but the old hub does not automatically trust the new platform JWT. If a bridge remains optional, the service code must degrade gracefully instead of expecting those upstream calls to succeed.
 
 Public repo workflows are not a guaranteed build path in this account. Slice 3 hit a billing block where `service-dispatch-registry`, `service-delivery-record`, and `service-attendance-registry` image jobs never started. The practical fallback was local `docker buildx` plus ECR push, followed by the usual infra workflow with explicit image URIs.
 
@@ -187,9 +199,9 @@ The first honest EC2 proof has to be narrower than the final topology. App host 
 - `edge-api-gateway`
 - `service-account-access`
 
-If the host-level runtime contract does not exist yet, do not pretend a later slice is ready just because its image URI exists. Make preflight fail until the host bootstrap can actually run that slice.
+If the host-level runtime contract does not exist yet, do not pretend a remaining business service is ready just because its image URI exists. Make preflight fail until the host bootstrap can actually run that service.
 
-The next honest expansion was not "all later slices". It was `service-organization-registry` only. Company cockpit login depends on both tenant resolve (`/api/org/companies/public/resolve/`) and `workspace-bootstrap`, so the first cockpit-ready proof lane had to become `shell/auth/company-governance`, not a generic shell/auth lane. In this repo that means:
+The next honest expansion was not "all remaining business services". It was `service-organization-registry` only. Company cockpit login depends on both tenant resolve (`/api/org/companies/public/resolve/`) and `workspace-bootstrap`, so the first cockpit-ready verification lane had to become `front/gateway/auth/organization`, not a generic shell/auth lane. In this repo that means:
 
 - data host bootstraps both `account_auth` and `organization_master`
 - app host reconciles `organization-master-api`
@@ -204,15 +216,15 @@ The first EC2 shell/auth candidate also proved that bootstrap reachability and A
 - its AZ is not enabled on the ALB target group
 - its subnet has no outbound path to package mirrors, SSM, ECR, or Secrets Manager
 
-For the current proof lane, that means app/data hosts have to live in the imported public subnets. The private subnets in this VPC are not usable proof lanes yet because their route table only has the local route.
+For the current verification lane, that means app/data hosts have to live in the imported public subnets. The private subnets in this VPC are not usable verification lanes yet because their route table only has the local route.
 
 The first EC2 proof also showed that instance-family cost optimizations come after image compatibility, not before it. The live front/gateway/account-access image fleet is still `linux/amd64` only, so the app host must stay on x86_64 (`t3.small`) until multi-arch images are real. Picking Graviton first only creates a false failure mode where the host is healthy but `docker pull` cannot find an `arm64` manifest.
 
-Do not widen that conclusion to the data host. PostgreSQL and Redis on the data host do not need the app image architecture, and changing the data-host family forces an EC2 replacement plus EBS reattachment. For the current proof lane, keep the data host on its existing Graviton default unless there is a separate data-runtime reason to move it.
+Do not widen that conclusion to the data host. PostgreSQL and Redis on the data host do not need the app image architecture, and changing the data-host family forces an EC2 replacement plus EBS reattachment. For the current verification lane, keep the data host on its existing Graviton default unless there is a separate data-runtime reason to move it.
 
-CloudFormation finishing an EC2 app-host update is not the same thing as the app being ready. In this proof lane, the new x86 host needed extra time for `cloud-init`, `dnf install docker jq`, Docker enablement, and the first reconcile loop before ALB health checks and public smoke could pass. The post-deploy smoke gate needs a retry window for EC2 runtimes, or it will report a false failure even when the host is still progressing normally.
+CloudFormation finishing an EC2 app-host update is not the same thing as the app being ready. In this verification lane, the new x86 host needed extra time for `cloud-init`, `dnf install docker jq`, Docker enablement, and the first reconcile loop before ALB health checks and public smoke could pass. The post-deploy smoke gate needs a retry window for EC2 runtimes, or it will report a false failure even when the host is still progressing normally.
 
-The first EC2 shell/auth proof also showed that a partial slice cannot reuse the full gateway route map verbatim. `edge-api-gateway` crashed on boot because nginx resolves static upstream names at startup, and the shell/auth proof intentionally does not start `driver-profile-api` or the later slice services. For the current narrow proof lane, the app host has to mount a proof-only nginx config that exposes only:
+The first EC2 auth-only verification also showed that a partial service group cannot reuse the full gateway route map verbatim. `edge-api-gateway` crashed on boot because nginx resolves static upstream names at startup, and the auth-only verification intentionally does not start `driver-profile-api` or the remaining business services. For the current narrow verification lane, the app host has to mount a verification-only nginx config that exposes only:
 
 - `front-web-console`
 - `service-account-access`
@@ -227,7 +239,7 @@ Cockpit candidate proof also needs one more operational check after deploy: conf
 4. verify app-host container image SHAs
 5. only then seed cockpit tenant data and debug `/api/org/companies/public/resolve/`
 
-Do not call a shell/auth/company-governance EC2 proof "failed" just because the full route map is absent; the route map has to match the slice.
+Do not call a `front/gateway/auth/organization` EC2 verification "failed" just because the full route map is absent; the route map has to match the active service group.
 
 Nitro device naming matters on the data host. The EBS attachment was present, but the bootstrap service waited forever for `/dev/xvdf` while the instance exposed the attached disk as `/dev/sdf -> /dev/nvme1n1`. For this repo's current EC2 proof, keep the attachment and bootstrap device path aligned on `/dev/sdf` or PostgreSQL/Redis will never start.
 
@@ -235,7 +247,7 @@ EC2 runtime fixes are not real until the hosts ingest the new bootstrap. The fir
 
 That rule applies even more strongly to the data host than to the app host. When a slice adds a new Postgres database or role to the data-host bootstrap contract, an in-place update can leave the old instance alive with the old bootstrap state. The symptom looks like an application wiring bug (`password authentication failed` from the new service), but the real fix is to force data-host replacement so the new DB/role bootstrap actually runs.
 
-For the current proof lane, detachable EBS reattachment is the wrong optimization. Switching the data host to `userDataCausesReplacement: true` while keeping a separate `CfnVolumeAttachment` just moved the failure: CloudFormation tried to attach the existing volume to the new instance before the old attachment was gone and rolled back with `AlreadyExists`. In a no-migration proof lane, the honest shape is launch-time block-device EBS on the instance itself so host replacement and storage lifecycle move together.
+For the current verification lane, detachable EBS reattachment is the wrong optimization. Switching the data host to `userDataCausesReplacement: true` while keeping a separate `CfnVolumeAttachment` just moved the failure: CloudFormation tried to attach the existing volume to the new instance before the old attachment was gone and rolled back with `AlreadyExists`. In a no-migration verification lane, the honest shape is launch-time block-device EBS on the instance itself so host replacement and storage lifecycle move together.
 
 Once bootstrap moved into a Python package, repeating the full release workflow for every bootstrap bug stopped making sense. The honest fix is not a report-only precheck layer; it is a separate fast deploy profile. For this repo:
 
@@ -272,17 +284,17 @@ If a bootstrap change requires copying real source files into user-data, that ch
 
 Deploy-time tokens cannot be frozen into static runtime manifests. The widened EC2 app-host proof failed even with a healthy data host because the app service manifest was written through `JSON.stringify(...)` into an S3 asset, which turned `dataHost.instance.instancePrivateIp` into a literal `${Token[TOKEN...]}` string. Django then tried to connect to PostgreSQL and Redis at that fake hostname. For this repo, any runtime manifest that contains deploy-time values must be delivered through a deploy-time-resolved carrier such as Secrets Manager or SSM, not a static asset file produced directly from tokenized CDK objects.
 
-For `bootstrap-proof`, service startup order is part of the deploy contract, not an implementation detail. The EC2 app host reconciles containers sequentially, so if `edge-api-gateway` is listed after the later slices, every slow image pull or later-slice failure turns `api.candidate.ev-dashboard.com` smoke into a structural false negative. Keep the runtime manifest ordered so the edge proof comes up first:
+For `bootstrap-proof`, service startup order is part of the deploy contract, not an implementation detail. The EC2 app host reconciles containers sequentially, so if `edge-api-gateway` is listed after the remaining business services, every slow image pull or remaining-business-service failure turns `api.candidate.ev-dashboard.com` smoke into a structural false negative. Keep the runtime manifest ordered so the core-entry verification comes up first:
 
 - `FRONT`
 - `ACCOUNT_ACCESS`
 - `ORGANIZATION`
 - `GATEWAY`
-- later slices after that
+- remaining business services after that
 
 If the proof goal is shell/auth/org reachability, do not bury the gateway behind services that the smoke does not need.
 
-`bootstrap-proof` also needs a config-level scope override, not just a faster workflow path. Leaving all later slice desired counts at `1` while only changing the smoke steps still forces the EC2 app host to spend minutes pulling and starting the full fleet, and a single slow later slice can make the proof look broken. For this repo:
+`bootstrap-proof` also needs a config-level scope override, not just a faster workflow path. Leaving all remaining business-service desired counts at `1` while only changing the smoke steps still forces the EC2 app host to spend minutes pulling and starting the full fleet, and a single slow remaining business service can make the proof look broken. For this repo:
 
 - `bootstrap-proof` must coerce the effective desired counts down to `front + gateway + auth + organization`
 - stack synthesis, runtime manifest generation, and public smoke all need to read that same narrowed config
@@ -298,13 +310,13 @@ Post-deploy smoke needs a per-request timeout as well as an overall retry budget
 
 Smoke URLs must also match the real application contract. The `company tenant resolve` check failed even after the host was healthy because the smoke called `/api/org/companies/public/resolve/` without the required `tenant_code` query string and got `400`. Validation smokes should probe the honest contract shape, then assert the expected semantic result such as `404`.
 
-Full-fleet EC2 bring-up needs a different host class than `bootstrap-proof`. The first attempt to boot the later slices on the default `t3.small` app host made both ALB target groups go unhealthy and collapsed the whole smoke suite into `timeout/502` noise. For this repo:
+Full-fleet EC2 bring-up needs a different host class than `bootstrap-proof`. The first attempt to boot the remaining business services on the default `t3.small` app host made both ALB target groups go unhealthy and collapsed the whole smoke suite into `timeout/502` noise. For this repo:
 
 - keep the implicit `t3.small` default for `bootstrap-proof` only
-- make `RUN_PROFILE=full` reject t-family burstable app hosts when later slices are enabled
+- make `RUN_PROFILE=full` reject t-family burstable app hosts when remaining business services are enabled
 - use an explicit non-burstable x86 proof host such as `m6i.2xlarge` for temporary full-fleet validation, then return the lane to the cheaper bootstrap-proof shape after success
 
-Periodic full reconcile is the wrong app-host steady state. The first `m6i.2xlarge` full-fleet proof showed that later slices could all come up, but the `ev-dashboard-app-reconcile.timer` kept re-running `reconcile-app`, which deletes and recreates every container in sequence. That made `edge-api-gateway` restart against half-present upstream names and reintroduced live `502` after the workflow had already gone green. For this repo:
+Periodic full reconcile is the wrong app-host steady state. The first `m6i.2xlarge` full-fleet proof showed that remaining business services could all come up, but the `ev-dashboard-app-reconcile.timer` kept re-running `reconcile-app`, which deletes and recreates every container in sequence. That made `edge-api-gateway` restart against half-present upstream names and reintroduced live `502` after the workflow had already gone green. For this repo:
 
 - keep `reconcile-app` as a boot/deploy oneshot
 - do not run a periodic timer that tears down the full fleet on a live host
