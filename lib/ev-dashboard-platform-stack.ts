@@ -2508,6 +2508,21 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       }))
     );
 
+    const appServiceSecretMap = new secretsmanager.Secret(this, 'AppServiceSecretMap', {
+      secretStringValue: cdk.SecretValue.unsafePlainText(
+        cdk.Stack.of(this).toJsonString(
+          Object.fromEntries(
+            appServices.flatMap((service) =>
+              Object.entries(service.secretArns ?? {}).map(([key, secretArn]) => [
+                `${service.id}__${key}`,
+                secretArn
+              ])
+            )
+          )
+        )
+      )
+    });
+
     const appHost = new Ec2AppHost(this, 'AppHost', {
       vpc,
       subnet: appHostSubnet,
@@ -2519,11 +2534,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
       serviceManifestBucketName: appServiceManifestAsset.s3BucketName,
       serviceManifestObjectKey: appServiceManifestAsset.s3ObjectKey,
-      services: appServices,
+      serviceSecretMapSecretArn: appServiceSecretMap.secretArn,
       instanceName: `${runtimeNamePrefix}-app-host`
     });
     bootstrapPackageAsset.grantRead(appHost.role);
     appServiceManifestAsset.grantRead(appHost.role);
+    appServiceSecretMap.grantRead(appHost.role);
     runtimeImageMapParam.grantRead(appHost.role);
     postgresSuperuserSecret.grantRead(appHost.role);
     platformJwtSecret.grantRead(appHost.role);

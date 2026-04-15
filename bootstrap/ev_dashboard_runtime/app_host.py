@@ -19,6 +19,7 @@ def reconcile_app() -> int:
     region = require_env("AWS_REGION")
     image_map_param = require_env("IMAGE_MAP_PARAM")
     service_manifest_path = Path(require_env("SERVICE_MANIFEST_PATH"))
+    service_secret_map_secret_arn = require_env("SERVICE_SECRET_MAP_SECRET_ARN")
 
     image_map_json = run_output(
         [
@@ -38,8 +39,29 @@ def reconcile_app() -> int:
     )
     write_text(RUNTIME_IMAGES_PATH, f"{image_map_json}\n")
     image_map = json.loads(image_map_json)
+    secret_map_json = run_output(
+        [
+            "aws",
+            "secretsmanager",
+            "get-secret-value",
+            "--secret-id",
+            service_secret_map_secret_arn,
+            "--region",
+            region,
+            "--query",
+            "SecretString",
+            "--output",
+            "text",
+        ]
+    )
+    secret_map = json.loads(secret_map_json)
 
-    services = _load_runtime_services(region=region, image_map=image_map, service_manifest_path=service_manifest_path)
+    services = _load_runtime_services(
+        region=region,
+        image_map=image_map,
+        service_manifest_path=service_manifest_path,
+        secret_map=secret_map,
+    )
     registries = sorted({service["image"].split("/", 1)[0] for service in services})
     secret_cache: dict[str, str] = {}
 
@@ -84,7 +106,7 @@ def reconcile_app() -> int:
 
 
 def _load_runtime_services(
-    *, region: str, image_map: dict[str, str], service_manifest_path: Path
+    *, region: str, image_map: dict[str, str], service_manifest_path: Path, secret_map: dict[str, str]
 ) -> list[dict[str, object]]:
     service_definitions = json.loads(service_manifest_path.read_text(encoding="utf-8"))
     services: list[dict[str, object]] = []
@@ -105,7 +127,7 @@ def _load_runtime_services(
         }
         secret_keys = [str(value) for value in service_definition.get("secretKeys", [])]
         secrets = {
-            key: require_env(f"SERVICE_{service_id}_SECRET_{key}")
+            key: secret_map[f"{service_id}__{key}"]
             for key in secret_keys
         }
         services.append(

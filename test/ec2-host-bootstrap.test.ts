@@ -12,31 +12,8 @@ describe('EC2 host bootstrap renderers', () => {
       bootstrapPackageObjectKey: 'bootstrap/runtime.zip',
       serviceManifestBucketName: 'clever-manifest-bucket',
       serviceManifestObjectKey: 'runtime/app-services.json',
-      services: [
-        {
-          id: 'ACCOUNT_ACCESS',
-          imageMapKey: 'service-account-access',
-          containerName: 'account-auth-api',
-          enabled: true,
-          containerPort: 8000,
-          environment: {
-            POSTGRES_HOST: '10.20.1.15',
-            POSTGRES_DB: 'account_auth'
-          },
-          secretArns: {
-            POSTGRES_PASSWORD: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres',
-            DJANGO_SECRET_KEY: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:django'
-          }
-        },
-        {
-          id: 'GATEWAY',
-          imageMapKey: 'edge-api-gateway',
-          containerName: 'edge-api-gateway',
-          enabled: true,
-          containerPort: 8080,
-          hostPort: 8080
-        }
-      ]
+      serviceSecretMapSecretArn:
+        'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:app-service-secret-map'
     }).join('\n');
 
     expect(script).toContain('docker');
@@ -47,7 +24,6 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).toContain('unzip -o /tmp/ev-dashboard-bootstrap.zip -d /opt/ev-dashboard/bootstrap');
     expect(script).toContain('/opt/ev-dashboard/manifests/app-services.json');
     expect(script).toContain('python3 /opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py reconcile-app');
-    expect(script).toContain('SERVICE_ACCOUNT_ACCESS_SECRET_KEYS=POSTGRES_PASSWORD,DJANGO_SECRET_KEY');
     expect(script.length).toBeLessThan(16384);
     expect(script).not.toContain('docker run -d --name web-console');
     expect(script).not.toContain('docker run -d --name account-auth-api');
@@ -94,6 +70,42 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).not.toContain('data_host.py');
   });
 
+  test('keeps app host user data under the EC2 limit even with many services', () => {
+    const services = Array.from({ length: 24 }, (_, index) => ({
+      id: `SERVICE_${index + 1}`,
+      imageMapKey: `service-${index + 1}`,
+      containerName: `service-${index + 1}`,
+      enabled: true,
+      containerPort: 8000,
+      environment: {
+        POSTGRES_HOST: '10.20.1.15',
+        POSTGRES_DB: `service_${index + 1}`,
+        DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com'
+      },
+      secretArns: {
+        POSTGRES_PASSWORD:
+          'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres-super-long-secret-name',
+        DJANGO_SECRET_KEY:
+          'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:django-super-long-secret-name',
+        JWT_SECRET_KEY:
+          'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:jwt-super-long-secret-name'
+      }
+    }));
+
+    const script = renderAppHostBootstrap({
+      region: 'ap-northeast-2',
+      imageMapSsmParam: '/ev-dashboard/runtime/images',
+      bootstrapPackageBucketName: 'clever-bootstrap-bucket',
+      bootstrapPackageObjectKey: 'bootstrap/runtime.zip',
+      serviceManifestBucketName: 'clever-manifest-bucket',
+      serviceManifestObjectKey: 'runtime/app-services.json',
+      serviceSecretMapSecretArn:
+        'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:app-service-secret-map'
+    }).join('\n');
+
+    expect(script.length).toBeLessThan(25600);
+  });
+
   test('runtime package reconciles generic services without proof-only gateway overrides', () => {
     const source = readFileSync(
       join(__dirname, '..', 'bootstrap', 'ev_dashboard_runtime', 'app_host.py'),
@@ -101,6 +113,7 @@ describe('EC2 host bootstrap renderers', () => {
     );
 
     expect(source).toContain('SERVICE_MANIFEST_PATH');
+    expect(source).toContain('SERVICE_SECRET_MAP_SECRET_ARN');
     expect(source).toContain('SERVICE_ENV_DIR');
     expect(source).not.toContain('PROOF_GATEWAY_CONFIG_PATH');
     expect(source).not.toContain('render_proof_gateway_config');

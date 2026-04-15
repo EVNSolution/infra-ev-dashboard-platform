@@ -9,7 +9,7 @@ export type AppHostBootstrapProps = {
   bootstrapPackageObjectKey: string;
   serviceManifestBucketName: string;
   serviceManifestObjectKey: string;
-  services: AppHostRuntimeService[];
+  serviceSecretMapSecretArn: string;
 };
 
 export type AppHostRuntimeService = {
@@ -70,9 +70,14 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     `Environment=PYTHONPATH=${BOOTSTRAP_ROOT}`,
     'EOF',
     appendTokenizedEnvironmentLine(APP_RECONCILE_UNIT_PATH, 'IMAGE_MAP_PARAM', 'ImageMapParam', props.imageMapSsmParam),
-    `printf '%s\n' 'Environment=AWS_REGION=${props.region}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    `printf '%s\n' 'Environment=SERVICE_MANIFEST_PATH=${APP_SERVICE_MANIFEST_PATH}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    ...renderAppServiceSecretEnvironmentUnitLines(props.services),
+    `printf '%s\\n' 'Environment=AWS_REGION=${props.region}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\\n' 'Environment=SERVICE_MANIFEST_PATH=${APP_SERVICE_MANIFEST_PATH}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'SERVICE_SECRET_MAP_SECRET_ARN',
+      'ServiceSecretMapSecretArn',
+      props.serviceSecretMapSecretArn
+    ),
     `cat <<'EOF' >> ${APP_RECONCILE_UNIT_PATH}`,
     `ExecStart=/usr/bin/python3 ${PYTHON_CLI_PATH} reconcile-app`,
     '',
@@ -95,29 +100,6 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     'systemctl enable --now ev-dashboard-app-reconcile.timer',
     'systemctl start ev-dashboard-app-reconcile.service'
   ];
-}
-
-function renderAppServiceSecretEnvironmentUnitLines(services: AppHostRuntimeService[]): string[] {
-  return services.flatMap((service) => {
-    const prefix = `SERVICE_${service.id}`;
-    const secretKeys = Object.keys(service.secretArns ?? {});
-
-    if (secretKeys.length === 0) {
-      return [];
-    }
-
-    return [
-      `printf '%s\n' 'Environment=${prefix}_SECRET_KEYS=${secretKeys.join(',')}' >> ${APP_RECONCILE_UNIT_PATH}`,
-      ...secretKeys.map((key) =>
-        appendTokenizedEnvironmentLine(
-          APP_RECONCILE_UNIT_PATH,
-          `${prefix}_SECRET_${key}`,
-          `${prefix}Secret${normalizeEnvironmentVariableSegment(key)}`,
-          (service.secretArns ?? {})[key]
-        )
-      )
-    ];
-  });
 }
 
 export function renderDataHostBootstrap(props: DataHostBootstrapProps): string[] {
@@ -152,13 +134,13 @@ export function renderDataHostBootstrap(props: DataHostBootstrapProps): string[]
       'PostgresSuperuserSecretArn',
       props.postgresSuperuserSecretArn
     ),
-    `printf '%s\n' 'Environment=BOOTSTRAP_DATABASE_COUNT=${props.databases.length}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
+    `printf '%s\\n' 'Environment=BOOTSTRAP_DATABASE_COUNT=${props.databases.length}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
     ...props.databases.flatMap((database, index) => {
       const number = index + 1;
 
       return [
-        `printf '%s\n' 'Environment=BOOTSTRAP_DATABASE_${number}_NAME=${database.databaseName}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
-        `printf '%s\n' 'Environment=BOOTSTRAP_DATABASE_${number}_USERNAME=${database.username}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
+        `printf '%s\\n' 'Environment=BOOTSTRAP_DATABASE_${number}_NAME=${database.databaseName}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
+        `printf '%s\\n' 'Environment=BOOTSTRAP_DATABASE_${number}_USERNAME=${database.username}' >> ${DATA_BOOTSTRAP_UNIT_PATH}`,
         appendTokenizedEnvironmentLine(
           DATA_BOOTSTRAP_UNIT_PATH,
           `BOOTSTRAP_DATABASE_${number}_PASSWORD_SECRET_ARN`,
@@ -184,21 +166,13 @@ function appendTokenizedEnvironmentLine(
   variableName: string,
   value: string
 ): string {
-  return cdk.Fn.sub(`printf '%s\\n' 'Environment=${envName}=\${${variableName}}' >> ${unitPath}`, {
+  return cdk.Fn.sub("printf '%s\\\\n' 'Environment=" + envName + "=\\${" + variableName + "}' >> " + unitPath, {
     [variableName]: value
   });
 }
 
-function normalizeEnvironmentVariableSegment(value: string): string {
-  return value
-    .split('_')
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0) + segment.slice(1).toLowerCase())
-    .join('');
-}
-
 function renderS3CopyCommand(bucketName: string, objectKey: string, targetPath: string): string {
-  return cdk.Fn.sub(`aws s3 cp s3://\${BucketName}/\${ObjectKey} ${targetPath}`, {
+  return cdk.Fn.sub('aws s3 cp s3://${BucketName}/${ObjectKey} ' + targetPath, {
     BucketName: bucketName,
     ObjectKey: objectKey
   });
