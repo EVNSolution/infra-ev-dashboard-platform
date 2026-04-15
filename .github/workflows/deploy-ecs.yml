@@ -41,6 +41,7 @@ jobs:
       HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
       APEX_DOMAIN: ${{ vars.APEX_DOMAIN }}
       API_DOMAIN: ${{ vars.API_DOMAIN }}
+      COCKPIT_HOSTS: ${{ vars.COCKPIT_HOSTS }}
       VPC_ID: ${{ vars.VPC_ID }}
       PUBLIC_SUBNET_IDS: ${{ vars.PUBLIC_SUBNET_IDS }}
       PRIVATE_SUBNET_IDS: ${{ vars.PRIVATE_SUBNET_IDS }}

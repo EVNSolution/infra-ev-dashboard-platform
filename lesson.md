@@ -218,6 +218,14 @@ EC2 runtime fixes are not real until the hosts ingest the new bootstrap. The fir
 
 Once bootstrap moved into a Python package, repeating the full release workflow for every bootstrap bug stopped making sense. The honest fix is not a report-only precheck layer; it is a separate fast deploy profile. For this repo:
 
+Cockpit host support is only half-merged if the stack code changes but the deploy workflow never exports `COCKPIT_HOSTS`. In this repo, domain readiness for company cockpits now means all three layers agree:
+
+- config parses `COCKPIT_HOSTS`
+- workflow exports `COCKPIT_HOSTS`
+- post-deploy smoke probes each cockpit host shell, not just the apex shell
+
+If one of those is missing, the branch can look correct in synth/tests while the live deploy still ignores the new host.
+
 1. keep `full` for release-grade proof
 2. use `bootstrap-proof` when the goal is `synth -> deploy -> smoke`
 3. use `smoke-only` when the stack already exists and only edge verification needs rerun

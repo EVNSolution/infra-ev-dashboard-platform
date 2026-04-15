@@ -40,6 +40,14 @@ export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySm
       url: `${apexUrl}/`,
       expectedStatus: 200
     });
+
+    for (const host of config.cockpitHosts) {
+      checks.push({
+        name: `cockpit shell: ${host}`,
+        url: `https://${trimTrailingSlash(host)}/`,
+        expectedStatus: 200
+      });
+    }
   }
 
   if (config.gatewayDesiredCount > 0 && config.accountAccessDesiredCount > 0) {

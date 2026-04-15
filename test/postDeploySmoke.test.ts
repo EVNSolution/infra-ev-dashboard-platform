@@ -103,6 +103,7 @@ describe('post-deploy smoke', () => {
   test('builds shared and slice-specific public smoke checks from env', () => {
     const checks = buildPostDeploySmokeChecks(
       createBaseEnv({
+        COCKPIT_HOSTS: 'cheonha.ev-dashboard.com',
         REGION_REGISTRY_DESIRED_COUNT: '0',
         REGION_ANALYTICS_DESIRED_COUNT: '0',
         ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
@@ -119,6 +120,11 @@ describe('post-deploy smoke', () => {
         expect.objectContaining({
           name: 'front shell',
           url: 'https://ev-dashboard.com/',
+          expectedStatus: 200
+        }),
+        expect.objectContaining({
+          name: 'cockpit shell: cheonha.ev-dashboard.com',
+          url: 'https://cheonha.ev-dashboard.com/',
           expectedStatus: 200
         }),
         expect.objectContaining({

@@ -28,4 +28,11 @@ describe('deploy workflow run profiles', () => {
     expect(workflowSource).toContain("if: ${{ env.RUN_PROFILE != 'smoke-only' }}\n        run: npx cdk deploy --require-approval never");
     expect(workflowSource).toContain('- name: Run post-deploy public smoke');
   });
+
+  test('exports cockpit hosts into the deploy environment', () => {
+    const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'deploy-ecs.yml');
+    const workflowSource = fs.readFileSync(workflowPath, 'utf8');
+
+    expect(workflowSource).toContain('COCKPIT_HOSTS: ${{ vars.COCKPIT_HOSTS }}');
+  });
 });
