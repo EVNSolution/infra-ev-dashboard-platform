@@ -224,6 +224,8 @@ Once bootstrap moved into a Python package, repeating the full release workflow 
 
 If a bootstrap helper becomes slower than the stack update it is supposed to save, remove it and collapse back to the smallest honest workflow profile.
 
+`24446648973` proved the replacement. The `bootstrap-proof` profile skipped preflight and unit tests, still synthesized, deployed, and passed public smoke in under a minute. Keep that profile for dev/candidate EC2 bring-up; use `full` only when release-grade proof is the goal.
+
 EC2 user-data size is a real deployment limit, not an academic warning. The first `EvDashboardPlatformDevStack` create failed before either host booted because the data-host user-data exceeded EC2's 16 KB raw limit when the Python bootstrap package was inlined with `cat <<EOF` blocks. For this repo's EC2 lanes:
 
 - keep user-data thin enough to install packages, fetch assets, and register systemd units
