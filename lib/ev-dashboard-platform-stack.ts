@@ -1,3 +1,5 @@
+import * as crypto from 'node:crypto';
+
 import * as cdk from 'aws-cdk-lib';
 import { aws_certificatemanager as acm } from 'aws-cdk-lib';
 import { aws_ec2 as ec2 } from 'aws-cdk-lib';
@@ -2509,6 +2511,23 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         )
       )
     });
+    const appRuntimeFingerprint = crypto
+      .createHash('sha256')
+      .update(
+        JSON.stringify({
+          runProfile: config.runProfile,
+          imageMap: runtimeImageMap,
+          serviceManifest: appServices.map((service) => ({
+            id: service.id,
+            enabled: service.enabled,
+            imageMapKey: service.imageMapKey,
+            hostPort: service.hostPort ?? null,
+            containerPort: service.containerPort ?? null,
+            environment: service.environment ?? {}
+          }))
+        })
+      )
+      .digest('hex');
 
     const appServiceSecretMap = new secretsmanager.Secret(this, 'AppServiceSecretMap', {
       description: 'Resolved secret ARN map for ev-dashboard EC2 app host services',
@@ -2533,6 +2552,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       instanceType: config.appHostInstanceType,
       rootVolumeSizeGiB: config.appHostVolumeSizeGiB,
       imageMapSsmParam: runtimeImageMapParam.parameterName,
+      runtimeFingerprint: appRuntimeFingerprint,
       region: config.region,
       bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
       bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,

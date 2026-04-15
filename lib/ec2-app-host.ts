@@ -10,6 +10,7 @@ export type Ec2AppHostProps = {
   instanceType: string;
   rootVolumeSizeGiB: number;
   imageMapSsmParam: string;
+  runtimeFingerprint: string;
   region: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
@@ -59,6 +60,7 @@ export class Ec2AppHost extends Construct {
       ...renderAppHostBootstrap({
         region: props.region,
         imageMapSsmParam: props.imageMapSsmParam,
+        runtimeFingerprint: props.runtimeFingerprint,
         bootstrapPackageBucketName: props.bootstrapPackageBucketName,
         bootstrapPackageObjectKey: props.bootstrapPackageObjectKey,
         serviceManifestSecretArn: props.serviceManifestSecretArn,

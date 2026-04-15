@@ -8,6 +8,7 @@ describe('EC2 host bootstrap renderers', () => {
     const script = renderAppHostBootstrap({
       region: 'ap-northeast-2',
       imageMapSsmParam: '/ev-dashboard/runtime/images',
+      runtimeFingerprint: 'fingerprint-sha',
       bootstrapPackageBucketName: 'clever-bootstrap-bucket',
       bootstrapPackageObjectKey: 'bootstrap/runtime.zip',
       serviceManifestSecretArn:
@@ -95,6 +96,7 @@ describe('EC2 host bootstrap renderers', () => {
     const script = renderAppHostBootstrap({
       region: 'ap-northeast-2',
       imageMapSsmParam: '/ev-dashboard/runtime/images',
+      runtimeFingerprint: 'fingerprint-sha',
       bootstrapPackageBucketName: 'clever-bootstrap-bucket',
       bootstrapPackageObjectKey: 'bootstrap/runtime.zip',
       serviceManifestSecretArn:
@@ -133,6 +135,14 @@ describe('EC2 host bootstrap renderers', () => {
     expect(source).toContain('userDataCausesReplacement: true');
     expect(source).toContain('blockDevices:');
     expect(source).toContain('rootVolumeSizeGiB');
+  });
+
+  test('app host bootstrap ties replacement drift to the runtime fingerprint', () => {
+    const appHostSource = readFileSync(join(__dirname, '..', 'lib', 'ec2-app-host.ts'), 'utf8');
+    const bootstrapSource = readFileSync(join(__dirname, '..', 'lib', 'ec2-bootstrap.ts'), 'utf8');
+
+    expect(appHostSource).toContain('runtimeFingerprint');
+    expect(bootstrapSource).toContain('RUNTIME_FINGERPRINT');
   });
 
   test('runtime manifest starts bootstrap-proof edge services before later slices', () => {

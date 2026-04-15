@@ -5,6 +5,7 @@ import { renderBootstrapPackageFetchCommands } from './bootstrapPackage';
 export type AppHostBootstrapProps = {
   region: string;
   imageMapSsmParam: string;
+  runtimeFingerprint: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
   serviceManifestSecretArn: string;
@@ -66,6 +67,7 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     `Environment=PYTHONPATH=${BOOTSTRAP_ROOT}`,
     'EOF',
     appendTokenizedEnvironmentLine(APP_RECONCILE_UNIT_PATH, 'IMAGE_MAP_PARAM', 'ImageMapParam', props.imageMapSsmParam),
+    `printf '%s\\n' 'Environment=RUNTIME_FINGERPRINT=${props.runtimeFingerprint}' >> ${APP_RECONCILE_UNIT_PATH}`,
     `printf '%s\\n' 'Environment=AWS_REGION=${props.region}' >> ${APP_RECONCILE_UNIT_PATH}`,
     appendTokenizedEnvironmentLine(
       APP_RECONCILE_UNIT_PATH,
