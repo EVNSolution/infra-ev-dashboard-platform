@@ -23,6 +23,7 @@ export type PostDeploySmokeReport = {
 type PostDeploySmokeOptions = {
   timeoutMs?: number;
   intervalMs?: number;
+  requestTimeoutMs?: number;
   sleepImpl?: (ms: number) => Promise<void>;
 };
 
@@ -74,7 +75,7 @@ export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySm
       },
       {
         name: 'company tenant resolve validation',
-        url: `${apiUrl}/api/org/companies/public/resolve/`,
+        url: `${apiUrl}/api/org/companies/public/resolve/?tenant_code=bootstrap-proof-smoke`,
         expectedStatus: 404
       }
     );
@@ -208,12 +209,18 @@ export async function runPostDeploySmokeChecks(
     options.timeoutMs ?? resolveDurationMs(env.POST_DEPLOY_SMOKE_TIMEOUT_SECONDS, config.runtimeMode === 'ec2' ? 420_000 : 30_000);
   const intervalMs =
     options.intervalMs ?? resolveDurationMs(env.POST_DEPLOY_SMOKE_POLL_SECONDS, config.runtimeMode === 'ec2' ? 15_000 : 5_000);
+  const requestTimeoutMs =
+    options.requestTimeoutMs ??
+    resolveDurationMs(
+      env.POST_DEPLOY_SMOKE_REQUEST_TIMEOUT_SECONDS,
+      Math.max(1, Math.min(intervalMs, config.runtimeMode === 'ec2' ? 15_000 : 5_000))
+    );
   const deadline = Date.now() + timeoutMs;
-  let report = await executePostDeploySmokeChecks(checks, fetchImpl);
+  let report = await executePostDeploySmokeChecks(checks, fetchImpl, requestTimeoutMs);
 
   while (report.errors.length > 0 && Date.now() < deadline) {
     await sleepImpl(intervalMs);
-    report = await executePostDeploySmokeChecks(checks, fetchImpl);
+    report = await executePostDeploySmokeChecks(checks, fetchImpl, requestTimeoutMs);
   }
 
   return report;
@@ -260,17 +267,15 @@ function isPeopleAndAssetsEnabled(config: ReturnType<typeof buildPlatformConfigF
 
 async function executePostDeploySmokeChecks(
   checks: PostDeploySmokeCheck[],
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  requestTimeoutMs: number
 ): Promise<PostDeploySmokeReport> {
   const results: PostDeploySmokeResult[] = [];
   const errors: string[] = [];
 
   for (const check of checks) {
     try {
-      const response = await fetchImpl(check.url, {
-        method: 'GET',
-        redirect: check.redirect ?? 'follow'
-      });
+      const response = await fetchWithTimeout(fetchImpl, check, requestTimeoutMs);
       const ok = response.status === check.expectedStatus;
       const result: PostDeploySmokeResult = {
         check,
@@ -296,6 +301,36 @@ async function executePostDeploySmokeChecks(
   }
 
   return { checks, results, errors };
+}
+
+async function fetchWithTimeout(
+  fetchImpl: typeof fetch,
+  check: PostDeploySmokeCheck,
+  requestTimeoutMs: number
+): Promise<Response> {
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(new Error('request timed out')), requestTimeoutMs);
+
+  try {
+    return await fetchImpl(check.url, {
+      method: 'GET',
+      redirect: check.redirect ?? 'follow',
+      signal: abortController.signal
+    });
+  } catch (error) {
+    if (abortController.signal.aborted) {
+      const reason = abortController.signal.reason;
+      if (reason instanceof Error) {
+        throw reason;
+      }
+
+      throw new Error(typeof reason === 'string' && reason.trim() !== '' ? reason : 'request timed out');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function resolveDurationMs(rawValue: string | undefined, fallbackMs: number): number {

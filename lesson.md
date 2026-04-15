@@ -289,3 +289,11 @@ If the proof goal is shell/auth/org reachability, do not bury the gateway behind
 - `full` is the only profile that should attempt full-fleet EC2 bring-up
 
 If the proof scope lives only in docs or operator habit, reruns become noisy and structurally misleading again.
+
+Post-deploy smoke needs a per-request timeout as well as an overall retry budget. The EC2 proof lane hit a state where ALB target health and manual curls were already green, but the workflow could still stay `in_progress` forever because one `fetch(...)` never returned. For this repo:
+
+- each smoke request must run under an `AbortController` timeout
+- the report should surface a hung endpoint as `request timed out`
+- only the outer loop should own the longer EC2 grace window
+
+Smoke URLs must also match the real application contract. The `company tenant resolve` check failed even after the host was healthy because the smoke called `/api/org/companies/public/resolve/` without the required `tenant_code` query string and got `400`. Validation smokes should probe the honest contract shape, then assert the expected semantic result such as `404`.
