@@ -205,6 +205,17 @@ describe('deploy preflight', () => {
     expect(report.errors).toContain('prod deploys must target ev-dashboard.com and api.ev-dashboard.com.');
   });
 
+  test('surfaces ec2 runtime host input errors through preflight', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        RUNTIME_MODE: 'ec2',
+        PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd'
+      })
+    );
+
+    expect(report.errors).toContain('Missing required environment variable: APP_HOST_SUBNET_ID');
+  });
+
   test('rejects image tags that do not exist in ECR', () => {
     (childProcess.execFileSync as jest.Mock).mockImplementation(() => {
       throw new Error('Image not found');

@@ -1,4 +1,5 @@
 export type PlatformConfigInput = {
+  runtimeMode?: 'ecs' | 'ec2';
   region: string;
   hostedZoneId: string;
   hostedZoneName: string;
@@ -9,6 +10,11 @@ export type PlatformConfigInput = {
   privateSubnetIds?: string[];
   availabilityZones?: string[];
   serviceConnectNamespace?: string;
+  appHostSubnetId?: string;
+  dataHostSubnetId?: string;
+  appHostInstanceType?: string;
+  dataHostInstanceType?: string;
+  dataVolumeSizeGiB?: number;
   frontImageUri: string;
   gatewayImageUri: string;
   accountAccessImageUri: string;
@@ -151,12 +157,19 @@ export type PlatformConfigInput = {
 };
 
 export type PlatformConfig = PlatformConfigInput & {
+  runtimeMode: 'ecs' | 'ec2';
   availabilityZones: string[];
   privateSubnetIds: string[];
   serviceConnectNamespace: string;
+  appHostSubnetId?: string;
+  dataHostSubnetId?: string;
+  appHostInstanceType: string;
+  dataHostInstanceType: string;
+  dataVolumeSizeGiB: number;
 };
 
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
+  const runtimeMode = input.runtimeMode ?? 'ecs';
   const privateSubnetIds = input.privateSubnetIds ?? [];
   const requiresPrivateSubnets =
     input.accountAccessDesiredCount > 0 ||
@@ -182,10 +195,22 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
   }
 
+  if (runtimeMode === 'ec2' && !input.appHostSubnetId) {
+    throw new Error('Missing required environment variable: APP_HOST_SUBNET_ID');
+  }
+
+  if (runtimeMode === 'ec2' && !input.dataHostSubnetId) {
+    throw new Error('Missing required environment variable: DATA_HOST_SUBNET_ID');
+  }
+
   return {
     ...input,
+    runtimeMode,
     privateSubnetIds,
     serviceConnectNamespace: input.serviceConnectNamespace ?? 'ev-dashboard.internal',
+    appHostInstanceType: input.appHostInstanceType ?? 't4g.small',
+    dataHostInstanceType: input.dataHostInstanceType ?? 't4g.small',
+    dataVolumeSizeGiB: input.dataVolumeSizeGiB ?? 100,
     availabilityZones:
       input.availabilityZones ?? buildDefaultAvailabilityZones(input.region, input.publicSubnetIds.length)
   };
@@ -237,6 +262,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const telemetryListenerMqttTopics = optionalList(env.TELEMETRY_LISTENER_MQTT_TOPICS) ?? ['telemetry/#'];
 
   return buildPlatformConfig({
+    runtimeMode: toRuntimeMode(env.RUNTIME_MODE),
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
     hostedZoneId: required(env.HOSTED_ZONE_ID, 'HOSTED_ZONE_ID'),
     hostedZoneName: required(env.HOSTED_ZONE_NAME, 'HOSTED_ZONE_NAME'),
@@ -250,6 +276,11 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     privateSubnetIds: optionalList(env.PRIVATE_SUBNET_IDS),
     availabilityZones: optionalList(env.AVAILABILITY_ZONES),
     serviceConnectNamespace,
+    appHostSubnetId: emptyToUndefined(env.APP_HOST_SUBNET_ID),
+    dataHostSubnetId: emptyToUndefined(env.DATA_HOST_SUBNET_ID),
+    appHostInstanceType: emptyToUndefined(env.APP_HOST_INSTANCE_TYPE),
+    dataHostInstanceType: emptyToUndefined(env.DATA_HOST_INSTANCE_TYPE),
+    dataVolumeSizeGiB: toNumber(env.DATA_VOLUME_SIZE_GIB, 'DATA_VOLUME_SIZE_GIB', 100),
     frontImageUri: required(env.FRONT_IMAGE_URI, 'FRONT_IMAGE_URI'),
     gatewayImageUri: required(env.GATEWAY_IMAGE_URI, 'GATEWAY_IMAGE_URI'),
     accountAccessImageUri: required(env.ACCOUNT_ACCESS_IMAGE_URI, 'ACCOUNT_ACCESS_IMAGE_URI'),
@@ -547,6 +578,18 @@ function emptyToUndefined(value: string | undefined): string | undefined {
 
   const trimmed = value.trim();
   return trimmed === '' ? undefined : trimmed;
+}
+
+function toRuntimeMode(value: string | undefined): 'ecs' | 'ec2' {
+  if (!value || value.trim() === '') {
+    return 'ecs';
+  }
+
+  if (value === 'ecs' || value === 'ec2') {
+    return value;
+  }
+
+  throw new Error('Environment variable RUNTIME_MODE must be either ecs or ec2');
 }
 
 function buildDefaultAvailabilityZones(region: string, count: number): string[] {
