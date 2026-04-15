@@ -275,7 +275,8 @@ function renderDataHostDatabaseInit(props: DataHostBootstrapProps): string {
   return props.databases
     .flatMap((database) => [
       `DB_SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "${database.passwordSecretArn}" --region "$AWS_REGION" --query SecretString --output text)`,
-      `docker exec -e DB_PASSWORD="$DB_SECRET_VALUE" ev-dashboard-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DO \\\\\\$\\\\\\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${database.username}') THEN CREATE ROLE ${database.username} LOGIN PASSWORD '$DB_PASSWORD'; ELSE ALTER ROLE ${database.username} WITH LOGIN PASSWORD '$DB_PASSWORD'; END IF; END \\\\\\$\\\\\\$;"`,
+      `DB_SECRET_VALUE_B64=$(printf '%s' "$DB_SECRET_VALUE" | base64 | tr -d '\\n')`,
+      `docker exec ev-dashboard-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DO \\\\\\$\\\\\\$ DECLARE role_password text := convert_from(decode('${'${DB_SECRET_VALUE_B64}'}', 'base64'), 'UTF8'); BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${database.username}') THEN EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', '${database.username}', role_password); ELSE EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', '${database.username}', role_password); END IF; END \\\\\\$\\\\\\$;"`,
       `docker exec ev-dashboard-postgres psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${database.databaseName}'" | grep -q 1 || docker exec ev-dashboard-postgres psql -U postgres -d postgres -c "CREATE DATABASE ${database.databaseName} OWNER ${database.username};"`
     ])
     .join('\n');

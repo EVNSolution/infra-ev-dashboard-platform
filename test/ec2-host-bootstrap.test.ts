@@ -49,5 +49,8 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).toContain('ev-dashboard-data-bootstrap.sh');
     expect(script).toContain('pg_isready');
     expect(script).toContain('CREATE DATABASE account_auth OWNER account_auth');
+    expect(script).toContain('DB_SECRET_VALUE_B64=$(printf');
+    expect(script).toContain("decode('${DB_SECRET_VALUE_B64}', 'base64')");
+    expect(script).not.toContain('DB_PASSWORD=');
   });
 });
