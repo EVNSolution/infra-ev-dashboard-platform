@@ -166,7 +166,7 @@ function appendTokenizedEnvironmentLine(
   variableName: string,
   value: string
 ): string {
-  return cdk.Fn.sub("printf '%s\\\\n' 'Environment=" + envName + "=\\${" + variableName + "}' >> " + unitPath, {
+  return cdk.Fn.sub("printf '%s\\n' 'Environment=" + envName + "=${" + variableName + "}' >> " + unitPath, {
     [variableName]: value
   });
 }
