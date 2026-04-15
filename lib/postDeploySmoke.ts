@@ -20,6 +20,12 @@ export type PostDeploySmokeReport = {
   errors: string[];
 };
 
+type PostDeploySmokeOptions = {
+  timeoutMs?: number;
+  intervalMs?: number;
+  sleepImpl?: (ms: number) => Promise<void>;
+};
+
 const PLACEHOLDER_ENTITY_ID = '00000000-0000-0000-0000-000000000001';
 
 export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySmokeCheck[] {
@@ -177,43 +183,25 @@ export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySm
 
 export async function runPostDeploySmokeChecks(
   env: NodeJS.ProcessEnv,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  options: PostDeploySmokeOptions = {}
 ): Promise<PostDeploySmokeReport> {
+  const config = buildPlatformConfigFromEnv(env);
   const checks = buildPostDeploySmokeChecks(env);
-  const results: PostDeploySmokeResult[] = [];
-  const errors: string[] = [];
+  const sleepImpl = options.sleepImpl ?? defaultSleep;
+  const timeoutMs =
+    options.timeoutMs ?? resolveDurationMs(env.POST_DEPLOY_SMOKE_TIMEOUT_SECONDS, config.runtimeMode === 'ec2' ? 420_000 : 30_000);
+  const intervalMs =
+    options.intervalMs ?? resolveDurationMs(env.POST_DEPLOY_SMOKE_POLL_SECONDS, config.runtimeMode === 'ec2' ? 15_000 : 5_000);
+  const deadline = Date.now() + timeoutMs;
+  let report = await executePostDeploySmokeChecks(checks, fetchImpl);
 
-  for (const check of checks) {
-    try {
-      const response = await fetchImpl(check.url, {
-        method: 'GET',
-        redirect: check.redirect ?? 'follow'
-      });
-      const ok = response.status === check.expectedStatus;
-      const result: PostDeploySmokeResult = {
-        check,
-        ok,
-        actualStatus: response.status
-      };
-      results.push(result);
-
-      if (!ok) {
-        errors.push(
-          `${check.name} expected ${check.expectedStatus} but received ${response.status} from ${check.url}`
-        );
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      results.push({
-        check,
-        ok: false,
-        error: message
-      });
-      errors.push(`${check.name} request failed for ${check.url}: ${message}`);
-    }
+  while (report.errors.length > 0 && Date.now() < deadline) {
+    await sleepImpl(intervalMs);
+    report = await executePostDeploySmokeChecks(checks, fetchImpl);
   }
 
-  return { checks, results, errors };
+  return report;
 }
 
 export function formatPostDeploySmokeReport(report: PostDeploySmokeReport): string {
@@ -253,6 +241,63 @@ function isPeopleAndAssetsEnabled(config: ReturnType<typeof buildPlatformConfigF
     config.vehicleAssetDesiredCount > 0 ||
     config.driverVehicleAssignmentDesiredCount > 0
   );
+}
+
+async function executePostDeploySmokeChecks(
+  checks: PostDeploySmokeCheck[],
+  fetchImpl: typeof fetch
+): Promise<PostDeploySmokeReport> {
+  const results: PostDeploySmokeResult[] = [];
+  const errors: string[] = [];
+
+  for (const check of checks) {
+    try {
+      const response = await fetchImpl(check.url, {
+        method: 'GET',
+        redirect: check.redirect ?? 'follow'
+      });
+      const ok = response.status === check.expectedStatus;
+      const result: PostDeploySmokeResult = {
+        check,
+        ok,
+        actualStatus: response.status
+      };
+      results.push(result);
+
+      if (!ok) {
+        errors.push(
+          `${check.name} expected ${check.expectedStatus} but received ${response.status} from ${check.url}`
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      results.push({
+        check,
+        ok: false,
+        error: message
+      });
+      errors.push(`${check.name} request failed for ${check.url}: ${message}`);
+    }
+  }
+
+  return { checks, results, errors };
+}
+
+function resolveDurationMs(rawValue: string | undefined, fallbackMs: number): number {
+  if (!rawValue || rawValue.trim() === '') {
+    return fallbackMs;
+  }
+
+  const parsedSeconds = Number(rawValue);
+  if (!Number.isFinite(parsedSeconds) || parsedSeconds <= 0) {
+    return fallbackMs;
+  }
+
+  return parsedSeconds * 1000;
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isDispatchInputsEnabled(config: ReturnType<typeof buildPlatformConfigFromEnv>): boolean {

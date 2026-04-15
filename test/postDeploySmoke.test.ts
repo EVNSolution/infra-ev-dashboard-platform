@@ -241,12 +241,70 @@ describe('post-deploy smoke', () => {
         TELEMETRY_HUB_DESIRED_COUNT: '0',
         TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '0'
       }),
-      fetchMock as typeof fetch
+      fetchMock as typeof fetch,
+      {
+        timeoutMs: 1,
+        intervalMs: 1,
+        sleepImpl: async () => {}
+      }
     );
 
     expect(report.errors).toContain(
       'auth health expected 200 but received 502 from https://api.ev-dashboard.com/api/auth/health/'
     );
     expect(formatPostDeploySmokeReport(report)).toContain('Errors:');
+  });
+
+  test('retries before failing when ec2 smoke checks need host bootstrap time', async () => {
+    let attempt = 0;
+    const fetchMock = jest.fn(async (_input: string, init?: RequestInit) => {
+      attempt += 1;
+      if (attempt <= 6) {
+        return { status: 502 } as Response;
+      }
+
+      return { status: init?.redirect === 'manual' ? 302 : 200 } as Response;
+    });
+
+    const sleepMock = jest.fn(async () => {});
+
+    const report = await runPostDeploySmokeChecks(
+      createBaseEnv({
+        ORGANIZATION_DESIRED_COUNT: '0',
+        DRIVER_PROFILE_DESIRED_COUNT: '0',
+        PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
+        VEHICLE_ASSET_DESIRED_COUNT: '0',
+        DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '0',
+        DELIVERY_RECORD_DESIRED_COUNT: '0',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
+        DISPATCH_OPS_DESIRED_COUNT: '0',
+        DRIVER_OPS_DESIRED_COUNT: '0',
+        VEHICLE_OPS_DESIRED_COUNT: '0',
+        SETTLEMENT_REGISTRY_DESIRED_COUNT: '0',
+        SETTLEMENT_PAYROLL_DESIRED_COUNT: '0',
+        SETTLEMENT_OPS_DESIRED_COUNT: '0',
+        REGION_REGISTRY_DESIRED_COUNT: '0',
+        REGION_ANALYTICS_DESIRED_COUNT: '0',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '0',
+        NOTIFICATION_HUB_DESIRED_COUNT: '0',
+        TERMINAL_REGISTRY_DESIRED_COUNT: '0',
+        TELEMETRY_HUB_DESIRED_COUNT: '0',
+        TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '0',
+        POST_DEPLOY_SMOKE_TIMEOUT_SECONDS: '30',
+        POST_DEPLOY_SMOKE_POLL_SECONDS: '1'
+      }),
+      fetchMock as typeof fetch,
+      {
+        sleepImpl: sleepMock,
+        timeoutMs: 30_000,
+        intervalMs: 1_000
+      }
+    );
+
+    expect(report.errors).toEqual([]);
+    expect(sleepMock).toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalled();
   });
 });

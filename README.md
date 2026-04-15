@@ -240,6 +240,8 @@ Repository or environment variables:
 - optional: `TELEMETRY_LISTENER_RETRY_COUNT`
 - optional: `TELEMETRY_LISTENER_RETRY_BACKOFF_SECONDS`
 - optional: `TELEMETRY_LISTENER_IDLE_SLEEP_SECONDS`
+- optional: `POST_DEPLOY_SMOKE_TIMEOUT_SECONDS`
+- optional: `POST_DEPLOY_SMOKE_POLL_SECONDS`
 
 Repository secrets:
 
@@ -261,6 +263,7 @@ GitHub variable scope matters for the EC2 runtime cutover. The shared network va
 - The data host stays on its current Graviton default unless there is a deliberate PostgreSQL/Redis compatibility reason to move it. Changing the data-host family replaces the EC2 instance and can trigger EBS reattachment churn during a proof deploy.
 - The ALB still routes `ev-dashboard.com/api/*` and `api.ev-dashboard.com/*` to the same edge entry on the app host so the front can keep same-host `/api` calls.
 - The runtime image map is stored in SSM and consumed by the app-host bootstrap.
+- The post-deploy smoke step is allowed to poll for host readiness because CloudFormation can finish before a fresh EC2 app host completes `cloud-init`, Docker install, and the first reconcile loop.
 - The runtime is no longer modeled as ECS services, Service Connect, dedicated RDS instances, or ElastiCache clusters in canonical mode.
 - Frontend and gateway container contracts stay the same:
   - `front-web-console` serves on `5174`
