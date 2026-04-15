@@ -76,6 +76,19 @@ npm test -- --runInBand
 npx cdk synth
 ```
 
+If the change touches EC2 host bootstrap and the dev/candidate lane hosts already exist, run the bootstrap precheck before any full deploy:
+
+```bash
+cd /Users/jiin/Documents/Files/02_EVnSolution/00_Source_code/CLEVER/clever-msa-platform/development/infra-ev-dashboard-platform
+BOOTSTRAP_LANE=dev \
+BOOTSTRAP_PRECHECK_MODE=proof \
+BOOTSTRAP_APP_HOST_INSTANCE_ID=i-xxxxxxxxxxxxxxxxx \
+BOOTSTRAP_DATA_HOST_INSTANCE_ID=i-yyyyyyyyyyyyyyyyy \
+npm run bootstrap:precheck
+```
+
+`bootstrap:precheck` syncs the current Python bootstrap package to the existing lane hosts over SSM and runs `verify-app` / `verify-data` there. Use it to validate bootstrap drift directly on the hosts before the next full `cdk deploy`.
+
 After `cdk deploy`, the workflow now runs `npm run smoke:postdeploy` automatically. A green deploy requires both:
 
 - stack deploy success
@@ -154,6 +167,11 @@ Repository or environment variables:
 - optional: `APP_HOST_INSTANCE_TYPE`
 - optional: `DATA_HOST_INSTANCE_TYPE`
 - optional: `DATA_VOLUME_SIZE_GIB`
+- optional: `BOOTSTRAP_PRECHECK_MODE`
+- optional: `BOOTSTRAP_LANE`
+- optional: `BOOTSTRAP_APP_HOST_INSTANCE_ID`
+- optional: `BOOTSTRAP_DATA_HOST_INSTANCE_ID`
+- optional: `BOOTSTRAP_SYNC_ROOT`
 - optional: `FRONT_DESIRED_COUNT`
 - optional: `GATEWAY_DESIRED_COUNT`
 - optional: `ACCOUNT_ACCESS_DESIRED_COUNT`

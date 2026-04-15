@@ -39,6 +39,11 @@ jobs:
       DATA_HOST_SUBNET_ID: ${{ vars.DATA_HOST_SUBNET_ID }}
       APP_HOST_SUBNET_AVAILABILITY_ZONE: ${{ vars.APP_HOST_SUBNET_AVAILABILITY_ZONE }}
       DATA_HOST_SUBNET_AVAILABILITY_ZONE: ${{ vars.DATA_HOST_SUBNET_AVAILABILITY_ZONE }}
+      BOOTSTRAP_PRECHECK_MODE: ${{ vars.BOOTSTRAP_PRECHECK_MODE }}
+      BOOTSTRAP_LANE: ${{ vars.BOOTSTRAP_LANE }}
+      BOOTSTRAP_APP_HOST_INSTANCE_ID: ${{ vars.BOOTSTRAP_APP_HOST_INSTANCE_ID }}
+      BOOTSTRAP_DATA_HOST_INSTANCE_ID: ${{ vars.BOOTSTRAP_DATA_HOST_INSTANCE_ID }}
+      BOOTSTRAP_SYNC_ROOT: ${{ vars.BOOTSTRAP_SYNC_ROOT }}
       APP_HOST_INSTANCE_TYPE: ${{ vars.APP_HOST_INSTANCE_TYPE }}
       DATA_HOST_INSTANCE_TYPE: ${{ vars.DATA_HOST_INSTANCE_TYPE }}
       DATA_VOLUME_SIZE_GIB: ${{ vars.DATA_VOLUME_SIZE_GIB }}
@@ -215,12 +220,19 @@ jobs:
       - name: Synthesize stack
         run: npx cdk synth
 
+      - name: Run bootstrap precheck
+        if: ${{ env.RUNTIME_MODE == 'ec2' && env.BOOTSTRAP_APP_HOST_INSTANCE_ID != '' }}
+        run: |
+          set -o pipefail
+          npm run bootstrap:precheck | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Write operator summary
         run: |
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           ## Deploy operator loop
 
           - Preflight, unit tests, and synth already passed in this run.
+          - When EC2 lane host ids are configured, bootstrap precheck also ran before deploy.
           - Typical runtime verification deploy: about `10-20m`
           - Wait phases: `CloudFormation start -> EC2 launch -> user-data/bootstrap -> ALB target healthy -> public smoke`
           - `502` before the app host is healthy usually means `wait`

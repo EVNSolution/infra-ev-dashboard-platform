@@ -1,7 +1,7 @@
 import { renderAppHostBootstrap, renderDataHostBootstrap } from '../lib/ec2-bootstrap';
 
 describe('EC2 host bootstrap renderers', () => {
-  test('renders app host bootstrap with ECR image map inputs', () => {
+  test('renders thin app host bootstrap that stages python runtime package', () => {
     const script = renderAppHostBootstrap({
       region: 'ap-northeast-2',
       imageMapSsmParam: '/ev-dashboard/runtime/images',
@@ -14,18 +14,22 @@ describe('EC2 host bootstrap renderers', () => {
     });
 
     expect(script).toContain('docker');
-    expect(script).toContain('/ev-dashboard/runtime/images');
-    expect(script).toContain('aws ecr get-login-password');
-    expect(script).toContain('ev-dashboard-app-reconcile.sh');
-    expect(script).toContain('docker run -d --name web-console');
-    expect(script).toContain('docker run -d --name account-auth-api');
-    expect(script).toContain('docker run -d --name edge-api-gateway');
-    expect(script).toContain('account-access.env');
-    expect(script).toContain('nginx.ec2-proof.conf');
-    expect(script).toContain('-v /opt/ev-dashboard/nginx.ec2-proof.conf:/etc/nginx/nginx.conf:ro');
+    expect(script).toContain('python3');
+    expect(script).toContain('/opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py');
+    expect(script).toContain('dnf install -y docker jq python3');
+    expect(script).toContain('mkdir -p /opt/ev-dashboard/bootstrap/ev_dashboard_runtime');
+    expect(script).toContain('common.py');
+    expect(script).toContain('app_host.py');
+    expect(script).toContain('data_host.py');
+    expect(script).toContain('cli.py');
+    expect(script).toContain('python3 /opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py reconcile-app');
+    expect(script).not.toContain('docker run -d --name web-console');
+    expect(script).not.toContain('docker run -d --name account-auth-api');
+    expect(script).not.toContain('docker run -d --name edge-api-gateway');
+    expect(script).not.toContain('aws ecr get-login-password');
   });
 
-  test('renders data host bootstrap with volume mount and postgres redis runtime', () => {
+  test('renders thin data host bootstrap that stages python runtime package', () => {
     const script = renderDataHostBootstrap({
       region: 'ap-northeast-2',
       deviceName: '/dev/sdf',
@@ -44,16 +48,14 @@ describe('EC2 host bootstrap renderers', () => {
 
     expect(script).toContain('/dev/sdf');
     expect(script).toContain('/data');
-    expect(script).toContain('postgres:16');
-    expect(script).toContain('redis:7');
-    expect(script).toContain('ev-dashboard-data-bootstrap.sh');
-    expect(script).toContain('pg_isready');
-    expect(script).toContain('CREATE DATABASE account_auth OWNER account_auth');
-    expect(script).toContain('DB_SECRET_VALUE_B64=$(printf');
-    expect(script).toContain('docker exec -i ev-dashboard-postgres psql');
-    expect(script).toContain('DO $$');
-    expect(script).toContain("decode('${DB_SECRET_VALUE_B64}', 'base64')");
-    expect(script).not.toContain('DB_PASSWORD=');
-    expect(script).not.toContain('DO \\\\$\\\\$');
+    expect(script).toContain('python3');
+    expect(script).toContain('mkdir -p /opt/ev-dashboard/bootstrap/ev_dashboard_runtime');
+    expect(script).toContain('python3 /opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py bootstrap-data');
+    expect(script).toContain('common.py');
+    expect(script).toContain('data_host.py');
+    expect(script).not.toContain('docker pull postgres:16');
+    expect(script).not.toContain('docker pull redis:7');
+    expect(script).not.toContain('ev-dashboard-data-bootstrap.sh');
+    expect(script).not.toContain('ExecStart=/usr/local/bin/ev-dashboard-data-bootstrap.sh');
   });
 });

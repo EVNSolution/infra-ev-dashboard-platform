@@ -215,3 +215,12 @@ Do not call a shell/auth EC2 proof "failed" just because the full route map is a
 Nitro device naming matters on the data host. The EBS attachment was present, but the bootstrap service waited forever for `/dev/xvdf` while the instance exposed the attached disk as `/dev/sdf -> /dev/nvme1n1`. For this repo's current EC2 proof, keep the attachment and bootstrap device path aligned on `/dev/sdf` or PostgreSQL/Redis will never start.
 
 EC2 runtime fixes are not real until the hosts ingest the new bootstrap. The first patch added a proof-only gateway config and corrected the data device name, but the live candidate still booted the old scripts because the instances were updated in place. For this repo, app/data hosts must treat user-data drift as replacement-worthy (`userDataCausesReplacement`) or CloudFormation can report success while the hosts keep running stale bootstrap logic.
+
+Once bootstrap moved into a Python package, repeating full `cdk deploy` runs stopped being the right debugging loop. The faster and safer sequence is:
+
+1. change the Python bootstrap package
+2. sync it to the existing dev/candidate app/data hosts
+3. run `verify-app` and `verify-data`
+4. only then run the next full deploy
+
+Use full deploys for topology proof, ALB wiring, and public smoke. Use `bootstrap:precheck` for quoting, device, package staging, and SQL bootstrap mistakes.

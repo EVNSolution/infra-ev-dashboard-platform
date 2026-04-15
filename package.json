@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "bootstrap:precheck": "ts-node bin/bootstrapPrecheck.ts",
     "preflight": "ts-node bin/preflight.ts",
     "smoke:postdeploy": "ts-node bin/postDeploySmoke.ts",
     "test": "jest --runInBand",
