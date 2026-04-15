@@ -163,5 +163,13 @@ describe('EvDashboardPlatformStack', () => {
     template.resourceCountIs('AWS::ElastiCache::CacheCluster', 0);
     template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
+
+    const instanceResources = template.findResources('AWS::EC2::Instance');
+    expect(Object.keys(instanceResources)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^AppHostInstance2DFF863A[a-f0-9]{16}$/),
+        expect.stringMatching(/^DataHostInstance4BFB8F49[a-f0-9]{16}$/)
+      ])
+    );
   });
 });

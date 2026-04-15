@@ -265,6 +265,7 @@ GitHub variable scope matters for the EC2 runtime cutover. The shared network va
   - `front-web-console`
   - `service-account-access`
   - docs/admin routes
+- EC2 bootstrap changes only matter if the instances actually pick them up. In this repo that means app/data hosts must use `userDataCausesReplacement`, otherwise a successful stack update can still leave the old reconcile script and data bootstrap running on the existing instances.
 - The ALB still routes `ev-dashboard.com/api/*` and `api.ev-dashboard.com/*` to the same edge entry on the app host so the front can keep same-host `/api` calls.
 - The runtime image map is stored in SSM and consumed by the app-host bootstrap.
 - The post-deploy smoke step is allowed to poll for host readiness because CloudFormation can finish before a fresh EC2 app host completes `cloud-init`, Docker install, and the first reconcile loop.

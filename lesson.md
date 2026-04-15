@@ -213,3 +213,5 @@ The first EC2 shell/auth proof also showed that a partial slice cannot reuse the
 Do not call a shell/auth EC2 proof "failed" just because the full route map is absent; the route map has to match the slice.
 
 Nitro device naming matters on the data host. The EBS attachment was present, but the bootstrap service waited forever for `/dev/xvdf` while the instance exposed the attached disk as `/dev/sdf -> /dev/nvme1n1`. For this repo's current EC2 proof, keep the attachment and bootstrap device path aligned on `/dev/sdf` or PostgreSQL/Redis will never start.
+
+EC2 runtime fixes are not real until the hosts ingest the new bootstrap. The first patch added a proof-only gateway config and corrected the data device name, but the live candidate still booted the old scripts because the instances were updated in place. For this repo, app/data hosts must treat user-data drift as replacement-worthy (`userDataCausesReplacement`) or CloudFormation can report success while the hosts keep running stale bootstrap logic.

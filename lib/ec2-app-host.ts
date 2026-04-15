@@ -76,7 +76,8 @@ export class Ec2AppHost extends Construct {
       instanceType: new ec2.InstanceType(props.instanceType),
       machineImage: machineImageForInstanceType(props.instanceType),
       role: this.role,
-      userData
+      userData,
+      userDataCausesReplacement: true
     });
 
     if (props.instanceName) {
