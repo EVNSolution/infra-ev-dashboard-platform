@@ -66,6 +66,8 @@ EC2 host paths need stronger imported subnet metadata than ECS task paths. `ec2.
 
 Deploy gates have to speak the active runtime, not the previous one. Once `runtimeMode=ec2` existed, leaving ECS-era wait signals like RDS quiet periods and Service Connect rollout hints inside preflight made the operator loop misleading. Make preflight and post-deploy smoke runtime-aware as soon as a new topology path is introduced.
 
+`cdk synth` is not a standalone truth command in this repo; it is an env-backed verification step. The first bare synth failed immediately on missing deploy variables, while the same command passed with a representative EC2 runtime env contract. For this stack, verify synth either through workflow-provided env or an explicit local env block, not an empty shell.
+
 Slice 4 added one more wait pattern. Even after the new gateway task was serving good public smoke, the workflow and stack still stayed open because the old ALB target was draining. In this stack, `deregistration_delay.timeout_seconds` is `300`, so target draining can be the last long pole after the new tasks are already healthy. When the public endpoints have flipped to the expected `200/404` shape, check target-group draining before firing another redeploy.
 
 Temporary bridge envs are runtime compatibility, not trust compatibility. `SETTLEMENT_OPS_BASE_URL`, `TELEMETRY_HUB_BASE_URL`, and `TERMINAL_REGISTRY_BASE_URL` can keep a Slice 4 task graph alive while later slices are still on the old public hub, but the old hub does not automatically trust the new platform JWT. If a bridge remains optional, the service code must degrade gracefully instead of expecting those upstream calls to succeed.
