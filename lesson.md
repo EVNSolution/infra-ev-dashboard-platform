@@ -156,3 +156,13 @@ For future runtime-mode changes:
 - check repo-scope vars and environment-scope vars separately
 - treat new required host-placement keys as rollout prerequisites
 - record whether a key is expected to be repo-global or environment-specific before editing the workflow
+
+## A Candidate Lane Needs Stack Identity Separation, Not Just Different Vars
+
+The first EC2 rehearsal also exposed a deeper issue: a `dev` workflow input is not a real candidate lane if the CDK stack id and fixed resource names stay identical. With `EvDashboardPlatformStack` hard-coded, a `dev` run in the same account and region would still target the production stack. The runtime image-map SSM parameter had the same problem when it was fixed at `/ev-dashboard/runtime/images`.
+
+For future temporary lanes:
+
+- make the stack id and stack name environment-aware
+- scope any fixed resource names, especially SSM parameters, to the lane
+- treat different domains without different stack identity as a false separation

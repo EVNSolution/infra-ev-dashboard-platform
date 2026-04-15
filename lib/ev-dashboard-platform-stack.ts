@@ -1635,11 +1635,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     dataSecurityGroup: ec2.SecurityGroup;
   }): void {
     const { config, vpc, hostedZone, loadBalancer, httpsListener, serviceSecurityGroup, dataSecurityGroup } = input;
+    const runtimeNamePrefix = this.stackName;
     const appHostSubnet = this.importSubnetWithAvailabilityZone('Ec2AppHostSubnet', config, config.appHostSubnetId!);
     const dataHostSubnet = this.importSubnetWithAvailabilityZone('Ec2DataHostSubnet', config, config.dataHostSubnetId!);
     const runtimeImageMap = this.buildRuntimeImageMap(config);
     const runtimeImageMapParam = new ssm.StringParameter(this, 'RuntimeImageMapParam', {
-      parameterName: '/ev-dashboard/runtime/images',
+      parameterName: `/${runtimeNamePrefix}/runtime/images`,
       stringValue: JSON.stringify(runtimeImageMap)
     });
     const postgresSecret = this.createGeneratedSecret('PostgresPasswordSecret');
@@ -1651,7 +1652,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       instanceType: config.appHostInstanceType,
       imageMapSsmParam: runtimeImageMapParam.parameterName,
       region: config.region,
-      instanceName: 'ev-dashboard-app-host'
+      instanceName: `${runtimeNamePrefix}-app-host`
     });
     runtimeImageMapParam.grantRead(appHost.role);
     postgresSecret.grantRead(appHost.role);
@@ -1663,7 +1664,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       instanceType: config.dataHostInstanceType,
       dataVolumeSizeGiB: config.dataVolumeSizeGiB,
       mountPath: '/data',
-      instanceName: 'ev-dashboard-data-host'
+      instanceName: `${runtimeNamePrefix}-data-host`
     });
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
