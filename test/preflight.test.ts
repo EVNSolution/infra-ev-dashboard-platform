@@ -264,6 +264,7 @@ describe('deploy preflight', () => {
   test('allows later slices in ec2 runtime when dependency rules are satisfied', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
+        APP_HOST_INSTANCE_TYPE: 'm6i.2xlarge',
         ORGANIZATION_DESIRED_COUNT: '1',
         DRIVER_PROFILE_DESIRED_COUNT: '1',
         PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
@@ -288,6 +289,37 @@ describe('deploy preflight', () => {
 
     expect(report.errors).not.toContain(
       'Current EC2 runtime proof supports shell/auth/company-governance only: front-web-console + edge-api-gateway + service-account-access + service-organization-registry. Set all later slice desired counts to zero before deploy.'
+    );
+  });
+
+  test('rejects later slices in ec2 full profile when app host stays on a burstable t-family instance', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        APP_HOST_INSTANCE_TYPE: 't3.large',
+        ORGANIZATION_DESIRED_COUNT: '1',
+        DRIVER_PROFILE_DESIRED_COUNT: '1',
+        PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
+        VEHICLE_ASSET_DESIRED_COUNT: '1',
+        DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '1',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '1',
+        DELIVERY_RECORD_DESIRED_COUNT: '1',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '1',
+        DISPATCH_OPS_DESIRED_COUNT: '1',
+        DRIVER_OPS_DESIRED_COUNT: '1',
+        VEHICLE_OPS_DESIRED_COUNT: '1',
+        SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
+        SETTLEMENT_OPS_DESIRED_COUNT: '1',
+        REGION_REGISTRY_DESIRED_COUNT: '1',
+        REGION_ANALYTICS_DESIRED_COUNT: '1',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+        NOTIFICATION_HUB_DESIRED_COUNT: '1'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'EC2 full-fleet proof requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when later slices are enabled.'
     );
   });
 

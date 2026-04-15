@@ -297,3 +297,9 @@ Post-deploy smoke needs a per-request timeout as well as an overall retry budget
 - only the outer loop should own the longer EC2 grace window
 
 Smoke URLs must also match the real application contract. The `company tenant resolve` check failed even after the host was healthy because the smoke called `/api/org/companies/public/resolve/` without the required `tenant_code` query string and got `400`. Validation smokes should probe the honest contract shape, then assert the expected semantic result such as `404`.
+
+Full-fleet EC2 bring-up needs a different host class than `bootstrap-proof`. The first attempt to boot the later slices on the default `t3.small` app host made both ALB target groups go unhealthy and collapsed the whole smoke suite into `timeout/502` noise. For this repo:
+
+- keep the implicit `t3.small` default for `bootstrap-proof` only
+- make `RUN_PROFILE=full` reject t-family burstable app hosts when later slices are enabled
+- use an explicit non-burstable x86 proof host such as `m6i.2xlarge` for temporary full-fleet validation, then return the lane to the cheaper bootstrap-proof shape after success

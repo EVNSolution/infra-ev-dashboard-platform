@@ -252,6 +252,14 @@ function validateSliceDependencies(
     );
   }
 
+  if (config.runtimeMode === 'ec2' && config.runProfile === 'full' && hasHeavyFullFleetSlices(slices)) {
+    if (isBurstableInstanceType(config.appHostInstanceType)) {
+      errors.push(
+        'EC2 full-fleet proof requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when later slices are enabled.'
+      );
+    }
+  }
+
   if (
     (
       slices.companyGovernance ||
@@ -447,6 +455,21 @@ function hasDirectUpstreamSlices(slices: SliceState): boolean {
     slices.supportSurface ||
     slices.terminalAndTelemetry
   );
+}
+
+function hasHeavyFullFleetSlices(slices: SliceState): boolean {
+  return (
+    slices.peopleAndAssets ||
+    slices.dispatchInputs ||
+    slices.dispatchReadModels ||
+    slices.settlement ||
+    slices.supportSurface ||
+    slices.terminalAndTelemetry
+  );
+}
+
+function isBurstableInstanceType(instanceType: string): boolean {
+  return /^t\d[a-z]?\./i.test(instanceType);
 }
 
 function hasTagOrDigest(imageUri: string): boolean {
