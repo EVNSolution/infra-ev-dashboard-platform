@@ -1,7 +1,3 @@
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
-
 import * as cdk from 'aws-cdk-lib';
 import { aws_certificatemanager as acm } from 'aws-cdk-lib';
 import { aws_ec2 as ec2 } from 'aws-cdk-lib';
@@ -2493,7 +2489,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       }
     ];
 
-    const appServiceManifestAsset = this.createJsonAsset('AppServiceManifestAsset', 'app-services.json', appServices);
+    const appServiceManifestSecret = new secretsmanager.Secret(this, 'AppServiceManifestSecret', {
+      secretStringValue: cdk.SecretValue.unsafePlainText(cdk.Stack.of(this).toJsonString(appServices))
+    });
 
     const appHost = new Ec2AppHost(this, 'AppHost', {
       vpc,
@@ -2504,12 +2502,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       region: config.region,
       bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
       bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
-      serviceManifestBucketName: appServiceManifestAsset.s3BucketName,
-      serviceManifestObjectKey: appServiceManifestAsset.s3ObjectKey,
+      serviceManifestSecretArn: appServiceManifestSecret.secretArn,
       instanceName: `${runtimeNamePrefix}-app-host`
     });
     bootstrapPackageAsset.grantRead(appHost.role);
-    appServiceManifestAsset.grantRead(appHost.role);
+    appServiceManifestSecret.grantRead(appHost.role);
     runtimeImageMapParam.grantRead(appHost.role);
     postgresSuperuserSecret.grantRead(appHost.role);
     platformJwtSecret.grantRead(appHost.role);
@@ -2828,14 +2825,4 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     };
   }
 
-  private createJsonAsset(id: string, fileName: string, value: unknown): s3assets.Asset {
-    const assetDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-dashboard-runtime-asset-'));
-    const assetPath = path.join(assetDirectory, fileName);
-
-    fs.writeFileSync(assetPath, JSON.stringify(value, null, 2));
-
-    return new s3assets.Asset(this, id, {
-      path: assetPath
-    });
-  }
 }

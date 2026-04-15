@@ -12,8 +12,7 @@ export type Ec2AppHostProps = {
   region: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
-  serviceManifestBucketName: string;
-  serviceManifestObjectKey: string;
+  serviceManifestSecretArn: string;
   instanceName?: string;
 };
 
@@ -60,8 +59,7 @@ export class Ec2AppHost extends Construct {
         imageMapSsmParam: props.imageMapSsmParam,
         bootstrapPackageBucketName: props.bootstrapPackageBucketName,
         bootstrapPackageObjectKey: props.bootstrapPackageObjectKey,
-        serviceManifestBucketName: props.serviceManifestBucketName,
-        serviceManifestObjectKey: props.serviceManifestObjectKey
+        serviceManifestSecretArn: props.serviceManifestSecretArn
       })
     );
 

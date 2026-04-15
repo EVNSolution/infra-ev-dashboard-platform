@@ -7,8 +7,7 @@ export type AppHostBootstrapProps = {
   imageMapSsmParam: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
-  serviceManifestBucketName: string;
-  serviceManifestObjectKey: string;
+  serviceManifestSecretArn: string;
 };
 
 export type AppHostRuntimeService = {
@@ -44,20 +43,18 @@ const BOOTSTRAP_ROOT = '/opt/ev-dashboard/bootstrap';
 const PYTHON_CLI_PATH = `${BOOTSTRAP_ROOT}/ev_dashboard_runtime/cli.py`;
 const APP_RECONCILE_UNIT_PATH = '/etc/systemd/system/ev-dashboard-app-reconcile.service';
 const DATA_BOOTSTRAP_UNIT_PATH = '/etc/systemd/system/ev-dashboard-data-bootstrap.service';
-const APP_SERVICE_MANIFEST_PATH = '/opt/ev-dashboard/manifests/app-services.json';
 
 export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
   return [
     'set -euxo pipefail',
     'dnf install -y docker jq python3 unzip',
     'systemctl enable --now docker',
-    'mkdir -p /opt/ev-dashboard /opt/ev-dashboard/manifests /etc/systemd/system',
+    'mkdir -p /opt/ev-dashboard /etc/systemd/system',
     ...renderBootstrapPackageFetchCommands(
       BOOTSTRAP_ROOT,
       props.bootstrapPackageBucketName,
       props.bootstrapPackageObjectKey
     ),
-    renderS3CopyCommand(props.serviceManifestBucketName, props.serviceManifestObjectKey, APP_SERVICE_MANIFEST_PATH),
     `cat <<'EOF' > ${APP_RECONCILE_UNIT_PATH}`,
     '[Unit]',
     'Description=Reconcile ev-dashboard app containers from runtime image map',
@@ -70,7 +67,12 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     'EOF',
     appendTokenizedEnvironmentLine(APP_RECONCILE_UNIT_PATH, 'IMAGE_MAP_PARAM', 'ImageMapParam', props.imageMapSsmParam),
     `printf '%s\n' 'Environment=AWS_REGION=${props.region}' >> ${APP_RECONCILE_UNIT_PATH}`,
-    `printf '%s\n' 'Environment=SERVICE_MANIFEST_PATH=${APP_SERVICE_MANIFEST_PATH}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'SERVICE_MANIFEST_SECRET_ARN',
+      'ServiceManifestSecretArn',
+      props.serviceManifestSecretArn
+    ),
     `cat <<'EOF' >> ${APP_RECONCILE_UNIT_PATH}`,
     `ExecStart=/usr/bin/python3 ${PYTHON_CLI_PATH} reconcile-app`,
     '',
@@ -161,12 +163,5 @@ function appendTokenizedEnvironmentLine(
 ): string {
   return cdk.Fn.sub(`printf '%s\\n' 'Environment=${envName}=\${${variableName}}' >> ${unitPath}`, {
     [variableName]: value
-  });
-}
-
-function renderS3CopyCommand(bucketName: string, objectKey: string, targetPath: string): string {
-  return cdk.Fn.sub(`aws s3 cp s3://\${BucketName}/\${ObjectKey} ${targetPath}`, {
-    BucketName: bucketName,
-    ObjectKey: objectKey
   });
 }

@@ -10,8 +10,7 @@ describe('EC2 host bootstrap renderers', () => {
       imageMapSsmParam: '/ev-dashboard/runtime/images',
       bootstrapPackageBucketName: 'clever-bootstrap-bucket',
       bootstrapPackageObjectKey: 'bootstrap/runtime.zip',
-      serviceManifestBucketName: 'clever-manifest-bucket',
-      serviceManifestObjectKey: 'bootstrap/app-services.json'
+      serviceManifestSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:app-services'
     }).join('\n');
 
     expect(script).toContain('docker');
@@ -20,9 +19,7 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).toContain('dnf install -y docker jq python3 unzip');
     expect(script).toContain('aws s3 cp s3://clever-bootstrap-bucket/bootstrap/runtime.zip /tmp/ev-dashboard-bootstrap.zip');
     expect(script).toContain('unzip -o /tmp/ev-dashboard-bootstrap.zip -d /opt/ev-dashboard/bootstrap');
-    expect(script).toContain('/opt/ev-dashboard/manifests/app-services.json');
     expect(script).toContain('python3 /opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py reconcile-app');
-    expect(script).toContain('Environment=SERVICE_MANIFEST_PATH=/opt/ev-dashboard/manifests/app-services.json');
     expect(script.length).toBeLessThan(16384);
     expect(script).not.toContain('docker run -d --name web-console');
     expect(script).not.toContain('docker run -d --name account-auth-api');
@@ -75,7 +72,7 @@ describe('EC2 host bootstrap renderers', () => {
       'utf8'
     );
 
-    expect(source).toContain('SERVICE_MANIFEST_PATH');
+    expect(source).toContain('SERVICE_MANIFEST_SECRET_ARN');
     expect(source).toContain('SERVICE_ENV_DIR');
     expect(source).not.toContain('PROOF_GATEWAY_CONFIG_PATH');
     expect(source).not.toContain('render_proof_gateway_config');
