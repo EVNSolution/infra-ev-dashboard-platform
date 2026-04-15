@@ -2,3 +2,5 @@ node_modules/
 dist/
 cdk.out/
 coverage/
+__pycache__/
+*.pyc
