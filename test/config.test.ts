@@ -686,7 +686,7 @@ describe('buildPlatformConfigFromEnv', () => {
     expect(config.appHostSubnetAvailabilityZone).toBe('ap-northeast-2c');
     expect(config.dataHostSubnetAvailabilityZone).toBe('ap-northeast-2b');
     expect(config.appHostInstanceType).toBe('t3.small');
-    expect(config.dataHostInstanceType).toBe('t3.small');
+    expect(config.dataHostInstanceType).toBe('t4g.small');
     expect(config.dataVolumeSizeGiB).toBe(100);
   });
 

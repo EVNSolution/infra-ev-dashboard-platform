@@ -221,7 +221,7 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     privateSubnetIds,
     serviceConnectNamespace: input.serviceConnectNamespace ?? 'ev-dashboard.internal',
     appHostInstanceType: input.appHostInstanceType ?? 't3.small',
-    dataHostInstanceType: input.dataHostInstanceType ?? 't3.small',
+    dataHostInstanceType: input.dataHostInstanceType ?? 't4g.small',
     dataVolumeSizeGiB: input.dataVolumeSizeGiB ?? 100,
     availabilityZones:
       input.availabilityZones ?? buildDefaultAvailabilityZones(input.region, input.publicSubnetIds.length)
