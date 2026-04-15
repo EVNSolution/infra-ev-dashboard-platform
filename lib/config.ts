@@ -1,4 +1,5 @@
 export type PlatformConfigInput = {
+  runProfile?: 'full' | 'bootstrap-proof' | 'smoke-only';
   runtimeMode?: 'ecs' | 'ec2';
   region: string;
   hostedZoneId: string;
@@ -161,6 +162,7 @@ export type PlatformConfigInput = {
 };
 
 export type PlatformConfig = PlatformConfigInput & {
+  runProfile: 'full' | 'bootstrap-proof' | 'smoke-only';
   runtimeMode: 'ecs' | 'ec2';
   cockpitHosts: string[];
   availabilityZones: string[];
@@ -177,6 +179,7 @@ export type PlatformConfig = PlatformConfigInput & {
 };
 
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
+  const runProfile = input.runProfile ?? 'full';
   const runtimeMode = input.runtimeMode ?? 'ecs';
   const privateSubnetIds = input.privateSubnetIds ?? [];
   const requiresPrivateSubnets =
@@ -219,8 +222,9 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     throw new Error('Missing required environment variable: DATA_HOST_SUBNET_AVAILABILITY_ZONE');
   }
 
-  return {
+  const config: PlatformConfig = {
     ...input,
+    runProfile,
     runtimeMode,
     cockpitHosts: normalizeHosts(input.cockpitHosts),
     privateSubnetIds,
@@ -232,6 +236,36 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     availabilityZones:
       input.availabilityZones ?? buildDefaultAvailabilityZones(input.region, input.publicSubnetIds.length)
   };
+
+  if (config.runtimeMode === 'ec2' && config.runProfile === 'bootstrap-proof') {
+    return {
+      ...config,
+      driverProfileDesiredCount: 0,
+      personnelDocumentDesiredCount: 0,
+      vehicleAssetDesiredCount: 0,
+      driverVehicleAssignmentDesiredCount: 0,
+      dispatchRegistryDesiredCount: 0,
+      deliveryRecordDesiredCount: 0,
+      attendanceRegistryDesiredCount: 0,
+      dispatchOpsDesiredCount: 0,
+      driverOpsDesiredCount: 0,
+      vehicleOpsDesiredCount: 0,
+      settlementRegistryDesiredCount: 0,
+      settlementPayrollDesiredCount: 0,
+      settlementOpsDesiredCount: 0,
+      regionRegistryDesiredCount: 0,
+      regionAnalyticsDesiredCount: 0,
+      announcementRegistryDesiredCount: 0,
+      supportRegistryDesiredCount: 0,
+      notificationHubDesiredCount: 0,
+      terminalRegistryDesiredCount: 0,
+      telemetryHubDesiredCount: 0,
+      telemetryDeadLetterDesiredCount: 0,
+      telemetryListenerDesiredCount: 0
+    };
+  }
+
+  return config;
 }
 
 export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConfig {
@@ -280,6 +314,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const telemetryListenerMqttTopics = optionalList(env.TELEMETRY_LISTENER_MQTT_TOPICS) ?? ['telemetry/#'];
 
   return buildPlatformConfig({
+    runProfile: toRunProfile(env.RUN_PROFILE),
     runtimeMode: toRuntimeMode(env.RUNTIME_MODE),
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
     hostedZoneId: required(env.HOSTED_ZONE_ID, 'HOSTED_ZONE_ID'),
@@ -630,6 +665,18 @@ function toRuntimeMode(value: string | undefined): 'ecs' | 'ec2' {
   }
 
   throw new Error('Environment variable RUNTIME_MODE must be either ecs or ec2');
+}
+
+function toRunProfile(value: string | undefined): 'full' | 'bootstrap-proof' | 'smoke-only' {
+  if (!value || value.trim() === '') {
+    return 'full';
+  }
+
+  if (value === 'full' || value === 'bootstrap-proof' || value === 'smoke-only') {
+    return value;
+  }
+
+  throw new Error('Environment variable RUN_PROFILE must be full, bootstrap-proof, or smoke-only');
 }
 
 function buildDefaultAvailabilityZones(region: string, count: number): string[] {

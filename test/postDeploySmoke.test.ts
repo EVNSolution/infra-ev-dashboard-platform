@@ -179,6 +179,37 @@ describe('post-deploy smoke', () => {
     );
   });
 
+  test('limits bootstrap-proof smoke to the proof-critical surface even when later env counts are set', () => {
+    const checks = buildPostDeploySmokeChecks(
+      createBaseEnv({
+        RUN_PROFILE: 'bootstrap-proof',
+        ORGANIZATION_DESIRED_COUNT: '1',
+        DRIVER_PROFILE_DESIRED_COUNT: '1',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '1',
+        SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+        NOTIFICATION_HUB_DESIRED_COUNT: '1',
+        COCKPIT_HOSTS: 'cheonha.candidate.ev-dashboard.com'
+      })
+    );
+
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'front shell' }),
+        expect.objectContaining({ name: 'cockpit shell: cheonha.candidate.ev-dashboard.com' }),
+        expect.objectContaining({ name: 'auth health' }),
+        expect.objectContaining({ name: 'organization health' })
+      ])
+    );
+    expect(checks).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'dispatch health' }),
+        expect.objectContaining({ name: 'settlement registry health' }),
+        expect.objectContaining({ name: 'support registry health' })
+      ])
+    );
+  });
+
   test('passes when every required endpoint returns its expected status', async () => {
     const fetchMock = jest.fn(async (input: string, init?: RequestInit) => {
       if (String(input).includes('/companies/public/resolve/')) {

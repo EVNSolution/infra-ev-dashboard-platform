@@ -281,3 +281,11 @@ For `bootstrap-proof`, service startup order is part of the deploy contract, not
 - later slices after that
 
 If the proof goal is shell/auth/org reachability, do not bury the gateway behind services that the smoke does not need.
+
+`bootstrap-proof` also needs a config-level scope override, not just a faster workflow path. Leaving all later slice desired counts at `1` while only changing the smoke steps still forces the EC2 app host to spend minutes pulling and starting the full fleet, and a single slow later slice can make the proof look broken. For this repo:
+
+- `bootstrap-proof` must coerce the effective desired counts down to `front + gateway + auth + organization`
+- stack synthesis, runtime manifest generation, and public smoke all need to read that same narrowed config
+- `full` is the only profile that should attempt full-fleet EC2 bring-up
+
+If the proof scope lives only in docs or operator habit, reruns become noisy and structurally misleading again.

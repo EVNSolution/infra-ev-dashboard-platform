@@ -83,6 +83,7 @@ For EC2 runtime bring-up, use workflow `run_profile` instead of editing the YAML
 - `bootstrap-proof`
   - `synth -> deploy -> post-deploy smoke`
   - use this when the purpose is to validate stack/bootstrap/runtime bring-up quickly
+  - in `RUNTIME_MODE=ec2`, this profile automatically narrows the runtime to `front-web-console + edge-api-gateway + service-account-access + service-organization-registry`
 - `smoke-only`
   - `post-deploy smoke` only against the current live lane
   - use this when stack topology is already up and only edge proof needs to be rerun
@@ -116,14 +117,15 @@ npm run smoke:postdeploy
 - a later backend slice is enabled without the earlier slices it depends on
 - `edge-api-gateway` is disabled while API slices are still enabled
 
-Current EC2 runtime proof is narrower than the long-term target. At this stage, `RUNTIME_MODE=ec2` supports:
+Current EC2 runtime proof is narrower than the long-term target, but that narrow scope now belongs to the `bootstrap-proof` profile, not to EC2 runtime as a whole. In this repo:
 
 - `front-web-console`
 - `edge-api-gateway`
 - `service-account-access`
 - `service-organization-registry`
 
-Keep all later slice desired counts at `0` until their host-level runtime contracts are implemented. The deploy gate now enforces that boundary.
+- `bootstrap-proof` automatically forces all later slice desired counts to `0` so stack, manifest, and smoke all see the same proof-critical surface.
+- `full` keeps the configured later slice desired counts and is the only honest profile for full-fleet bring-up.
 
 The command also prints the expected deploy wait signals so operators do not overreact to normal `UPDATE_IN_PROGRESS` windows.
 
