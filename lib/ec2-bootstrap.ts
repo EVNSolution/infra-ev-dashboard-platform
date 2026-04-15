@@ -273,11 +273,25 @@ function buildAccountAccessEnvLines(props: AppHostBootstrapProps): string[] {
 
 function renderDataHostDatabaseInit(props: DataHostBootstrapProps): string {
   return props.databases
-    .flatMap((database) => [
-      `DB_SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "${database.passwordSecretArn}" --region "$AWS_REGION" --query SecretString --output text)`,
-      `DB_SECRET_VALUE_B64=$(printf '%s' "$DB_SECRET_VALUE" | base64 | tr -d '\\n')`,
-      `docker exec ev-dashboard-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DO \\\\\\$\\\\\\$ DECLARE role_password text := convert_from(decode('${'${DB_SECRET_VALUE_B64}'}', 'base64'), 'UTF8'); BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${database.username}') THEN EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', '${database.username}', role_password); ELSE EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', '${database.username}', role_password); END IF; END \\\\\\$\\\\\\$;"`,
-      `docker exec ev-dashboard-postgres psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${database.databaseName}'" | grep -q 1 || docker exec ev-dashboard-postgres psql -U postgres -d postgres -c "CREATE DATABASE ${database.databaseName} OWNER ${database.username};"`
-    ])
+    .flatMap((database) => {
+      const sqlDelimiter = `SQL_BOOTSTRAP_${database.username.replace(/[^A-Za-z0-9]/g, '_').toUpperCase()}`;
+
+      return [
+        `DB_SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "${database.passwordSecretArn}" --region "$AWS_REGION" --query SecretString --output text)`,
+        `DB_SECRET_VALUE_B64=$(printf '%s' "$DB_SECRET_VALUE" | base64 | tr -d '\\n')`,
+        `docker exec -i ev-dashboard-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<${sqlDelimiter}`,
+        'DO $$',
+        `DECLARE role_password text := convert_from(decode('${'${DB_SECRET_VALUE_B64}'}', 'base64'), 'UTF8');`,
+        'BEGIN',
+        `  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${database.username}') THEN`,
+        `    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', '${database.username}', role_password);`,
+        '  ELSE',
+        `    EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', '${database.username}', role_password);`,
+        '  END IF;',
+        'END $$;',
+        sqlDelimiter,
+        `docker exec ev-dashboard-postgres psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${database.databaseName}'" | grep -q 1 || docker exec ev-dashboard-postgres psql -U postgres -d postgres -c "CREATE DATABASE ${database.databaseName} OWNER ${database.username};"`
+      ];
+    })
     .join('\n');
 }
