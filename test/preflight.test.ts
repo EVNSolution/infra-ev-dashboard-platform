@@ -19,9 +19,9 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     VPC_ID: 'vpc-015c89247f96e9221',
     PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
     PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
-    APP_HOST_SUBNET_ID: 'subnet-ccc',
-    DATA_HOST_SUBNET_ID: 'subnet-ddd',
-    APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+    APP_HOST_SUBNET_ID: 'subnet-aaa',
+    DATA_HOST_SUBNET_ID: 'subnet-bbb',
+    APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2a',
     DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2b',
     FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
     GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
@@ -261,6 +261,32 @@ describe('deploy preflight', () => {
     );
   });
 
+  test('rejects ec2 proof when app host is outside public subnets', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        APP_HOST_SUBNET_ID: 'subnet-ccc',
+        APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Current EC2 runtime proof requires APP_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the app host stays inside an ALB-enabled AZ and has internet egress for bootstrap.'
+    );
+  });
+
+  test('rejects ec2 proof when data host is outside public subnets', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        DATA_HOST_SUBNET_ID: 'subnet-ddd',
+        DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Current EC2 runtime proof requires DATA_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the data host has internet egress for bootstrap.'
+    );
+  });
+
   test('summarizes enabled slices and wait signals', () => {
     const report = buildDeployPreflightReport(createBaseEnv());
     const formatted = formatDeployPreflightReport(report);
@@ -272,6 +298,9 @@ describe('deploy preflight', () => {
     );
     expect(report.waitSignals).toContain(
       'Current EC2 runtime proof is shell/auth only. Keep later slice desired counts at zero until host-level runtime contracts for those services exist.'
+    );
+    expect(report.waitSignals).toContain(
+      'Current EC2 runtime proof expects app/data hosts in PUBLIC_SUBNET_IDS with public IPs because the imported private subnets do not yet provide NAT or VPC endpoints for bootstrap, SSM, ECR, and Secrets Manager access.'
     );
     expect(report.waitSignals).not.toContain(
       'New or updated direct Service Connect upstreams are enabled. Expect a later edge-api-gateway rollout after backend services register.'

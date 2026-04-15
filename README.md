@@ -247,7 +247,7 @@ Repository secrets:
 
 The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates. The actual CDK deploy runs with the shared infra role because the existing `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles remain EC2/SSM deploy roles for `clever-deploy-control`.
 
-For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`, `APP_HOST_SUBNET_AVAILABILITY_ZONE`, and `DATA_HOST_SUBNET_AVAILABILITY_ZONE` are required. `PRIVATE_SUBNET_IDS` is still used for imported network metadata and should stay aligned with the app/data host private lanes.
+For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`, `APP_HOST_SUBNET_AVAILABILITY_ZONE`, and `DATA_HOST_SUBNET_AVAILABILITY_ZONE` are required. The current shell/auth proof expects both host subnets to be chosen from `PUBLIC_SUBNET_IDS`, and both hosts must receive public IPs from those subnet defaults so bootstrap can reach SSM, ECR, Secrets Manager, and package mirrors. `PRIVATE_SUBNET_IDS` is still imported as network metadata for later hardening, but the current proof does not run the hosts inside those private lanes because the imported VPC has no NAT or VPC endpoints there yet.
 
 GitHub variable scope matters for the EC2 runtime cutover. The shared network values in this repo currently live at repo scope, but the new host-placement keys (`APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`) may need environment-specific values. If those keys are absent from the selected GitHub Environment, the workflow still starts but preflight fails before deploy.
 
@@ -256,6 +256,7 @@ GitHub variable scope matters for the EC2 runtime cutover. The shared network va
 - The stack issues its own ACM certificate from the hosted zone instead of importing a pre-created `CERTIFICATE_ARN`.
 - The app host runs image-backed containers pulled from immutable ECR SHA tags.
 - The data host owns PostgreSQL and Redis on EBS-backed storage.
+- The current EC2 proof places both hosts in `PUBLIC_SUBNET_IDS` and relies on security groups, not private-only placement, to keep ingress narrow while NAT/VPC endpoints are still absent from the imported private subnets.
 - The ALB still routes `ev-dashboard.com/api/*` and `api.ev-dashboard.com/*` to the same edge entry on the app host so the front can keep same-host `/api` calls.
 - The runtime image map is stored in SSM and consumed by the app-host bootstrap.
 - The runtime is no longer modeled as ECS services, Service Connect, dedicated RDS instances, or ElastiCache clusters in canonical mode.

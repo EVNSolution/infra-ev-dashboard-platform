@@ -255,6 +255,18 @@ function validateSliceDependencies(
     );
   }
 
+  if (config.runtimeMode === 'ec2' && !config.publicSubnetIds.includes(config.appHostSubnetId!)) {
+    errors.push(
+      'Current EC2 runtime proof requires APP_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the app host stays inside an ALB-enabled AZ and has internet egress for bootstrap.'
+    );
+  }
+
+  if (config.runtimeMode === 'ec2' && !config.publicSubnetIds.includes(config.dataHostSubnetId!)) {
+    errors.push(
+      'Current EC2 runtime proof requires DATA_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the data host has internet egress for bootstrap.'
+    );
+  }
+
   if (
     (
       slices.companyGovernance ||
@@ -337,6 +349,9 @@ function buildWaitSignals(config: PlatformConfig, slices: SliceState): string[] 
     );
     signals.push(
       'Current EC2 runtime proof is shell/auth only. Keep later slice desired counts at zero until host-level runtime contracts for those services exist.'
+    );
+    signals.push(
+      'Current EC2 runtime proof expects app/data hosts in PUBLIC_SUBNET_IDS with public IPs because the imported private subnets do not yet provide NAT or VPC endpoints for bootstrap, SSM, ECR, and Secrets Manager access.'
     );
 
     if (hasStatefulSlices(slices)) {

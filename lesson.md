@@ -190,3 +190,10 @@ The first honest EC2 proof has to be narrower than the final topology. App host 
 If the host-level runtime contract does not exist yet, do not pretend a later slice is ready just because its image URI exists. Make preflight fail until the host bootstrap can actually run that slice.
 
 EC2 image deploys need a host-side reconcile loop, not just user-data that runs once. Updating the runtime image-map SSM parameter does nothing for a running EC2 host unless the host has a timer or explicit deploy command that re-pulls images and restarts containers. For this repo, the app host now needs a reconcile service/timer, not just boot-time ECR login.
+
+The first EC2 shell/auth candidate also proved that bootstrap reachability and ALB reachability are separate checks. The app host can be in the same VPC and still fail public smoke if:
+
+- its AZ is not enabled on the ALB target group
+- its subnet has no outbound path to package mirrors, SSM, ECR, or Secrets Manager
+
+For the current proof lane, that means app/data hosts have to live in the imported public subnets. The private subnets in this VPC are not usable proof lanes yet because their route table only has the local route.
