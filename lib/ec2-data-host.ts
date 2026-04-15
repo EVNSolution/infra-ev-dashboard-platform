@@ -57,7 +57,7 @@ export class Ec2DataHost extends Construct {
       machineImage: machineImageForInstanceType(props.instanceType),
       role: this.role,
       userData,
-      userDataCausesReplacement: true
+      userDataCausesReplacement: false
     });
 
     this.volume = new ec2.CfnVolume(this, 'DataVolume', {

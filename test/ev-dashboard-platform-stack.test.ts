@@ -168,7 +168,7 @@ describe('EvDashboardPlatformStack', () => {
     expect(Object.keys(instanceResources)).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^AppHostInstance2DFF863A[a-f0-9]{16}$/),
-        expect.stringMatching(/^DataHostInstance4BFB8F49[a-f0-9]{16}$/)
+        expect.stringMatching(/^DataHostInstance4BFB8F49(?:[a-f0-9]{16})?$/)
       ])
     );
   });
