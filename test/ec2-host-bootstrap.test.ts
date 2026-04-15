@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { renderAppHostBootstrap, renderDataHostBootstrap } from '../lib/ec2-bootstrap';
 
 describe('EC2 host bootstrap renderers', () => {
@@ -8,11 +11,18 @@ describe('EC2 host bootstrap renderers', () => {
       dataHostAddress: '10.20.1.15',
       apexDomain: 'candidate.ev-dashboard.com',
       apiDomain: 'api.candidate.ev-dashboard.com',
+      csrfTrustedOrigins: 'https://candidate.ev-dashboard.com,https://api.candidate.ev-dashboard.com,https://cheonha.ev-dashboard.com',
       bootstrapPackageBucketName: 'clever-bootstrap-bucket',
       bootstrapPackageObjectKey: 'bootstrap/runtime.zip',
       accountAccessPostgresSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres',
       accountAccessDjangoSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:django',
-      accountAccessJwtSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:jwt'
+      accountAccessJwtSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:jwt',
+      organizationEnabled: true,
+      organizationPostgresSecretArn:
+        'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:organization-postgres',
+      organizationDjangoSecretArn:
+        'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:organization-django',
+      organizationJwtSecretArn: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:organization-jwt'
     }).join('\n');
 
     expect(script).toContain('docker');
@@ -30,6 +40,7 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).not.toContain('common.py');
     expect(script).not.toContain('app_host.py');
     expect(script).not.toContain('data_host.py');
+    expect(script).toContain('Environment=ORGANIZATION_ENABLED=1');
   });
 
   test('renders thin data host bootstrap that stages python runtime package', () => {
@@ -66,5 +77,17 @@ describe('EC2 host bootstrap renderers', () => {
     expect(script).not.toContain('ExecStart=/usr/local/bin/ev-dashboard-data-bootstrap.sh');
     expect(script).not.toContain('common.py');
     expect(script).not.toContain('data_host.py');
+  });
+
+  test('runtime package reconciles organization service and org proof route', () => {
+    const source = readFileSync(
+      join(__dirname, '..', 'bootstrap', 'ev_dashboard_runtime', 'app_host.py'),
+      'utf8'
+    );
+
+    expect(source).toContain('service-organization-registry');
+    expect(source).toContain('organization-master-api');
+    expect(source).toContain('ORGANIZATION_POSTGRES_SECRET_ARN');
+    expect(source).toContain('location /api/org/');
   });
 });

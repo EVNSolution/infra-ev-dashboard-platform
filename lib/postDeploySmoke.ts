@@ -66,11 +66,18 @@ export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySm
   }
 
   if (config.organizationDesiredCount > 0) {
-    checks.push({
-      name: 'company public bootstrap',
-      url: `${apiUrl}/api/org/companies/public/`,
-      expectedStatus: 200
-    });
+    checks.push(
+      {
+        name: 'organization health',
+        url: `${apiUrl}/api/org/health/`,
+        expectedStatus: 200
+      },
+      {
+        name: 'company tenant resolve validation',
+        url: `${apiUrl}/api/org/companies/public/resolve/`,
+        expectedStatus: 400
+      }
+    );
   }
 
   if (isPeopleAndAssetsEnabled(config)) {

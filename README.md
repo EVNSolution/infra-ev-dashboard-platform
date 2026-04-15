@@ -116,11 +116,12 @@ npm run smoke:postdeploy
 - a later backend slice is enabled without the earlier slices it depends on
 - `edge-api-gateway` is disabled while API slices are still enabled
 
-Current EC2 runtime proof is narrower than the long-term target. At this stage, `RUNTIME_MODE=ec2` only supports:
+Current EC2 runtime proof is narrower than the long-term target. At this stage, `RUNTIME_MODE=ec2` supports:
 
 - `front-web-console`
 - `edge-api-gateway`
 - `service-account-access`
+- `service-organization-registry`
 
 Keep all later slice desired counts at `0` until their host-level runtime contracts are implemented. The deploy gate now enforces that boundary.
 
@@ -280,9 +281,10 @@ GitHub variable scope matters for the EC2 runtime cutover. The shared network va
 - The current EC2 proof places both hosts in `PUBLIC_SUBNET_IDS` and relies on security groups, not private-only placement, to keep ingress narrow while NAT/VPC endpoints are still absent from the imported private subnets.
 - The current EC2 proof keeps the app host on x86_64 by default because the live service images are still `linux/amd64` only. Do not switch the app host to Graviton until the image fleet is published as multi-arch.
 - The data host stays on its current Graviton default unless there is a deliberate PostgreSQL/Redis compatibility reason to move it. Changing the data-host family replaces the EC2 instance and can trigger EBS reattachment churn during a proof deploy.
-- The current shell/auth proof does not boot the full gateway route map. The app host writes a proof-only nginx config and mounts it into `edge-api-gateway` so the gateway can start with just:
+- The current shell/auth/company-governance proof does not boot the full gateway route map. The app host writes a proof-only nginx config and mounts it into `edge-api-gateway` so the gateway can start with just:
   - `front-web-console`
   - `service-account-access`
+  - `service-organization-registry`
   - docs/admin routes
 - EC2 bootstrap changes only matter if the instances actually pick them up. In this repo that means app/data hosts must use `userDataCausesReplacement`, otherwise a successful stack update can still leave the old reconcile script and data bootstrap running on the existing instances.
 - The ALB still routes `ev-dashboard.com/api/*` and `api.ev-dashboard.com/*` to the same edge entry on the app host so the front can keep same-host `/api` calls.

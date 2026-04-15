@@ -242,8 +242,7 @@ function validateSliceDependencies(
 
   if (
     config.runtimeMode === 'ec2' &&
-    (slices.companyGovernance ||
-      slices.peopleAndAssets ||
+    (slices.peopleAndAssets ||
       slices.dispatchInputs ||
       slices.dispatchReadModels ||
       slices.settlement ||
@@ -251,7 +250,7 @@ function validateSliceDependencies(
       slices.terminalAndTelemetry)
   ) {
     errors.push(
-      'Current EC2 runtime proof only supports the shell/auth slice: front-web-console + edge-api-gateway + service-account-access. Set all later slice desired counts to zero before deploy.'
+      'Current EC2 runtime proof supports shell/auth/company-governance only: front-web-console + edge-api-gateway + service-account-access + service-organization-registry. Set all later slice desired counts to zero before deploy.'
     );
   }
 
@@ -348,7 +347,7 @@ function buildWaitSignals(config: PlatformConfig, slices: SliceState): string[] 
       'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
     );
     signals.push(
-      'Current EC2 runtime proof is shell/auth only. Keep later slice desired counts at zero until host-level runtime contracts for those services exist.'
+      'Current EC2 runtime proof currently covers shell/auth/company-governance only. Keep all later slice desired counts at zero until their host-level runtime contracts are implemented.'
     );
     signals.push(
       'Current EC2 runtime proof expects app/data hosts in PUBLIC_SUBNET_IDS with public IPs because the imported private subnets do not yet provide NAT or VPC endpoints for bootstrap, SSM, ECR, and Secrets Manager access.'

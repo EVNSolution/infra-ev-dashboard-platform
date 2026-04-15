@@ -13,11 +13,16 @@ export type Ec2AppHostProps = {
   dataHostAddress: string;
   apexDomain: string;
   apiDomain: string;
+  csrfTrustedOrigins: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
   accountAccessPostgresSecretArn?: string;
   accountAccessDjangoSecretArn?: string;
   accountAccessJwtSecretArn?: string;
+  organizationEnabled: boolean;
+  organizationPostgresSecretArn?: string;
+  organizationDjangoSecretArn?: string;
+  organizationJwtSecretArn?: string;
   instanceName?: string;
 };
 
@@ -65,11 +70,16 @@ export class Ec2AppHost extends Construct {
         dataHostAddress: props.dataHostAddress,
         apexDomain: props.apexDomain,
         apiDomain: props.apiDomain,
+        csrfTrustedOrigins: props.csrfTrustedOrigins,
         bootstrapPackageBucketName: props.bootstrapPackageBucketName,
         bootstrapPackageObjectKey: props.bootstrapPackageObjectKey,
         accountAccessPostgresSecretArn: props.accountAccessPostgresSecretArn,
         accountAccessDjangoSecretArn: props.accountAccessDjangoSecretArn,
-        accountAccessJwtSecretArn: props.accountAccessJwtSecretArn
+        accountAccessJwtSecretArn: props.accountAccessJwtSecretArn,
+        organizationEnabled: props.organizationEnabled,
+        organizationPostgresSecretArn: props.organizationPostgresSecretArn,
+        organizationDjangoSecretArn: props.organizationDjangoSecretArn,
+        organizationJwtSecretArn: props.organizationJwtSecretArn
       })
     );
 

@@ -1661,6 +1661,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     });
     const postgresSecret = this.createGeneratedSecret('PostgresPasswordSecret');
     const accountAccessDjangoSecret = this.createGeneratedSecret('AccountAccessDjangoSecretKey');
+    const organizationPostgresSecret =
+      config.organizationDesiredCount > 0 ? this.createGeneratedSecret('OrganizationPostgresPasswordSecret') : undefined;
+    const organizationDjangoSecret =
+      config.organizationDesiredCount > 0 ? this.createGeneratedSecret('OrganizationDjangoSecretKey') : undefined;
     const platformJwtSecret = this.createGeneratedSecret('PlatformJwtSecretKey');
 
     const dataHost = new Ec2DataHost(this, 'DataHost', {
@@ -1678,13 +1682,23 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           databaseName: 'account_auth',
           username: 'account_auth',
           passwordSecretArn: postgresSecret.secretArn
-        }
+        },
+        ...(config.organizationDesiredCount > 0 && organizationPostgresSecret
+          ? [
+              {
+                databaseName: 'organization_master',
+                username: 'organization_master',
+                passwordSecretArn: organizationPostgresSecret.secretArn
+              }
+            ]
+          : [])
       ],
       mountPath: '/data',
       instanceName: `${runtimeNamePrefix}-data-host`
     });
     bootstrapPackageAsset.grantRead(dataHost.role);
     postgresSecret.grantRead(dataHost.role);
+    organizationPostgresSecret?.grantRead(dataHost.role);
 
     const appHost = new Ec2AppHost(this, 'AppHost', {
       vpc,
@@ -1696,11 +1710,16 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       dataHostAddress: dataHost.instance.instancePrivateIp,
       apexDomain: config.apexDomain,
       apiDomain: config.apiDomain,
+      csrfTrustedOrigins: this.buildCsrfTrustedOrigins(config),
       bootstrapPackageBucketName: bootstrapPackageAsset.s3BucketName,
       bootstrapPackageObjectKey: bootstrapPackageAsset.s3ObjectKey,
       accountAccessPostgresSecretArn: postgresSecret.secretArn,
       accountAccessDjangoSecretArn: accountAccessDjangoSecret.secretArn,
       accountAccessJwtSecretArn: platformJwtSecret.secretArn,
+      organizationEnabled: config.organizationDesiredCount > 0,
+      organizationPostgresSecretArn: organizationPostgresSecret?.secretArn,
+      organizationDjangoSecretArn: organizationDjangoSecret?.secretArn,
+      organizationJwtSecretArn: platformJwtSecret.secretArn,
       instanceName: `${runtimeNamePrefix}-app-host`
     });
     bootstrapPackageAsset.grantRead(appHost.role);
@@ -1708,6 +1727,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     postgresSecret.grantRead(appHost.role);
     accountAccessDjangoSecret.grantRead(appHost.role);
     platformJwtSecret.grantRead(appHost.role);
+    organizationPostgresSecret?.grantRead(appHost.role);
+    organizationDjangoSecret?.grantRead(appHost.role);
 
     const frontTargetGroup = new elbv2.ApplicationTargetGroup(this, 'FrontTargetGroup', {
       port: 5174,

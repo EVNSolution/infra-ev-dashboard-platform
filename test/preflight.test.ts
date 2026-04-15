@@ -249,15 +249,28 @@ describe('deploy preflight', () => {
     );
   });
 
-  test('rejects later slices in ec2 runtime proof mode', () => {
+  test('allows company governance in ec2 runtime proof mode', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
         ORGANIZATION_DESIRED_COUNT: '1'
       })
     );
 
+    expect(report.errors).not.toContain(
+      'Current EC2 runtime proof supports shell/auth/company-governance only: front-web-console + edge-api-gateway + service-account-access + service-organization-registry. Set all later slice desired counts to zero before deploy.'
+    );
+  });
+
+  test('rejects later slices beyond company governance in ec2 runtime proof mode', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        ORGANIZATION_DESIRED_COUNT: '1',
+        DRIVER_PROFILE_DESIRED_COUNT: '1'
+      })
+    );
+
     expect(report.errors).toContain(
-      'Current EC2 runtime proof only supports the shell/auth slice: front-web-console + edge-api-gateway + service-account-access. Set all later slice desired counts to zero before deploy.'
+      'Current EC2 runtime proof supports shell/auth/company-governance only: front-web-console + edge-api-gateway + service-account-access + service-organization-registry. Set all later slice desired counts to zero before deploy.'
     );
   });
 
@@ -288,16 +301,20 @@ describe('deploy preflight', () => {
   });
 
   test('summarizes enabled slices and wait signals', () => {
-    const report = buildDeployPreflightReport(createBaseEnv());
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        ORGANIZATION_DESIRED_COUNT: '1'
+      })
+    );
     const formatted = formatDeployPreflightReport(report);
 
     expect(report.runtimeMode).toBe('ec2');
-    expect(report.enabledSlices).toEqual(['Auth Surface']);
+    expect(report.enabledSlices).toEqual(['Auth Surface', 'Company Governance']);
     expect(report.waitSignals).toContain(
       'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
     );
     expect(report.waitSignals).toContain(
-      'Current EC2 runtime proof is shell/auth only. Keep later slice desired counts at zero until host-level runtime contracts for those services exist.'
+      'Current EC2 runtime proof currently covers shell/auth/company-governance only. Keep all later slice desired counts at zero until their host-level runtime contracts are implemented.'
     );
     expect(report.waitSignals).toContain(
       'Current EC2 runtime proof expects app/data hosts in PUBLIC_SUBNET_IDS with public IPs because the imported private subnets do not yet provide NAT or VPC endpoints for bootstrap, SSM, ECR, and Secrets Manager access.'
@@ -306,7 +323,7 @@ describe('deploy preflight', () => {
       'New or updated direct Service Connect upstreams are enabled. Expect a later edge-api-gateway rollout after backend services register.'
     );
     expect(formatted).toContain('Runtime mode: ec2');
-    expect(formatted).toContain('Enabled slices: Auth Surface');
+    expect(formatted).toContain('Enabled slices: Auth Surface -> Company Governance');
     expect(formatted).toContain('ALB target draining can keep CloudFormation open for up to 300s');
   });
 });

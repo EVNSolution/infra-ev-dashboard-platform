@@ -189,6 +189,14 @@ The first honest EC2 proof has to be narrower than the final topology. App host 
 
 If the host-level runtime contract does not exist yet, do not pretend a later slice is ready just because its image URI exists. Make preflight fail until the host bootstrap can actually run that slice.
 
+The next honest expansion was not "all later slices". It was `service-organization-registry` only. Company cockpit login depends on both tenant resolve (`/api/org/companies/public/resolve/`) and `workspace-bootstrap`, so the first cockpit-ready proof lane had to become `shell/auth/company-governance`, not a generic shell/auth lane. In this repo that means:
+
+- data host bootstraps both `account_auth` and `organization_master`
+- app host reconciles `organization-master-api`
+- proof nginx exposes `/api/org/*`
+- auth/bootstrap env keeps `ORGANIZATION_MASTER_BASE_URL=http://organization-master-api:8000`
+- CSRF trusted origins include cockpit hosts, not just apex/api
+
 EC2 image deploys need a host-side reconcile loop, not just user-data that runs once. Updating the runtime image-map SSM parameter does nothing for a running EC2 host unless the host has a timer or explicit deploy command that re-pulls images and restarts containers. For this repo, the app host now needs a reconcile service/timer, not just boot-time ECR login.
 
 The first EC2 shell/auth candidate also proved that bootstrap reachability and ALB reachability are separate checks. The app host can be in the same VPC and still fail public smoke if:
@@ -204,13 +212,14 @@ Do not widen that conclusion to the data host. PostgreSQL and Redis on the data 
 
 CloudFormation finishing an EC2 app-host update is not the same thing as the app being ready. In this proof lane, the new x86 host needed extra time for `cloud-init`, `dnf install docker jq`, Docker enablement, and the first reconcile loop before ALB health checks and public smoke could pass. The post-deploy smoke gate needs a retry window for EC2 runtimes, or it will report a false failure even when the host is still progressing normally.
 
-The first EC2 shell/auth proof also showed that a partial slice cannot reuse the full gateway route map verbatim. `edge-api-gateway` crashed on boot because nginx resolves static upstream names at startup, and the shell/auth proof intentionally does not start `driver-profile-api` or the later slice services. For this narrow proof lane, the app host has to mount a proof-only nginx config that exposes only:
+The first EC2 shell/auth proof also showed that a partial slice cannot reuse the full gateway route map verbatim. `edge-api-gateway` crashed on boot because nginx resolves static upstream names at startup, and the shell/auth proof intentionally does not start `driver-profile-api` or the later slice services. For the current narrow proof lane, the app host has to mount a proof-only nginx config that exposes only:
 
 - `front-web-console`
 - `service-account-access`
+- `service-organization-registry`
 - docs/admin routes
 
-Do not call a shell/auth EC2 proof "failed" just because the full route map is absent; the route map has to match the slice.
+Do not call a shell/auth/company-governance EC2 proof "failed" just because the full route map is absent; the route map has to match the slice.
 
 Nitro device naming matters on the data host. The EBS attachment was present, but the bootstrap service waited forever for `/dev/xvdf` while the instance exposed the attached disk as `/dev/sdf -> /dev/nvme1n1`. For this repo's current EC2 proof, keep the attachment and bootstrap device path aligned on `/dev/sdf` or PostgreSQL/Redis will never start.
 

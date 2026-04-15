@@ -8,11 +8,16 @@ export type AppHostBootstrapProps = {
   dataHostAddress: string;
   apexDomain: string;
   apiDomain: string;
+  csrfTrustedOrigins: string;
   bootstrapPackageBucketName: string;
   bootstrapPackageObjectKey: string;
   accountAccessPostgresSecretArn?: string;
   accountAccessDjangoSecretArn?: string;
   accountAccessJwtSecretArn?: string;
+  organizationEnabled: boolean;
+  organizationPostgresSecretArn?: string;
+  organizationDjangoSecretArn?: string;
+  organizationJwtSecretArn?: string;
 };
 
 export type DataHostDatabaseBootstrap = {
@@ -69,6 +74,8 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
     ),
     `printf '%s\n' 'Environment=APEX_DOMAIN=${props.apexDomain}' >> ${APP_RECONCILE_UNIT_PATH}`,
     `printf '%s\n' 'Environment=API_DOMAIN=${props.apiDomain}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=CSRF_TRUSTED_ORIGINS=${props.csrfTrustedOrigins}' >> ${APP_RECONCILE_UNIT_PATH}`,
+    `printf '%s\n' 'Environment=ORGANIZATION_ENABLED=${props.organizationEnabled ? '1' : '0'}' >> ${APP_RECONCILE_UNIT_PATH}`,
     appendTokenizedEnvironmentLine(
       APP_RECONCILE_UNIT_PATH,
       'ACCOUNT_ACCESS_POSTGRES_SECRET_ARN',
@@ -86,6 +93,24 @@ export function renderAppHostBootstrap(props: AppHostBootstrapProps): string[] {
       'ACCOUNT_ACCESS_JWT_SECRET_ARN',
       'AccountAccessJwtSecretArn',
       props.accountAccessJwtSecretArn ?? ''
+    ),
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'ORGANIZATION_POSTGRES_SECRET_ARN',
+      'OrganizationPostgresSecretArn',
+      props.organizationPostgresSecretArn ?? ''
+    ),
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'ORGANIZATION_DJANGO_SECRET_ARN',
+      'OrganizationDjangoSecretArn',
+      props.organizationDjangoSecretArn ?? ''
+    ),
+    appendTokenizedEnvironmentLine(
+      APP_RECONCILE_UNIT_PATH,
+      'ORGANIZATION_JWT_SECRET_ARN',
+      'OrganizationJwtSecretArn',
+      props.organizationJwtSecretArn ?? ''
     ),
     `cat <<'EOF' >> ${APP_RECONCILE_UNIT_PATH}`,
     `ExecStart=/usr/bin/python3 ${PYTHON_CLI_PATH} reconcile-app`,

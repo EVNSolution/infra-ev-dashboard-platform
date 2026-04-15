@@ -4,11 +4,12 @@ import json
 import subprocess
 from pathlib import Path
 
-from ev_dashboard_runtime.common import require_env, run, run_output, write_text
+from ev_dashboard_runtime.common import optional_env, require_env, run, run_output, write_text
 
 BASE_DIR = Path("/opt/ev-dashboard")
 RUNTIME_IMAGES_PATH = BASE_DIR / "runtime-images.json"
 ACCOUNT_ACCESS_ENV_PATH = BASE_DIR / "account-access.env"
+ORGANIZATION_ENV_PATH = BASE_DIR / "organization.env"
 PROOF_GATEWAY_CONFIG_PATH = BASE_DIR / "nginx.ec2-proof.conf"
 
 
@@ -22,6 +23,8 @@ def reconcile_app() -> int:
     data_host_address = require_env("DATA_HOST_ADDRESS")
     apex_domain = require_env("APEX_DOMAIN")
     api_domain = require_env("API_DOMAIN")
+    csrf_trusted_origins = require_env("CSRF_TRUSTED_ORIGINS")
+    organization_enabled = optional_env("ORGANIZATION_ENABLED") == "1"
 
     image_map_json = run_output(
         [
@@ -45,8 +48,13 @@ def reconcile_app() -> int:
     front_image = image_map["front-web-console"]
     gateway_image = image_map["edge-api-gateway"]
     account_access_image = image_map["service-account-access"]
+    organization_image = image_map.get("service-organization-registry")
 
-    registries = sorted({image.split("/", 1)[0] for image in [front_image, gateway_image, account_access_image]})
+    pull_images = [front_image, gateway_image, account_access_image]
+    if organization_enabled and organization_image:
+        pull_images.append(organization_image)
+
+    registries = sorted({image.split("/", 1)[0] for image in pull_images})
     for registry in registries:
         password = run_output(["aws", "ecr", "get-login-password", "--region", region])
         run(["docker", "login", "--username", "AWS", "--password-stdin", registry], input_text=password)
@@ -118,17 +126,18 @@ def reconcile_app() -> int:
             "POSTGRES_USER=account_auth",
             f"POSTGRES_PASSWORD={account_access_postgres_password}",
             f"REDIS_URL=redis://{data_host_address}:6379/0",
+            "ORGANIZATION_MASTER_BASE_URL=http://organization-master-api:8000",
             f"DJANGO_SECRET_KEY={account_access_django_secret}",
             f"JWT_SECRET_KEY={account_access_jwt_secret}",
             f"DJANGO_ALLOWED_HOSTS={api_domain},account-auth-api,localhost,127.0.0.1",
-            f"CSRF_TRUSTED_ORIGINS=https://{apex_domain},https://{api_domain}",
+            f"CSRF_TRUSTED_ORIGINS={csrf_trusted_origins}",
             "",
         ]
     )
     write_text(ACCOUNT_ACCESS_ENV_PATH, account_access_env)
-    write_text(PROOF_GATEWAY_CONFIG_PATH, render_proof_gateway_config())
+    write_text(PROOF_GATEWAY_CONFIG_PATH, render_proof_gateway_config(organization_enabled=organization_enabled))
 
-    for container_name in ["web-console", "account-auth-api", "edge-api-gateway"]:
+    for container_name in ["web-console", "account-auth-api", "organization-master-api", "edge-api-gateway"]:
         _remove_container(container_name)
 
     run(["docker", "pull", front_image])
@@ -167,6 +176,91 @@ def reconcile_app() -> int:
             account_access_image,
         ]
     )
+    if organization_enabled:
+        organization_postgres_secret_arn = require_env("ORGANIZATION_POSTGRES_SECRET_ARN")
+        organization_django_secret_arn = require_env("ORGANIZATION_DJANGO_SECRET_ARN")
+        organization_jwt_secret_arn = require_env("ORGANIZATION_JWT_SECRET_ARN")
+        organization_postgres_password = run_output(
+            [
+                "aws",
+                "secretsmanager",
+                "get-secret-value",
+                "--secret-id",
+                organization_postgres_secret_arn,
+                "--region",
+                region,
+                "--query",
+                "SecretString",
+                "--output",
+                "text",
+            ]
+        )
+        organization_django_secret = run_output(
+            [
+                "aws",
+                "secretsmanager",
+                "get-secret-value",
+                "--secret-id",
+                organization_django_secret_arn,
+                "--region",
+                region,
+                "--query",
+                "SecretString",
+                "--output",
+                "text",
+            ]
+        )
+        organization_jwt_secret = run_output(
+            [
+                "aws",
+                "secretsmanager",
+                "get-secret-value",
+                "--secret-id",
+                organization_jwt_secret_arn,
+                "--region",
+                region,
+                "--query",
+                "SecretString",
+                "--output",
+                "text",
+            ]
+        )
+        organization_env = "\n".join(
+            [
+                f"POSTGRES_HOST={data_host_address}",
+                "POSTGRES_PORT=5432",
+                "POSTGRES_DB=organization_master",
+                "POSTGRES_USER=organization_master",
+                f"POSTGRES_PASSWORD={organization_postgres_password}",
+                f"DJANGO_SECRET_KEY={organization_django_secret}",
+                f"JWT_SECRET_KEY={organization_jwt_secret}",
+                "DJANGO_ALLOWED_HOSTS=organization-master-api,localhost,127.0.0.1",
+                f"CSRF_TRUSTED_ORIGINS={csrf_trusted_origins}",
+                "",
+            ]
+        )
+        write_text(ORGANIZATION_ENV_PATH, organization_env)
+        if not organization_image:
+            raise RuntimeError("service-organization-registry image is missing from the runtime image map")
+        run(["docker", "pull", organization_image])
+        run(
+            [
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                "organization-master-api",
+                "--restart",
+                "unless-stopped",
+                "--network",
+                "ev-dashboard",
+                "--env-file",
+                str(ORGANIZATION_ENV_PATH),
+                "-p",
+                "8001:8000",
+                organization_image,
+            ]
+        )
     run(["docker", "pull", gateway_image])
     run(
         [
@@ -197,9 +291,8 @@ def _remove_container(container_name: str) -> None:
         pass
 
 
-def render_proof_gateway_config() -> str:
-    return "\n".join(
-        [
+def render_proof_gateway_config(*, organization_enabled: bool) -> str:
+    lines = [
             "worker_processes auto;",
             "",
             "events {",
@@ -261,6 +354,21 @@ def render_proof_gateway_config() -> str:
             "            proxy_set_header Host $proxy_host;",
             "        }",
             "",
+        ]
+    if organization_enabled:
+        lines.extend(
+            [
+                "        location /api/org/ {",
+                "            rewrite ^/api/org/(.*)$ /$1 break;",
+                "            proxy_pass http://organization-master-api:8000;",
+                "            proxy_http_version 1.1;",
+                "            proxy_set_header Host $proxy_host;",
+                "        }",
+                "",
+            ]
+        )
+    lines.extend(
+        [
             "        location / {",
             "            proxy_pass http://web-console:5174;",
             "            proxy_http_version 1.1;",
@@ -273,3 +381,4 @@ def render_proof_gateway_config() -> str:
             "",
         ]
     )
+    return "\n".join(lines)
