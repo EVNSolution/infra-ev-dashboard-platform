@@ -1,13 +1,22 @@
 #!/usr/bin/env node
 
-import { buildBootstrapPrecheckReport, formatBootstrapPrecheckReport } from '../lib/bootstrapPrecheck';
+import {
+  buildBootstrapPrecheckReport,
+  formatBootstrapPrecheckReport,
+  runBootstrapPrecheck
+} from '../lib/bootstrapPrecheck';
 
 const report = buildBootstrapPrecheckReport(process.env);
-const formatted = formatBootstrapPrecheckReport(report);
+process.stdout.write(formatBootstrapPrecheckReport(report));
 
 if (report.errors.length > 0) {
-  process.stderr.write(formatted);
   process.exit(1);
 }
 
-process.stdout.write(formatted);
+try {
+  const executionPlan = runBootstrapPrecheck(process.env);
+  process.stdout.write(`Executed ${executionPlan.steps.length} bootstrap precheck step(s).\n`);
+} catch (error) {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.exit(1);
+}

@@ -224,3 +224,5 @@ Once bootstrap moved into a Python package, repeating full `cdk deploy` runs sto
 4. only then run the next full deploy
 
 Use full deploys for topology proof, ALB wiring, and public smoke. Use `bootstrap:precheck` for quoting, device, package staging, and SQL bootstrap mistakes.
+
+Another bootstrap-precheck lesson: a report-only script is a false positive. The command must execute real SSM sync/verify steps, and it must inject the same host-level environment contract that user-data/systemd uses. Otherwise the workflow says "precheck ran" while no bootstrap code actually ran. Also, when no EC2 lane stack or host exists yet, the command should fail with a direct stack/host resolution error instead of silently printing a plan.

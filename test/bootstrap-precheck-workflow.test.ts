@@ -20,4 +20,11 @@ describe('deploy workflow bootstrap precheck gate', () => {
     expect(deployIndex).toBeGreaterThan(bootstrapPrecheckIndex);
     expect(smokeIndex).toBeGreaterThan(deployIndex);
   });
+
+  test('bootstrap precheck script executes the runner instead of only printing the plan', () => {
+    const scriptPath = path.join(__dirname, '..', 'bin', 'bootstrapPrecheck.ts');
+    const scriptSource = fs.readFileSync(scriptPath, 'utf8');
+
+    expect(scriptSource).toContain('runBootstrapPrecheck');
+  });
 });

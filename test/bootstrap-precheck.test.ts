@@ -18,6 +18,30 @@ function readPackageJson(): { scripts?: Record<string, string> } {
   return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { scripts?: Record<string, string> };
 }
 
+function buildBootstrapEnv(): NodeJS.ProcessEnv {
+  return {
+    AWS_REGION: 'ap-northeast-2',
+    APEX_DOMAIN: 'candidate.ev-dashboard.com',
+    API_DOMAIN: 'api.candidate.ev-dashboard.com',
+    BOOTSTRAP_IMAGE_MAP_PARAM: '/ev-dashboard/runtime/images',
+    BOOTSTRAP_DATA_HOST_ADDRESS: '10.0.2.20',
+    BOOTSTRAP_ACCOUNT_ACCESS_POSTGRES_SECRET_ARN:
+      'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres',
+    BOOTSTRAP_ACCOUNT_ACCESS_DJANGO_SECRET_ARN: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:django',
+    BOOTSTRAP_ACCOUNT_ACCESS_JWT_SECRET_ARN: 'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:jwt',
+    BOOTSTRAP_DEVICE_NAME: '/dev/sdf',
+    BOOTSTRAP_MOUNT_PATH: '/srv/ev-dashboard-data',
+    BOOTSTRAP_POSTGRES_VERSION: '16',
+    BOOTSTRAP_REDIS_VERSION: '7',
+    BOOTSTRAP_POSTGRES_SUPERUSER_SECRET_ARN:
+      'arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:postgres-super',
+    BOOTSTRAP_DATA_HOST_DATABASES_B64: Buffer.from(
+      JSON.stringify([{ databaseName: 'account_auth', username: 'account_auth', passwordSecretArn: 'arn:...' }]),
+      'utf8'
+    ).toString('base64')
+  };
+}
+
 describe('bootstrap precheck contract', () => {
   afterEach(() => {
     jest.resetAllMocks();
@@ -47,6 +71,7 @@ describe('bootstrap precheck contract', () => {
 
   test('formats proof mode wait signals with both host checks', () => {
     const report = buildBootstrapPrecheckReport({
+      ...buildBootstrapEnv(),
       BOOTSTRAP_PRECHECK_MODE: 'proof',
       BOOTSTRAP_LANE: 'dev',
       BOOTSTRAP_APP_HOST_INSTANCE_ID: 'i-app',
@@ -66,6 +91,7 @@ describe('bootstrap precheck contract', () => {
 
   test('builds sync and verify sequencing for both hosts in proof mode', () => {
     const executionPlan = buildBootstrapPrecheckExecutionPlan({
+      ...buildBootstrapEnv(),
       BOOTSTRAP_PRECHECK_MODE: 'proof',
       BOOTSTRAP_LANE: 'dev',
       BOOTSTRAP_APP_HOST_INSTANCE_ID: 'i-app',
@@ -80,8 +106,22 @@ describe('bootstrap precheck contract', () => {
       'data:verify'
     ]);
     expect(executionPlan.steps[0].commands.join('\n')).toContain('cli.py');
+    expect(executionPlan.steps[1].commands.join('\n')).toContain('export AWS_REGION=');
+    expect(executionPlan.steps[1].commands.join('\n')).toContain('export IMAGE_MAP_PARAM=');
     expect(executionPlan.steps[1].commands.join('\n')).toContain('verify-app');
+    expect(executionPlan.steps[3].commands.join('\n')).toContain('export DEVICE_NAME=');
     expect(executionPlan.steps[3].commands.join('\n')).toContain('verify-data');
+  });
+
+  test('reports missing bootstrap env required to execute verify-app on host', () => {
+    const report = buildBootstrapPrecheckReport({
+      BOOTSTRAP_PRECHECK_MODE: 'verify-app',
+      BOOTSTRAP_APP_HOST_INSTANCE_ID: 'i-app'
+    });
+
+    expect(report.errors).toContain('Missing required bootstrap environment variable: AWS_REGION');
+    expect(report.errors).toContain('Missing required bootstrap environment variable: BOOTSTRAP_IMAGE_MAP_PARAM');
+    expect(report.errors).toContain('Missing required bootstrap environment variable: BOOTSTRAP_DATA_HOST_ADDRESS');
   });
 
   test('fails fast when a verify step fails', () => {
@@ -95,6 +135,7 @@ describe('bootstrap precheck contract', () => {
 
     expect(() =>
       runBootstrapPrecheck({
+        ...buildBootstrapEnv(),
         BOOTSTRAP_PRECHECK_MODE: 'proof',
         BOOTSTRAP_LANE: 'dev',
         BOOTSTRAP_APP_HOST_INSTANCE_ID: 'i-app',
@@ -107,5 +148,20 @@ describe('bootstrap precheck contract', () => {
       .map((args) => args.join(' '));
 
     expect(awsCalls.some((args) => args.includes('i-data'))).toBe(false);
+  });
+
+  test('surfaces stack resolution failures as bootstrap gate errors', () => {
+    (childProcess.execFileSync as jest.Mock).mockImplementation(() => {
+      throw new Error('Stack with id EvDashboardPlatformStack does not exist');
+    });
+
+    expect(() =>
+      runBootstrapPrecheck({
+        AWS_REGION: 'ap-northeast-2',
+        APEX_DOMAIN: 'ev-dashboard.com',
+        API_DOMAIN: 'api.ev-dashboard.com',
+        DEPLOY_ENVIRONMENT: 'prod'
+      })
+    ).toThrow('Unable to resolve bootstrap stack context for EvDashboardPlatformStack');
   });
 });
