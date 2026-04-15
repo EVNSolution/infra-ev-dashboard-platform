@@ -197,3 +197,5 @@ The first EC2 shell/auth candidate also proved that bootstrap reachability and A
 - its subnet has no outbound path to package mirrors, SSM, ECR, or Secrets Manager
 
 For the current proof lane, that means app/data hosts have to live in the imported public subnets. The private subnets in this VPC are not usable proof lanes yet because their route table only has the local route.
+
+The first EC2 proof also showed that instance-family cost optimizations come after image compatibility, not before it. The live front/gateway/account-access image fleet is still `linux/amd64` only, so default proof hosts must stay on x86_64 (`t3.small`) until multi-arch images are real. Picking Graviton first only creates a false failure mode where the host is healthy but `docker pull` cannot find an `arm64` manifest.
