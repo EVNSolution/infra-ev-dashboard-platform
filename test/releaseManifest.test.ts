@@ -104,6 +104,7 @@ describe('release manifest', () => {
         release_id: 'dev-mutable-tag',
         services: {
           'front-web-console': {
+            action: 'deploy',
             image_uri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:latest'
           }
         }
@@ -112,6 +113,51 @@ describe('release manifest', () => {
 
     expect(() => loadReleaseManifest(repoRoot, 'release-manifests/dev/mutable-tag.json')).toThrow(
       'Release manifest service front-web-console must not use the mutable "latest" tag.'
+    );
+  });
+
+  test('requires an explicit action for every manifest service', () => {
+    const repoRoot = createTempRepoRoot();
+
+    writeManifest(
+      repoRoot,
+      'release-manifests/dev/missing-action.json',
+      JSON.stringify({
+        release_id: 'dev-missing-action',
+        services: {
+          'service-account-access': {
+            image_uri:
+              '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account'
+          }
+        }
+      })
+    );
+
+    expect(() => loadReleaseManifest(repoRoot, 'release-manifests/dev/missing-action.json')).toThrow(
+      'Release manifest service service-account-access must include action "deploy" or "remove".'
+    );
+  });
+
+  test('rejects remove actions that still include an image uri', () => {
+    const repoRoot = createTempRepoRoot();
+
+    writeManifest(
+      repoRoot,
+      'release-manifests/dev/remove-with-image.json',
+      JSON.stringify({
+        release_id: 'dev-remove-with-image',
+        services: {
+          'service-support-registry': {
+            action: 'remove',
+            image_uri:
+              '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:sha-support'
+          }
+        }
+      })
+    );
+
+    expect(() => loadReleaseManifest(repoRoot, 'release-manifests/dev/remove-with-image.json')).toThrow(
+      'Release manifest service service-support-registry must not include "image_uri" when action is "remove".'
     );
   });
 
@@ -125,10 +171,10 @@ describe('release manifest', () => {
         release_id: 'dev-ordered',
         services: {
           'service-support-registry': {
-            image_uri:
-              '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:sha-support'
+            action: 'remove'
           },
           'service-account-access': {
+            action: 'deploy',
             image_uri:
               '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account'
           }
@@ -142,18 +188,53 @@ describe('release manifest', () => {
       manifestPath: 'release-manifests/dev/ordered.json',
       manifestAbsolutePath: path.join(repoRoot, 'release-manifests/dev/ordered.json'),
       releaseId: 'dev-ordered',
+      impact: {
+        routeGroups: [],
+        requiresFront: false,
+        requiresGateway: false
+      },
       services: [
         {
           service: 'service-account-access',
+          action: 'deploy',
           imageUri:
             '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account'
         },
         {
           service: 'service-support-registry',
-          imageUri:
-            '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:sha-support'
+          action: 'remove'
         }
       ]
+    });
+  });
+
+  test('parses optional impact hints', () => {
+    const repoRoot = createTempRepoRoot();
+
+    writeManifest(
+      repoRoot,
+      'release-manifests/dev/impact.json',
+      JSON.stringify({
+        release_id: 'dev-impact',
+        impact: {
+          requires_gateway: true,
+          requires_front: true,
+          route_groups: ['people-and-assets']
+        },
+        services: {
+          'service-driver-profile': {
+            action: 'deploy',
+            image_uri:
+              '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:sha-driver'
+          }
+        }
+      })
+    );
+
+    expect(loadReleaseManifest(repoRoot, 'release-manifests/dev/impact.json').impact).toEqual({
+      requiresGateway: true,
+      requiresFront: true,
+      routeGroups: ['people-and-assets']
     });
   });
 });

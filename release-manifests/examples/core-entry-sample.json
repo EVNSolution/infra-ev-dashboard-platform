@@ -1,13 +1,20 @@
 {
   "release_id": "dev-core-entry-sample",
   "services": {
+    "edge-api-gateway": {
+      "action": "deploy",
+      "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway"
+    },
     "front-web-console": {
+      "action": "deploy",
       "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front"
     },
     "service-account-access": {
+      "action": "deploy",
       "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account"
     },
     "service-organization-registry": {
+      "action": "deploy",
       "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:sha-organization"
     }
   }

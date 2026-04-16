@@ -1,0 +1,26 @@
+{
+  "release_id": "dev-settlement-wave-1",
+  "impact": {
+    "requires_gateway": true,
+    "requires_front": false,
+    "route_groups": ["settlement"]
+  },
+  "services": {
+    "edge-api-gateway": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:285a65a8be02e88be13f220a7b81fb4d86c10cb4"
+    },
+    "service-settlement-operations-view": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:706c4a400a79714ff65d216cb23d98a75ccafe5e"
+    },
+    "service-settlement-payroll": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:d40b70e1ed75e5e401a331c939374d9c914c0dc3"
+    },
+    "service-settlement-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:48ba3694eaa0cc0cf8505b279b3700c2abe68e66"
+    }
+  }
+}

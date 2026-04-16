@@ -1,6 +1,7 @@
 import * as childProcess from 'node:child_process';
 
 import { buildPlatformConfigFromEnv, PlatformConfig } from './config';
+import { buildReleaseImpact } from './releaseImpact';
 import {
   loadReleaseManifest,
   RELEASE_MANIFEST_IMAGE_ENV_KEYS,
@@ -238,6 +239,15 @@ function validateWarmHostPartialDeploy(
 ): void {
   if (config.runProfile !== 'warm-host-partial' || !releaseManifest) {
     return;
+  }
+
+  const impact = buildReleaseImpact(releaseManifest);
+  const manifestServices = new Set(releaseManifest.services.map((service) => service.service));
+  if (impact.requiresGateway && !manifestServices.has('edge-api-gateway')) {
+    errors.push('Release impact is gateway-required, but edge-api-gateway is not included in the release manifest.');
+  }
+  if (impact.requiresFront && !manifestServices.has('front-web-console')) {
+    errors.push('Release impact is front-required, but front-web-console is not included in the release manifest.');
   }
 
   if (env.PREFLIGHT_SKIP_WARM_HOST_LOOKUP === '1') {
@@ -512,7 +522,9 @@ function getImageEnvKeysToValidate(releaseManifest?: ReleaseManifest): Array<key
     return IMAGE_ENV_KEYS;
   }
 
-  return releaseManifest.services.map((service) => RELEASE_MANIFEST_IMAGE_ENV_KEYS[service.service]);
+  return releaseManifest.services
+    .filter((service) => service.action === 'deploy')
+    .map((service) => RELEASE_MANIFEST_IMAGE_ENV_KEYS[service.service]);
 }
 
 function hasStatefulSlices(slices: SliceState): boolean {

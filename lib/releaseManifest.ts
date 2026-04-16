@@ -1,6 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import type { GatewayRouteGroup } from './gatewayRouteProfile';
+import { releaseImpactRouteGroups } from './releaseImpact';
+
 const RELEASE_MANIFEST_SERVICE_KEYS = [
   'edge-api-gateway',
   'front-web-console',
@@ -64,15 +67,23 @@ export const RELEASE_MANIFEST_IMAGE_ENV_KEYS: Record<
   'service-vehicle-registry': 'VEHICLE_ASSET_IMAGE_URI'
 };
 
+export type ReleaseManifestAction = 'deploy' | 'remove';
+
 export type ReleaseManifestService = {
   service: ReleaseManifestServiceName;
-  imageUri: string;
+  action: ReleaseManifestAction;
+  imageUri?: string;
 };
 
 export type ReleaseManifest = {
   manifestPath: string;
   manifestAbsolutePath: string;
   releaseId: string;
+  impact: {
+    requiresGateway: boolean;
+    requiresFront: boolean;
+    routeGroups: GatewayRouteGroup[];
+  };
   services: ReleaseManifestService[];
 };
 
@@ -137,6 +148,7 @@ export function loadReleaseManifest(repoRoot: string, manifestPath: string): Rel
   if (!isRecord(services)) {
     throw new Error('Release manifest must include a "services" object.');
   }
+  const impact = parseImpact(parsed.impact);
 
   const normalizedServices = Object.entries(services).map(([service, value]) => {
     if (!RELEASE_MANIFEST_SERVICE_KEY_SET.has(service)) {
@@ -147,19 +159,35 @@ export function loadReleaseManifest(repoRoot: string, manifestPath: string): Rel
       throw new Error(`Release manifest service ${service} must be an object.`);
     }
 
+    const action = value.action;
+    if (action !== 'deploy' && action !== 'remove') {
+      throw new Error(`Release manifest service ${service} must include action "deploy" or "remove".`);
+    }
+
     const imageUri = value.image_uri;
-    if (typeof imageUri !== 'string' || !imageUri.trim()) {
-      throw new Error(`Release manifest service ${service} must include a non-empty "image_uri".`);
+    if (action === 'deploy') {
+      if (typeof imageUri !== 'string' || !imageUri.trim()) {
+        throw new Error(`Release manifest service ${service} must include a non-empty "image_uri".`);
+      }
+
+      if (usesMutableLatestTag(imageUri)) {
+        throw new Error(`Release manifest service ${service} must not use the mutable "latest" tag.`);
+      }
     }
 
-    if (usesMutableLatestTag(imageUri)) {
-      throw new Error(`Release manifest service ${service} must not use the mutable "latest" tag.`);
+    if (action === 'remove' && imageUri !== undefined) {
+      throw new Error(`Release manifest service ${service} must not include "image_uri" when action is "remove".`);
     }
 
-    return {
+    const normalizedService: ReleaseManifestService = {
       service: service as ReleaseManifestServiceName,
-      imageUri: imageUri.trim()
+      action
     };
+    if (action === 'deploy') {
+      normalizedService.imageUri = (imageUri as string).trim();
+    }
+
+    return normalizedService;
   });
 
   if (normalizedServices.length === 0) {
@@ -172,6 +200,7 @@ export function loadReleaseManifest(repoRoot: string, manifestPath: string): Rel
     manifestPath,
     manifestAbsolutePath,
     releaseId: releaseId.trim(),
+    impact,
     services: normalizedServices
   };
 }
@@ -421,4 +450,56 @@ function skipWhitespace(rawManifest: string, index: number): number {
     cursor += 1;
   }
   return cursor;
+}
+
+function parseImpact(value: unknown): ReleaseManifest['impact'] {
+  if (value === undefined) {
+    return {
+      requiresGateway: false,
+      requiresFront: false,
+      routeGroups: []
+    };
+  }
+
+  if (!isRecord(value)) {
+    throw new Error('Release manifest impact must be an object.');
+  }
+
+  return {
+    requiresGateway: parseImpactBoolean(value.requires_gateway, 'requires_gateway'),
+    requiresFront: parseImpactBoolean(value.requires_front, 'requires_front'),
+    routeGroups: parseImpactRouteGroups(value.route_groups)
+  };
+}
+
+function parseImpactBoolean(value: unknown, fieldName: string): boolean {
+  if (value === undefined) {
+    return false;
+  }
+  if (typeof value !== 'boolean') {
+    throw new Error(`Release manifest impact.${fieldName} must be a boolean.`);
+  }
+  return value;
+}
+
+function parseImpactRouteGroups(value: unknown): GatewayRouteGroup[] {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error('Release manifest impact.route_groups must be an array.');
+  }
+
+  const routeGroups: GatewayRouteGroup[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !releaseImpactRouteGroups.includes(entry as GatewayRouteGroup)) {
+      throw new Error(`Release manifest impact.route_groups contains unknown route group: ${String(entry)}`);
+    }
+    const routeGroup = entry as GatewayRouteGroup;
+    if (!routeGroups.includes(routeGroup)) {
+      routeGroups.push(routeGroup);
+    }
+  }
+
+  return releaseImpactRouteGroups.filter((routeGroup) => routeGroups.includes(routeGroup));
 }

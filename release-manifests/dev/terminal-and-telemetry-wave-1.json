@@ -1,0 +1,30 @@
+{
+  "release_id": "dev-terminal-and-telemetry-wave-1",
+  "impact": {
+    "requires_gateway": true,
+    "requires_front": false,
+    "route_groups": ["terminal-and-telemetry"]
+  },
+  "services": {
+    "edge-api-gateway": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:285a65a8be02e88be13f220a7b81fb4d86c10cb4"
+    },
+    "service-telemetry-dead-letter": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-dead-letter:30626458a5d9e146dbaeb137313f37b39c7332bf"
+    },
+    "service-telemetry-hub": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-hub:cccda9b689b27da1c2ffa66fb518e608a9eec69a"
+    },
+    "service-telemetry-listener": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-listener:f847d28d0573a5c2ce80b36e6428b5887c92a7e8"
+    },
+    "service-terminal-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-terminal-registry:0b5f576b7cd53df2dde1999fe13b8e7866da077b"
+    }
+  }
+}

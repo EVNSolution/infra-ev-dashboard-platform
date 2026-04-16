@@ -145,6 +145,7 @@ describe('deploy preflight', () => {
         release_id: 'dev-account-access-only',
         services: {
           'service-account-access': {
+            action: 'deploy',
             image_uri:
               '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account'
           }
@@ -196,6 +197,7 @@ describe('deploy preflight', () => {
         release_id: 'dev-account-access-only',
         services: {
           'service-account-access': {
+            action: 'deploy',
             image_uri:
               '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account'
           }
@@ -225,6 +227,73 @@ describe('deploy preflight', () => {
         'imageTag=sha-account'
       ]),
       expect.any(Object)
+    );
+  });
+
+  test('rejects warm-host partial deploy when gateway impact is required but gateway is missing', () => {
+    const repoRoot = createTempRepoRoot();
+    writeReleaseManifest(
+      repoRoot,
+      'release-manifests/dev/people-and-assets.json',
+      JSON.stringify({
+        release_id: 'dev-people-and-assets',
+        impact: {
+          route_groups: ['people-and-assets']
+        },
+        services: {
+          'service-driver-profile': {
+            action: 'deploy',
+            image_uri:
+              '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:sha-driver'
+          }
+        }
+      })
+    );
+
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        RUN_PROFILE: 'warm-host-partial',
+        RELEASE_MANIFEST_PATH: 'release-manifests/dev/people-and-assets.json',
+        PREFLIGHT_REPO_ROOT: repoRoot,
+        PREFLIGHT_SKIP_WARM_HOST_LOOKUP: '1'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Release impact is gateway-required, but edge-api-gateway is not included in the release manifest.'
+    );
+  });
+
+  test('rejects warm-host partial deploy when front impact is required but front is missing', () => {
+    const repoRoot = createTempRepoRoot();
+    writeReleaseManifest(
+      repoRoot,
+      'release-manifests/dev/front-contract.json',
+      JSON.stringify({
+        release_id: 'dev-front-contract',
+        impact: {
+          requires_front: true
+        },
+        services: {
+          'edge-api-gateway': {
+            action: 'deploy',
+            image_uri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway'
+          }
+        }
+      })
+    );
+
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        RUN_PROFILE: 'warm-host-partial',
+        RELEASE_MANIFEST_PATH: 'release-manifests/dev/front-contract.json',
+        PREFLIGHT_REPO_ROOT: repoRoot,
+        PREFLIGHT_SKIP_WARM_HOST_LOOKUP: '1'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Release impact is front-required, but front-web-console is not included in the release manifest.'
     );
   });
 

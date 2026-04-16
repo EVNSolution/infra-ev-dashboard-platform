@@ -1,0 +1,26 @@
+{
+  "release_id": "dev-dispatch-inputs-wave-1",
+  "impact": {
+    "requires_gateway": true,
+    "requires_front": false,
+    "route_groups": ["dispatch-inputs"]
+  },
+  "services": {
+    "edge-api-gateway": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:285a65a8be02e88be13f220a7b81fb4d86c10cb4"
+    },
+    "service-attendance-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:ae8c2a68d7f4d2c89c17387a9f81d8490211e6ec-amd64fix1"
+    },
+    "service-delivery-record": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:9cd8e4106b44805ddda97288a381ae3523f1299a"
+    },
+    "service-dispatch-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:e39f471ab81e75a917dd367d689bf1653785a799"
+    }
+  }
+}

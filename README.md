@@ -79,6 +79,10 @@ This repo keeps the workflow input values as-is, but the operator-facing meaning
 - `full`
   - full-service verification
   - keeps the configured remaining business services enabled
+- `warm-host-partial`
+  - warm-host partial update
+  - keeps the base stack alive and updates only manifest-listed services in fixed waves
+  - not a new-service enable lane
 - `smoke-only`
   - live-lane status recheck
   - does not change the stack
@@ -88,6 +92,107 @@ In prose, avoid old slice/proof shorthand. Use:
 - `core-entry services`
 - `remaining business services`
 - `full-service bring-up`
+- `warm-host partial update`
+- `release impact`
+
+## Warm-Host Partial Lane
+
+`warm-host-partial` is the normal app-change lane once the base stack already exists.
+
+- It is for updating services that are already part of the warm runtime.
+- It is not the lane for turning on a service that is absent from the base stack.
+- If a service is still disabled or missing from the base stack, use a bootstrap/baseline stack path first.
+
+The lane is driven by `RELEASE_MANIFEST_PATH`, and the same manifest now flows through:
+
+- `npm run preflight`
+- preview
+- wave reconcile on the app host
+- scoped smoke
+- rollback
+
+### Release Manifest Impact
+
+The manifest now supports an optional `impact` block:
+
+```json
+{
+  "release_id": "dev-example",
+  "impact": {
+    "requires_gateway": true,
+    "requires_front": false,
+    "route_groups": ["people-and-assets"]
+  },
+  "services": {
+    "service-driver-profile": {
+      "action": "deploy",
+      "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:sha-driver"
+    },
+    "edge-api-gateway": {
+      "action": "deploy",
+      "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway"
+    }
+  }
+}
+```
+
+Use it like this:
+
+- backend-only internal logic change
+  - omit `impact` or leave every field false/empty
+  - expected scope: backend only
+- route-group or upstream routing change
+  - set `impact.route_groups`
+  - expected scope: backend + gateway
+- public contract or shell change
+  - set `impact.requires_front=true`
+  - expected scope: backend + gateway + front
+
+If the impact is ambiguous, prefer the conservative path:
+
+- routing ambiguity -> include gateway
+- public contract ambiguity -> include gateway and front
+
+### What Preflight Will Now Block
+
+For `warm-host-partial`, preflight now fails fast when:
+
+- `RELEASE_MANIFEST_PATH` is missing or unreadable
+- the base EC2 stack/app host is missing
+- the manifest asks for a mutable or missing image tag
+- `edge-api-gateway` is required by release impact but missing from the manifest
+- `front-web-console` is required by release impact but missing from the manifest
+- the app host reports `repairRequired=true`
+- the app host detects runtime drift before the next release starts
+
+This is intentional. The lane now prefers explicit operator correction over hidden stack churn.
+
+### Drift, Repair, and Rollback
+
+The app host keeps three state files:
+
+- `/opt/ev-dashboard/state/current-state.json`
+- `/opt/ev-dashboard/state/releases/<releaseId>.json`
+- `/opt/ev-dashboard/state/last-known-good.json`
+
+Current runtime policy is conservative:
+
+- if runtime drift is detected, the next partial release is blocked
+- if rollback fails, `repairRequired=true` is set and the next release is blocked
+- there is no broad automatic self-heal yet
+- only narrow self-heal is allowed:
+  - the expected runtime spec still matches `current-state` and `last-known-good`
+  - the container is only `missing` or `stopped`
+  - image, port binding, and env hash are still aligned
+  - in that case the host may recreate the same container spec before blocking the release
+
+Operator response order:
+
+1. inspect the current host state and release journal
+2. identify whether the issue is drift, wave failure, or rollback failure
+3. if drift or rollback failure set `repairRequired`, do not force the next release through
+4. repair the host or restore the expected runtime state first
+5. rerun preview -> preflight -> warm-host partial only after `repairRequired` is cleared
 
 ## Mandatory Preflight Gate
 

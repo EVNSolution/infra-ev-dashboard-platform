@@ -31,6 +31,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: ev-dashboard-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy ${{ github.event.inputs.environment }}
@@ -232,8 +236,12 @@ jobs:
         if: ${{ env.RUN_PROFILE == 'full' }}
         run: npm test -- --runInBand
 
+      - name: Preview release manifest
+        if: ${{ env.RUN_PROFILE == 'warm-host-partial' }}
+        run: npx ts-node bin/previewReleaseManifest.ts "$RELEASE_MANIFEST_PATH"
+
       - name: Synthesize stack
-        if: ${{ env.RUN_PROFILE != 'smoke-only' }}
+        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' }}
         run: npx cdk synth
 
       - name: Write operator summary
@@ -244,22 +252,27 @@ jobs:
           - Run profile: `${{ env.RUN_PROFILE }}`
           - `full`: preflight -> unit tests -> synth -> deploy -> smoke
           - `bootstrap-proof`: synth -> deploy -> smoke
-          - `warm-host-partial`: preflight -> synth -> deploy -> smoke on an existing base stack
+          - `warm-host-partial`: preview -> preflight -> wave reconcile -> smoke on an existing base stack
           - `smoke-only`: smoke only on the current live lane
           - Typical runtime verification deploy: about `10-20m`
           - Wait phases: `CloudFormation start -> EC2 launch -> user-data/bootstrap -> ALB target healthy -> public smoke`
           - `502` before the app host is healthy usually means `wait`
           - `502` after the app host is healthy usually means `check gateway/bootstrap logs before retry`
           - Protected route `401` is often the first honest proof that the route is alive
-          - Post-deploy public smoke runs after `cdk deploy` and fails this job if the public edge still answers incorrectly
+          - Warm-host partial keeps the base stack and app host alive; it only runs manifest-listed waves through SSM
+          - Post-deploy public smoke runs after the active deploy path and fails this job if the public edge still answers incorrectly
           - A deploy is only done when the GitHub run is `success`, the stack is `UPDATE_COMPLETE`, and the public smoke passes
 
           Runbook: `/Users/jiin/Documents/Files/02_EVnSolution/00_Source_code/CLEVER/clever-msa-platform/docs/runbooks/ev-dashboard-ecs-deploy-operator-loop.md`
           EOF
 
       - name: Deploy stack
-        if: ${{ env.RUN_PROFILE != 'smoke-only' }}
+        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' }}
         run: npx cdk deploy --require-approval never
+
+      - name: Run warm-host partial reconcile waves
+        if: ${{ env.RUN_PROFILE == 'warm-host-partial' }}
+        run: npm run reconcile:waves -- "$RELEASE_MANIFEST_PATH"
 
       - name: Run post-deploy public smoke
         run: |

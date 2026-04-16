@@ -1,0 +1,34 @@
+{
+  "release_id": "dev-support-surface-wave-1",
+  "impact": {
+    "requires_gateway": true,
+    "requires_front": false,
+    "route_groups": ["support-surface"]
+  },
+  "services": {
+    "edge-api-gateway": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:285a65a8be02e88be13f220a7b81fb4d86c10cb4"
+    },
+    "service-announcement-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:2b150e096758e447bc42e0003346a0fe636b5790"
+    },
+    "service-notification-hub": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:89890120265ce0906d77cbcfa09b52842634170d"
+    },
+    "service-region-analytics": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:691d5f10efce486121dc4e50e01da951565c3c26"
+    },
+    "service-region-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:4484ad554b9d7185d4779e0ec9a09801c18fe354"
+    },
+    "service-support-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:6a28f061dff835ddeb07ff007c6269dc44404872"
+    }
+  }
+}

@@ -27,8 +27,12 @@ describe('deploy workflow run profiles', () => {
     const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'deploy-ecs.yml');
     const workflowSource = fs.readFileSync(workflowPath, 'utf8');
 
-    expect(workflowSource).toContain("if: ${{ env.RUN_PROFILE != 'smoke-only' }}\n        run: npx cdk synth");
-    expect(workflowSource).toContain("if: ${{ env.RUN_PROFILE != 'smoke-only' }}\n        run: npx cdk deploy --require-approval never");
+    expect(workflowSource).toContain(
+      "if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' }}\n        run: npx cdk synth"
+    );
+    expect(workflowSource).toContain(
+      "if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' }}\n        run: npx cdk deploy --require-approval never"
+    );
     expect(workflowSource).toContain('- name: Run post-deploy public smoke');
   });
 
@@ -45,5 +49,16 @@ describe('deploy workflow run profiles', () => {
 
     expect(workflowSource).toContain('release_manifest_path:');
     expect(workflowSource).toContain('RELEASE_MANIFEST_PATH: ${{ github.event.inputs.release_manifest_path }}');
+    expect(workflowSource).toContain('- name: Preview release manifest');
+    expect(workflowSource).toContain('npm run reconcile:waves -- "$RELEASE_MANIFEST_PATH"');
+  });
+
+  test('serializes deploys per environment to avoid overlapping partial reconciles', () => {
+    const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'deploy-ecs.yml');
+    const workflowSource = fs.readFileSync(workflowPath, 'utf8');
+
+    expect(workflowSource).toContain('concurrency:');
+    expect(workflowSource).toContain('group: ev-dashboard-${{ github.event.inputs.environment }}');
+    expect(workflowSource).toContain('cancel-in-progress: false');
   });
 });

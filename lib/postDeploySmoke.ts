@@ -1,4 +1,6 @@
 import { buildPlatformConfigFromEnv } from './config';
+import type { ReleaseManifestService } from './releaseManifest';
+import { loadReleaseManifest } from './releaseManifest';
 
 export type PostDeploySmokeCheck = {
   name: string;
@@ -31,9 +33,13 @@ const PLACEHOLDER_ENTITY_ID = '00000000-0000-0000-0000-000000000001';
 
 export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySmokeCheck[] {
   const config = buildPlatformConfigFromEnv(env);
-  const checks: PostDeploySmokeCheck[] = [];
   const apexUrl = `https://${trimTrailingSlash(config.apexDomain)}`;
   const apiUrl = `https://${trimTrailingSlash(config.apiDomain)}`;
+  if (config.runProfile === 'warm-host-partial' && config.releaseManifestPath) {
+    return buildWarmHostPartialSmokeChecks(env, apexUrl, apiUrl);
+  }
+
+  const checks: PostDeploySmokeCheck[] = [];
 
   if (config.frontDesiredCount > 0) {
     checks.push({
@@ -197,13 +203,226 @@ export function buildPostDeploySmokeChecks(env: NodeJS.ProcessEnv): PostDeploySm
   return checks;
 }
 
+export function buildReleaseManifestSmokeChecks(
+  env: NodeJS.ProcessEnv,
+  services: readonly ReleaseManifestService[]
+): PostDeploySmokeCheck[] {
+  const config = buildPlatformConfigFromEnv(env);
+  const apexUrl = `https://${trimTrailingSlash(config.apexDomain)}`;
+  const apiUrl = `https://${trimTrailingSlash(config.apiDomain)}`;
+  return buildManifestScopedSmokeChecks(services, apexUrl, apiUrl, config.cockpitHosts);
+}
+
+function buildWarmHostPartialSmokeChecks(
+  env: NodeJS.ProcessEnv,
+  apexUrl: string,
+  apiUrl: string
+): PostDeploySmokeCheck[] {
+  const repoRoot = resolveSmokeRepoRoot(env);
+  const releaseManifest = loadReleaseManifest(repoRoot, env.RELEASE_MANIFEST_PATH!);
+  const cockpitHosts = buildPlatformConfigFromEnv(env).cockpitHosts;
+  return buildManifestScopedSmokeChecks(releaseManifest.services, apexUrl, apiUrl, cockpitHosts);
+}
+
+function buildManifestScopedSmokeChecks(
+  services: readonly ReleaseManifestService[],
+  apexUrl: string,
+  apiUrl: string,
+  cockpitHosts: readonly string[]
+): PostDeploySmokeCheck[] {
+  const checks = new Map<string, PostDeploySmokeCheck>();
+
+  const addCheck = (check: PostDeploySmokeCheck): void => {
+    checks.set(`${check.name}:${check.url}:${check.expectedStatus}`, check);
+  };
+
+  for (const service of services) {
+    if (service.action === 'remove') {
+      continue;
+    }
+
+    switch (service.service) {
+      case 'front-web-console':
+        addCheck({ name: 'front shell', url: `${apexUrl}/`, expectedStatus: 200 });
+        for (const host of cockpitHosts) {
+          addCheck({
+            name: `cockpit shell: ${host}`,
+            url: `https://${trimTrailingSlash(host)}/`,
+            expectedStatus: 200
+          });
+        }
+        break;
+      case 'edge-api-gateway':
+        addCheck({ name: 'openapi document', url: `${apiUrl}/openapi.yaml`, expectedStatus: 200 });
+        addCheck({ name: 'swagger ui', url: `${apiUrl}/swagger/`, expectedStatus: 200 });
+        break;
+      case 'service-account-access':
+        addCheck({ name: 'auth health', url: `${apiUrl}/api/auth/health/`, expectedStatus: 200 });
+        addCheck({
+          name: 'account admin redirect',
+          url: `${apiUrl}/admin/account-access/`,
+          expectedStatus: 302,
+          redirect: 'manual'
+        });
+        addCheck({ name: 'account admin login', url: `${apiUrl}/admin/account-access/login/`, expectedStatus: 200 });
+        break;
+      case 'service-organization-registry':
+        addCheck({ name: 'organization health', url: `${apiUrl}/api/org/health/`, expectedStatus: 200 });
+        addCheck({
+          name: 'company tenant resolve validation',
+          url: `${apiUrl}/api/org/companies/public/resolve/?tenant_code=bootstrap-proof-smoke`,
+          expectedStatus: 404
+        });
+        break;
+      case 'service-driver-profile':
+        addCheck({ name: 'drivers protected list', url: `${apiUrl}/api/drivers/`, expectedStatus: 401 });
+        break;
+      case 'service-vehicle-registry':
+        addCheck({
+          name: 'vehicle masters protected list',
+          url: `${apiUrl}/api/vehicles/vehicle-masters/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-personnel-document-registry':
+        addCheck({
+          name: 'personnel documents protected list',
+          url: `${apiUrl}/api/personnel-documents/documents/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-vehicle-assignment':
+        addCheck({
+          name: 'driver vehicle assignments protected list',
+          url: `${apiUrl}/api/driver-vehicle-assignments/assignments/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-dispatch-registry':
+        addCheck({ name: 'dispatch health', url: `${apiUrl}/api/dispatch/health/`, expectedStatus: 200 });
+        addCheck({ name: 'dispatch plans protected list', url: `${apiUrl}/api/dispatch/plans/`, expectedStatus: 401 });
+        break;
+      case 'service-delivery-record':
+        addCheck({ name: 'delivery record health', url: `${apiUrl}/api/delivery-record/health/`, expectedStatus: 200 });
+        addCheck({
+          name: 'delivery records protected list',
+          url: `${apiUrl}/api/delivery-record/records/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-attendance-registry':
+        addCheck({ name: 'attendance health', url: `${apiUrl}/api/attendance/health/`, expectedStatus: 200 });
+        addCheck({ name: 'attendance days protected list', url: `${apiUrl}/api/attendance/days/`, expectedStatus: 401 });
+        break;
+      case 'service-dispatch-operations-view':
+        addCheck({ name: 'dispatch ops health', url: `${apiUrl}/api/dispatch-ops/health/`, expectedStatus: 200 });
+        break;
+      case 'service-driver-operations-view':
+        addCheck({ name: 'driver ops health', url: `${apiUrl}/api/driver-ops/health/`, expectedStatus: 200 });
+        break;
+      case 'service-vehicle-operations-view':
+        addCheck({ name: 'vehicle ops health', url: `${apiUrl}/api/vehicle-ops/health/`, expectedStatus: 200 });
+        break;
+      case 'service-settlement-registry':
+        addCheck({
+          name: 'settlement registry health',
+          url: `${apiUrl}/api/settlement-registry/health/`,
+          expectedStatus: 200
+        });
+        addCheck({
+          name: 'settlement metadata protected read',
+          url: `${apiUrl}/api/settlement-registry/settlement-config/metadata/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-settlement-payroll':
+        addCheck({ name: 'settlements health', url: `${apiUrl}/api/settlements/health/`, expectedStatus: 200 });
+        addCheck({
+          name: 'settlement runs protected list',
+          url: `${apiUrl}/api/settlements/runs/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-settlement-operations-view':
+        addCheck({ name: 'settlement ops health', url: `${apiUrl}/api/settlement-ops/health/`, expectedStatus: 200 });
+        addCheck({ name: 'settlement ops protected runs', url: `${apiUrl}/api/settlement-ops/runs/`, expectedStatus: 401 });
+        break;
+      case 'service-region-registry':
+        addCheck({ name: 'region registry health', url: `${apiUrl}/api/regions/health/`, expectedStatus: 200 });
+        addCheck({ name: 'regions protected list', url: `${apiUrl}/api/regions/`, expectedStatus: 401 });
+        break;
+      case 'service-region-analytics':
+        addCheck({ name: 'region analytics health', url: `${apiUrl}/api/region-analytics/health/`, expectedStatus: 200 });
+        addCheck({
+          name: 'region analytics protected list',
+          url: `${apiUrl}/api/region-analytics/daily-statistics/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-announcement-registry':
+        addCheck({ name: 'announcement registry health', url: `${apiUrl}/api/announcements/health/`, expectedStatus: 200 });
+        addCheck({ name: 'announcements protected list', url: `${apiUrl}/api/announcements/`, expectedStatus: 401 });
+        break;
+      case 'service-support-registry':
+        addCheck({ name: 'support registry health', url: `${apiUrl}/api/ticket/health/`, expectedStatus: 200 });
+        addCheck({ name: 'support tickets protected list', url: `${apiUrl}/api/ticket/tickets/`, expectedStatus: 401 });
+        break;
+      case 'service-notification-hub':
+        addCheck({ name: 'notification hub health', url: `${apiUrl}/api/notifications/health/`, expectedStatus: 200 });
+        addCheck({
+          name: 'notifications protected list',
+          url: `${apiUrl}/api/notifications/general/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-terminal-registry':
+        addCheck({ name: 'terminal registry health', url: `${apiUrl}/api/terminals/health/`, expectedStatus: 200 });
+        addCheck({ name: 'terminals protected list', url: `${apiUrl}/api/terminals/`, expectedStatus: 401 });
+        break;
+      case 'service-telemetry-hub':
+        addCheck({ name: 'telemetry hub health', url: `${apiUrl}/api/telemetry/health/`, expectedStatus: 200 });
+        addCheck({
+          name: 'telemetry latest-location protected read',
+          url: `${apiUrl}/api/telemetry/terminals/${PLACEHOLDER_ENTITY_ID}/latest-location/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-telemetry-dead-letter':
+        addCheck({
+          name: 'telemetry dead-letter health',
+          url: `${apiUrl}/api/telemetry-dead-letters/health/`,
+          expectedStatus: 200
+        });
+        addCheck({
+          name: 'telemetry dead-letter protected list',
+          url: `${apiUrl}/api/telemetry-dead-letters/`,
+          expectedStatus: 401
+        });
+        break;
+      case 'service-telemetry-listener':
+        break;
+    }
+  }
+
+  return [...checks.values()];
+}
+
 export async function runPostDeploySmokeChecks(
   env: NodeJS.ProcessEnv,
   fetchImpl: typeof fetch = fetch,
   options: PostDeploySmokeOptions = {}
 ): Promise<PostDeploySmokeReport> {
-  const config = buildPlatformConfigFromEnv(env);
   const checks = buildPostDeploySmokeChecks(env);
+  return runSmokeChecks(env, checks, fetchImpl, options);
+}
+
+export async function runSmokeChecks(
+  env: NodeJS.ProcessEnv,
+  checks: PostDeploySmokeCheck[],
+  fetchImpl: typeof fetch = fetch,
+  options: PostDeploySmokeOptions = {}
+): Promise<PostDeploySmokeReport> {
+  const config = buildPlatformConfigFromEnv(env);
   const sleepImpl = options.sleepImpl ?? defaultSleep;
   const timeoutMs =
     options.timeoutMs ?? resolveDurationMs(env.POST_DEPLOY_SMOKE_TIMEOUT_SECONDS, config.runtimeMode === 'ec2' ? 420_000 : 30_000);
@@ -390,4 +609,8 @@ function isTerminalAndTelemetryEnabled(config: ReturnType<typeof buildPlatformCo
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
+}
+
+function resolveSmokeRepoRoot(env: NodeJS.ProcessEnv): string {
+  return env.POST_DEPLOY_REPO_ROOT?.trim() || process.cwd();
 }

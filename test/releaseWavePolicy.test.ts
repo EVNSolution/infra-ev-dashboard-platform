@@ -6,6 +6,11 @@ function createManifest(services: ReleaseManifest['services']): ReleaseManifest 
     manifestPath: 'release-manifests/dev/test.json',
     manifestAbsolutePath: '/tmp/release-manifests/dev/test.json',
     releaseId: 'dev-wave-test',
+    impact: {
+      requiresGateway: false,
+      requiresFront: false,
+      routeGroups: []
+    },
     services
   };
 }
@@ -15,14 +20,17 @@ describe('release wave policy', () => {
     const manifest = createManifest([
       {
         service: 'front-web-console',
+        action: 'deploy',
         imageUri: 'repo/front-web-console:sha-front'
       },
       {
         service: 'edge-api-gateway',
+        action: 'deploy',
         imageUri: 'repo/edge-api-gateway:sha-gateway'
       },
       {
         service: 'service-support-registry',
+        action: 'deploy',
         imageUri: 'repo/service-support-registry:sha-support'
       }
     ]);
@@ -50,14 +58,17 @@ describe('release wave policy', () => {
     const manifest = createManifest([
       {
         service: 'service-region-analytics',
+        action: 'deploy',
         imageUri: 'repo/service-region-analytics:sha-analytics'
       },
       {
         service: 'service-region-registry',
+        action: 'deploy',
         imageUri: 'repo/service-region-registry:sha-registry'
       },
       {
         service: 'service-dispatch-operations-view',
+        action: 'deploy',
         imageUri: 'repo/service-dispatch-operations-view:sha-dispatch-ops'
       }
     ]);

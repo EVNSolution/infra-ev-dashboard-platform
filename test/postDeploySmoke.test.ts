@@ -210,6 +210,31 @@ describe('post-deploy smoke', () => {
     );
   });
 
+  test('uses release-manifest scoped smoke checks for warm-host partial deploys', () => {
+    const repoRoot = process.cwd();
+    const checks = buildPostDeploySmokeChecks(
+      createBaseEnv({
+        RUN_PROFILE: 'warm-host-partial',
+        RELEASE_MANIFEST_PATH: 'release-manifests/examples/core-entry-sample.json',
+        POST_DEPLOY_REPO_ROOT: repoRoot
+      })
+    );
+
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'auth health' }),
+        expect.objectContaining({ name: 'organization health' }),
+        expect.objectContaining({ name: 'front shell' })
+      ])
+    );
+    expect(checks).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'dispatch health' }),
+        expect.objectContaining({ name: 'terminal registry health' })
+      ])
+    );
+  });
+
   test('passes when every required endpoint returns its expected status', async () => {
     const fetchMock = jest.fn(async (input: string, init?: RequestInit) => {
       if (String(input).includes('/companies/public/resolve/')) {
