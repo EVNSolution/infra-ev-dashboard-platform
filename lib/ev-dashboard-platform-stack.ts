@@ -22,6 +22,7 @@ import { getBootstrapAssetRoot } from './bootstrapPackage';
 import { Ec2AppHost } from './ec2-app-host';
 import type { AppHostRuntimeService } from './ec2-bootstrap';
 import { Ec2DataHost } from './ec2-data-host';
+import { buildGatewayRouteProfile } from './gatewayRouteProfile';
 
 type EvDashboardPlatformStackProps = cdk.StackProps & {
   config: PlatformConfig;
@@ -1644,6 +1645,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     const { config, vpc, hostedZone, loadBalancer, httpsListener, serviceSecurityGroup, dataSecurityGroup } = input;
     const browserHosts = this.buildBrowserHosts(config);
     const csrfTrustedOrigins = this.buildCsrfTrustedOrigins(config);
+    const gatewayRouteProfile = buildGatewayRouteProfile(config);
     const runtimeNamePrefix = this.stackName;
     const appHostSubnet = this.findImportedPublicSubnet(vpc, config.appHostSubnetId!, 'APP_HOST_SUBNET_ID');
     const dataHostSubnet = this.findImportedPublicSubnet(vpc, config.dataHostSubnetId!, 'DATA_HOST_SUBNET_ID');
@@ -2034,7 +2036,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerPort: 8080,
         hostPort: 8080,
         environment: {
-          GATEWAY_PROFILE: config.runProfile === 'bootstrap-proof' ? 'bootstrap-proof' : 'full'
+          GATEWAY_PROFILE: gatewayRouteProfile.profile,
+          ...(gatewayRouteProfile.routeGroups.length > 0
+            ? { GATEWAY_ROUTE_GROUPS: gatewayRouteProfile.routeGroups.join(',') }
+            : {})
         }
       },
       {

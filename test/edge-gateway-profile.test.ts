@@ -10,7 +10,8 @@ describe('EC2 bootstrap-proof gateway contract', () => {
 
     expect(gatewayStart).toBeGreaterThanOrEqual(0);
     expect(driverStart).toBeGreaterThan(gatewayStart);
+    expect(source).toContain('buildGatewayRouteProfile');
     expect(gatewaySource).toContain('GATEWAY_PROFILE');
-    expect(gatewaySource).toContain("config.runProfile === 'bootstrap-proof'");
+    expect(gatewaySource).toContain('GATEWAY_ROUTE_GROUPS');
   });
 });
