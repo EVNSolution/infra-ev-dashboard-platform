@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 
@@ -176,6 +179,14 @@ function extractAppServiceManifestEnvironment(
 }
 
 describe('EvDashboardPlatformStack', () => {
+  test('sources core backend app-host runtime base metadata from the service catalog', () => {
+    const source = readFileSync(join(__dirname, '..', 'lib', 'ev-dashboard-platform-stack.ts'), 'utf8');
+
+    expect(source).toContain('buildCatalogBackedAppHostRuntimeService');
+    expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-account-access'");
+    expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-organization-registry'");
+  });
+
   test('synthesizes the ev-dashboard canonical runtime as EC2 app and data hosts', () => {
     const app = new App();
     const config = buildPlatformConfig({

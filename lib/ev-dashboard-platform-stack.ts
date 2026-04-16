@@ -24,6 +24,7 @@ import { Ec2AppHost } from './ec2-app-host';
 import type { AppHostRuntimeService } from './ec2-bootstrap';
 import { Ec2DataHost } from './ec2-data-host';
 import { buildGatewayRouteProfile } from './gatewayRouteProfile';
+import { getCatalogAppHostRuntimeMetadata } from './serviceCatalog';
 
 type EvDashboardPlatformStackProps = cdk.StackProps & {
   config: PlatformConfig;
@@ -1988,6 +1989,20 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       JWT_SECRET_KEY: platformJwtSecret.secretArn,
       ...extra
     });
+    const buildCatalogBackedAppHostRuntimeService = (
+      service: 'service-account-access' | 'service-organization-registry',
+      input: Omit<AppHostRuntimeService, 'id' | 'imageMapKey' | 'containerName' | 'containerPort' | 'hostPort'>
+    ): AppHostRuntimeService => {
+      const metadata = getCatalogAppHostRuntimeMetadata(service);
+      return {
+        id: metadata.id,
+        imageMapKey: metadata.imageMapKey,
+        containerName: metadata.containerName,
+        containerPort: metadata.containerPort,
+        ...(metadata.hostPort !== undefined ? { hostPort: metadata.hostPort } : {}),
+        ...input
+      };
+    };
 
     const appServices = orderAppHostRuntimeServices([
       {
@@ -1998,12 +2013,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerPort: 5174,
         hostPort: 5174
       },
-      {
-        id: 'ACCOUNT_ACCESS',
-        imageMapKey: 'service-account-access',
-        containerName: 'account-auth-api',
+      buildCatalogBackedAppHostRuntimeService('service-account-access', {
         enabled: config.accountAccessDesiredCount > 0,
-        containerPort: 8000,
         environment: withDevGunicornWorkers({
           ...databaseEnvironment('account_auth', 'account_auth'),
           REDIS_URL: `redis://${dataHost.instance.instancePrivateIp}:6379/0`,
@@ -2015,13 +2026,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           POSTGRES_PASSWORD: accountAccessSecrets.postgresSecret.secretArn,
           ...djangoSecretArns(accountAccessSecrets.djangoSecret)
         }
-      },
-      {
-        id: 'ORGANIZATION',
-        imageMapKey: 'service-organization-registry',
-        containerName: 'organization-master-api',
+      }),
+      buildCatalogBackedAppHostRuntimeService('service-organization-registry', {
         enabled: config.organizationDesiredCount > 0,
-        containerPort: 8000,
         environment: organizationSecrets
           ? withDevGunicornWorkers({
               ...databaseEnvironment('organization_master', 'organization_master'),
@@ -2034,7 +2041,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
               ...djangoSecretArns(organizationSecrets.djangoSecret)
             }
           : {}
-      },
+      }),
       {
         id: 'GATEWAY',
         imageMapKey: 'edge-api-gateway',

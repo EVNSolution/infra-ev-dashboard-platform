@@ -38,12 +38,21 @@ export const serviceCatalogPreflightGroups = [
 
 export type ServiceCatalogPreflightGroup = (typeof serviceCatalogPreflightGroups)[number];
 
+export type AppHostRuntimeCatalogMetadata = {
+  id: string;
+  imageMapKey: string;
+  containerName: string;
+  containerPort?: number;
+  hostPort?: number;
+};
+
 export type ServiceCatalogEntry = {
   service: ReleaseManifestServiceName;
   routeGroup?: ServiceCatalogRouteGroup;
   wave: ServiceCatalogWave;
   slice: ServiceCatalogSlice;
   preflightGroup?: ServiceCatalogPreflightGroup;
+  appHostRuntime?: AppHostRuntimeCatalogMetadata;
   imageConfigKey: keyof PlatformConfigInput;
   imageEnvKey: keyof NodeJS.ProcessEnv;
   imageRequiredWhenEnabledOnly?: boolean;
@@ -105,6 +114,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 1,
     slice: 'auth-surface',
     preflightGroup: 'Auth Surface',
+    appHostRuntime: {
+      id: 'ACCOUNT_ACCESS',
+      imageMapKey: 'service-account-access',
+      containerName: 'account-auth-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'accountAccessImageUri',
     imageEnvKey: 'ACCOUNT_ACCESS_IMAGE_URI',
     defaultDesiredCount: 1,
@@ -125,6 +140,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 1,
     slice: 'company-governance',
     preflightGroup: 'Company Governance',
+    appHostRuntime: {
+      id: 'ORGANIZATION',
+      imageMapKey: 'service-organization-registry',
+      containerName: 'organization-master-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'organizationImageUri',
     imageEnvKey: 'ORGANIZATION_IMAGE_URI',
     defaultDesiredCount: 0,
@@ -639,6 +660,14 @@ export function listCatalogEnabledPreflightGroups(config: PlatformConfig): reado
       (entry) => entry.preflightGroup === group && getServiceDesiredCount(config, entry.service) > 0
     )
   );
+}
+
+export function getCatalogAppHostRuntimeMetadata(service: ReleaseManifestServiceName): AppHostRuntimeCatalogMetadata {
+  const entry = getServiceCatalogEntry(service);
+  if (!entry.appHostRuntime) {
+    throw new Error(`Service catalog entry does not define app-host runtime metadata: ${service}`);
+  }
+  return entry.appHostRuntime;
 }
 
 export function getServiceDesiredCount(config: PlatformConfig, service: ReleaseManifestServiceName): number {
