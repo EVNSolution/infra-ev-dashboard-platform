@@ -20,6 +20,7 @@ on:
         options:
           - full
           - bootstrap-proof
+          - incremental-expand
           - warm-host-partial
           - smoke-only
       release_manifest_path:
@@ -229,7 +230,7 @@ jobs:
           action-timeout-s: 120
 
       - name: Run preflight gate
-        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'warm-host-partial' }}
+        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'incremental-expand' || env.RUN_PROFILE == 'warm-host-partial' }}
         run: npm run preflight
 
       - name: Run unit tests
@@ -241,7 +242,7 @@ jobs:
         run: npx ts-node bin/previewReleaseManifest.ts "$RELEASE_MANIFEST_PATH"
 
       - name: Synthesize stack
-        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' }}
+        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' || env.RUN_PROFILE == 'incremental-expand' }}
         run: npx cdk synth
 
       - name: Write operator summary
@@ -252,6 +253,7 @@ jobs:
           - Run profile: `${{ env.RUN_PROFILE }}`
           - `full`: preflight -> unit tests -> synth -> deploy -> smoke
           - `bootstrap-proof`: synth -> deploy -> smoke
+          - `incremental-expand`: synth -> deploy -> smoke on the current cumulative service set
           - `warm-host-partial`: preview -> preflight -> wave reconcile -> smoke on an existing base stack
           - `smoke-only`: smoke only on the current live lane
           - Typical runtime verification deploy: about `10-20m`
@@ -267,7 +269,7 @@ jobs:
           EOF
 
       - name: Deploy stack
-        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' }}
+        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'bootstrap-proof' || env.RUN_PROFILE == 'incremental-expand' }}
         run: npx cdk deploy --require-approval never
 
       - name: Run warm-host partial reconcile waves

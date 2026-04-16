@@ -1,5 +1,5 @@
 export type PlatformConfigInput = {
-  runProfile?: 'full' | 'bootstrap-proof' | 'smoke-only' | 'warm-host-partial';
+  runProfile?: 'full' | 'bootstrap-proof' | 'incremental-expand' | 'smoke-only' | 'warm-host-partial';
   runtimeMode?: 'ecs' | 'ec2';
   releaseManifestPath?: string;
   region: string;
@@ -163,7 +163,7 @@ export type PlatformConfigInput = {
 };
 
 export type PlatformConfig = PlatformConfigInput & {
-  runProfile: 'full' | 'bootstrap-proof' | 'smoke-only' | 'warm-host-partial';
+  runProfile: 'full' | 'bootstrap-proof' | 'incremental-expand' | 'smoke-only' | 'warm-host-partial';
   runtimeMode: 'ecs' | 'ec2';
   cockpitHosts: string[];
   availabilityZones: string[];
@@ -673,16 +673,26 @@ function toRuntimeMode(value: string | undefined): 'ecs' | 'ec2' {
   throw new Error('Environment variable RUNTIME_MODE must be either ecs or ec2');
 }
 
-function toRunProfile(value: string | undefined): 'full' | 'bootstrap-proof' | 'smoke-only' | 'warm-host-partial' {
+function toRunProfile(
+  value: string | undefined
+): 'full' | 'bootstrap-proof' | 'incremental-expand' | 'smoke-only' | 'warm-host-partial' {
   if (!value || value.trim() === '') {
     return 'full';
   }
 
-  if (value === 'full' || value === 'bootstrap-proof' || value === 'smoke-only' || value === 'warm-host-partial') {
+  if (
+    value === 'full' ||
+    value === 'bootstrap-proof' ||
+    value === 'incremental-expand' ||
+    value === 'smoke-only' ||
+    value === 'warm-host-partial'
+  ) {
     return value;
   }
 
-  throw new Error('Environment variable RUN_PROFILE must be full, bootstrap-proof, smoke-only, or warm-host-partial');
+  throw new Error(
+    'Environment variable RUN_PROFILE must be full, bootstrap-proof, incremental-expand, smoke-only, or warm-host-partial'
+  );
 }
 
 function buildDefaultAvailabilityZones(region: string, count: number): string[] {

@@ -238,6 +238,103 @@ describe('buildPlatformConfigFromEnv', () => {
     expect(config.telemetryListenerDesiredCount).toBe(0);
   });
 
+  test('keeps remaining business-service desired counts in ec2 incremental-expand profile', () => {
+    const config = buildPlatformConfigFromEnv({
+      AWS_REGION: 'ap-northeast-2',
+      RUN_PROFILE: 'incremental-expand',
+      RUNTIME_MODE: 'ec2',
+      HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+      HOSTED_ZONE_NAME: 'ev-dashboard.com',
+      APEX_DOMAIN: 'candidate.ev-dashboard.com',
+      API_DOMAIN: 'api.candidate.ev-dashboard.com',
+      VPC_ID: 'vpc-015c89247f96e9221',
+      PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+      PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
+      APP_HOST_SUBNET_ID: 'subnet-aaa',
+      DATA_HOST_SUBNET_ID: 'subnet-bbb',
+      APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2a',
+      DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2b',
+      FRONT_DESIRED_COUNT: '1',
+      GATEWAY_DESIRED_COUNT: '1',
+      ACCOUNT_ACCESS_DESIRED_COUNT: '1',
+      ORGANIZATION_DESIRED_COUNT: '1',
+      DRIVER_PROFILE_DESIRED_COUNT: '1',
+      PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
+      VEHICLE_ASSET_DESIRED_COUNT: '1',
+      DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '1',
+      DISPATCH_REGISTRY_DESIRED_COUNT: '1',
+      DELIVERY_RECORD_DESIRED_COUNT: '1',
+      ATTENDANCE_REGISTRY_DESIRED_COUNT: '1',
+      DISPATCH_OPS_DESIRED_COUNT: '1',
+      DRIVER_OPS_DESIRED_COUNT: '1',
+      VEHICLE_OPS_DESIRED_COUNT: '1',
+      SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
+      SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
+      SETTLEMENT_OPS_DESIRED_COUNT: '1',
+      REGION_REGISTRY_DESIRED_COUNT: '1',
+      REGION_ANALYTICS_DESIRED_COUNT: '1',
+      ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '1',
+      SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+      NOTIFICATION_HUB_DESIRED_COUNT: '1',
+      TERMINAL_REGISTRY_DESIRED_COUNT: '1',
+      TELEMETRY_HUB_DESIRED_COUNT: '1',
+      TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '1',
+      TELEMETRY_LISTENER_DESIRED_COUNT: '1',
+      FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+      GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+      ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
+      ORGANIZATION_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:test',
+      DRIVER_PROFILE_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test',
+      PERSONNEL_DOCUMENT_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
+      VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
+      DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+      DISPATCH_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+      DELIVERY_RECORD_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+      ATTENDANCE_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test',
+      DISPATCH_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:test',
+      DRIVER_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
+      VEHICLE_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+      SETTLEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+      SETTLEMENT_PAYROLL_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+      SETTLEMENT_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+      REGION_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+      REGION_ANALYTICS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+      SUPPORT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+      NOTIFICATION_HUB_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test',
+      TERMINAL_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-terminal-registry:test',
+      TELEMETRY_HUB_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-hub:test',
+      TELEMETRY_DEAD_LETTER_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-dead-letter:test',
+      TELEMETRY_LISTENER_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-listener:test'
+    });
+
+    expect(config.runProfile).toBe('incremental-expand');
+    expect(config.driverProfileDesiredCount).toBe(1);
+    expect(config.dispatchRegistryDesiredCount).toBe(1);
+    expect(config.settlementOpsDesiredCount).toBe(1);
+    expect(config.telemetryListenerDesiredCount).toBe(1);
+  });
+
   test('requires private subnets when account-access is enabled', () => {
     expect(() =>
       buildPlatformConfigFromEnv({

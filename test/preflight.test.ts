@@ -515,6 +515,38 @@ describe('deploy preflight', () => {
     );
   });
 
+  test('allows remaining business services in ec2 incremental-expand profile on a t-family app host', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        RUN_PROFILE: 'incremental-expand',
+        APP_HOST_INSTANCE_TYPE: 't3.small',
+        ORGANIZATION_DESIRED_COUNT: '1',
+        DRIVER_PROFILE_DESIRED_COUNT: '1',
+        PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
+        VEHICLE_ASSET_DESIRED_COUNT: '1',
+        DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '1',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '1',
+        DELIVERY_RECORD_DESIRED_COUNT: '1',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '1',
+        DISPATCH_OPS_DESIRED_COUNT: '1',
+        DRIVER_OPS_DESIRED_COUNT: '1',
+        VEHICLE_OPS_DESIRED_COUNT: '1',
+        SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
+        SETTLEMENT_OPS_DESIRED_COUNT: '1',
+        REGION_REGISTRY_DESIRED_COUNT: '1',
+        REGION_ANALYTICS_DESIRED_COUNT: '1',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+        NOTIFICATION_HUB_DESIRED_COUNT: '1'
+      })
+    );
+
+    expect(report.errors).not.toContain(
+      'EC2 full-service verification requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when remaining business services are enabled.'
+    );
+  });
+
   test('rejects ec2 proof when app host is outside public subnets', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
