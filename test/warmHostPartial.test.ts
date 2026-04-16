@@ -96,19 +96,19 @@ describe('warm host partial deploy helpers', () => {
 
     expect(readyCommands).toEqual([
       'set -euo pipefail',
-      `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} assert-app-release-ready`
+      `PYTHONPATH=/opt/ev-dashboard/bootstrap /usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} assert-app-release-ready`
     ]);
     expect(finalizeCommands).toEqual([
       'set -euo pipefail',
-      `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} finalize-app-release --release-id 'release-001'`
+      `PYTHONPATH=/opt/ev-dashboard/bootstrap /usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} finalize-app-release --release-id 'release-001'`
     ]);
     expect(failureCommands).toEqual([
       'set -euo pipefail',
-      `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} mark-app-release-failed --release-id 'release-001' --reason 'wave smoke failed'`
+      `PYTHONPATH=/opt/ev-dashboard/bootstrap /usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} mark-app-release-failed --release-id 'release-001' --reason 'wave smoke failed'`
     ]);
     expect(buildRollbackReleaseCommands('release-001', 'wave smoke failed')).toEqual([
       'set -euo pipefail',
-      `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} rollback-app-release --release-id 'release-001' --reason 'wave smoke failed'`
+      `PYTHONPATH=/opt/ev-dashboard/bootstrap /usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} rollback-app-release --release-id 'release-001' --reason 'wave smoke failed'`
     ]);
   });
 

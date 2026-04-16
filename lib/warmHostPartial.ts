@@ -4,6 +4,7 @@ import type { ReleaseManifest } from './releaseManifest';
 import { buildReleaseWaves } from './releaseWavePolicy';
 
 export const APP_HOST_RELEASE_MANIFEST_PATH = '/opt/ev-dashboard/release-manifest.json';
+export const APP_HOST_BOOTSTRAP_ROOT = '/opt/ev-dashboard/bootstrap';
 export const APP_HOST_RUNTIME_CLI_PATH = '/opt/ev-dashboard/bootstrap/ev_dashboard_runtime/cli.py';
 
 export type WarmHostWaveManifest = {
@@ -60,28 +61,28 @@ export function buildWaveReconcileCommands(wave: WarmHostWaveManifest): string[]
 export function buildFinalizeReleaseCommands(releaseId: string): string[] {
   return [
     'set -euo pipefail',
-    `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} finalize-app-release --release-id ${shellQuote(releaseId)}`
+    `${buildRuntimeCliCommand('finalize-app-release')} --release-id ${shellQuote(releaseId)}`
   ];
 }
 
 export function buildAssertReleaseReadyCommands(): string[] {
   return [
     'set -euo pipefail',
-    `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} assert-app-release-ready`
+    buildRuntimeCliCommand('assert-app-release-ready')
   ];
 }
 
 export function buildMarkReleaseFailedCommands(releaseId: string, reason: string): string[] {
   return [
     'set -euo pipefail',
-    `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} mark-app-release-failed --release-id ${shellQuote(releaseId)} --reason ${shellQuote(reason)}`
+    `${buildRuntimeCliCommand('mark-app-release-failed')} --release-id ${shellQuote(releaseId)} --reason ${shellQuote(reason)}`
   ];
 }
 
 export function buildRollbackReleaseCommands(releaseId: string, reason: string): string[] {
   return [
     'set -euo pipefail',
-    `/usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} rollback-app-release --release-id ${shellQuote(releaseId)} --reason ${shellQuote(reason)}`
+    `${buildRuntimeCliCommand('rollback-app-release')} --release-id ${shellQuote(releaseId)} --reason ${shellQuote(reason)}`
   ];
 }
 
@@ -125,4 +126,8 @@ export function resolveRunningAppHostInstanceId(input: {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
+function buildRuntimeCliCommand(command: string): string {
+  return `PYTHONPATH=${APP_HOST_BOOTSTRAP_ROOT} /usr/bin/python3 ${APP_HOST_RUNTIME_CLI_PATH} ${command}`;
 }
