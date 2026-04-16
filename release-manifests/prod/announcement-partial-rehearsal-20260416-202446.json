@@ -1,0 +1,9 @@
+{
+  "release_id": "prod-announcement-partial-rehearsal-20260416-202446",
+  "services": {
+    "service-announcement-registry": {
+      "action": "deploy",
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:partial-rehearsal-20260416-202446"
+    }
+  }
+}
