@@ -455,7 +455,7 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).toContain(
-      'Current EC2 runtime proof requires APP_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the app host stays inside an ALB-enabled AZ and has internet egress for bootstrap.'
+      'The default-VPC public-only EC2 lane requires APP_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the app host stays inside an ALB-enabled AZ and keeps direct internet egress for bootstrap.'
     );
   });
 
@@ -468,7 +468,7 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).toContain(
-      'Current EC2 runtime proof requires DATA_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the data host has internet egress for bootstrap.'
+      'The default-VPC public-only EC2 lane requires DATA_HOST_SUBNET_ID to be one of PUBLIC_SUBNET_IDS so the data host keeps direct internet egress for bootstrap.'
     );
   });
 
@@ -486,7 +486,7 @@ describe('deploy preflight', () => {
       'EC2 runtime mode is enabled. Expect instance launch, user-data bootstrap, and SSM reachability before public smoke settles.'
     );
     expect(report.waitSignals).toContain(
-      'Current EC2 runtime proof expects app/data hosts in PUBLIC_SUBNET_IDS with public IPs because the imported private subnets do not yet provide NAT or VPC endpoints for bootstrap, SSM, ECR, and Secrets Manager access.'
+      'The default-VPC public-only EC2 lane expects app/data hosts in PUBLIC_SUBNET_IDS with explicit public IP assignment because bootstrap still depends on direct access to SSM, ECR, Secrets Manager, and package mirrors.'
     );
     expect(report.waitSignals).not.toContain(
       'New or updated direct Service Connect upstreams are enabled. Expect a later edge-api-gateway rollout after backend services register.'

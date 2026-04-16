@@ -207,7 +207,7 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
     (input.terminalRegistryDesiredCount ?? 0) > 0 ||
     (input.telemetryHubDesiredCount ?? 0) > 0 ||
     (input.telemetryDeadLetterDesiredCount ?? 0) > 0;
-  if (requiresPrivateSubnets && privateSubnetIds.length === 0) {
+  if (runtimeMode !== 'ec2' && requiresPrivateSubnets && privateSubnetIds.length === 0) {
     throw new Error('Missing required environment variable: PRIVATE_SUBNET_IDS');
   }
 

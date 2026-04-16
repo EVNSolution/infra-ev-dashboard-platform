@@ -17,11 +17,10 @@ describe('EvDashboardPlatformStack', () => {
       cockpitHosts: ['cheonha.ev-dashboard.com'],
       vpcId: 'vpc-1234567890abcdef0',
       publicSubnetIds: ['subnet-aaa', 'subnet-bbb'],
-      privateSubnetIds: ['subnet-ccc', 'subnet-ddd'],
-      appHostSubnetId: 'subnet-ccc',
-      dataHostSubnetId: 'subnet-ddd',
-      appHostSubnetAvailabilityZone: 'ap-northeast-2c',
-      dataHostSubnetAvailabilityZone: 'ap-northeast-2b',
+      appHostSubnetId: 'subnet-aaa',
+      dataHostSubnetId: 'subnet-bbb',
+      appHostSubnetAvailabilityZone: 'ap-northeast-2a',
+      dataHostSubnetAvailabilityZone: 'ap-northeast-2c',
       frontImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
       gatewayImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
       accountAccessImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account',
@@ -245,6 +244,14 @@ describe('EvDashboardPlatformStack', () => {
             VolumeSize: 100,
             VolumeType: 'gp3'
           })
+        })
+      ])
+    });
+
+    template.hasResourceProperties('AWS::EC2::Instance', {
+      NetworkInterfaces: Match.arrayWith([
+        Match.objectLike({
+          AssociatePublicIpAddress: true
         })
       ])
     });

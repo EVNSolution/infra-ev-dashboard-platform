@@ -39,9 +39,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       availabilityZones: config.availabilityZones,
       publicSubnetIds: config.publicSubnetIds
     });
-    const publicSubnets = config.publicSubnetIds.map((subnetId, index) =>
-      ec2.Subnet.fromSubnetId(this, `PublicSubnet${index + 1}`, subnetId)
-    );
+    const publicSubnets = vpc.publicSubnets;
     const privateSubnets = config.privateSubnetIds.map((subnetId, index) =>
       ec2.Subnet.fromSubnetId(this, `PrivateSubnet${index + 1}`, subnetId)
     );
@@ -1647,14 +1645,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     const browserHosts = this.buildBrowserHosts(config);
     const csrfTrustedOrigins = this.buildCsrfTrustedOrigins(config);
     const runtimeNamePrefix = this.stackName;
-    const appHostSubnet = ec2.Subnet.fromSubnetAttributes(this, 'Ec2AppHostSubnet', {
-      subnetId: config.appHostSubnetId!,
-      availabilityZone: config.appHostSubnetAvailabilityZone!
-    });
-    const dataHostSubnet = ec2.Subnet.fromSubnetAttributes(this, 'Ec2DataHostSubnet', {
-      subnetId: config.dataHostSubnetId!,
-      availabilityZone: config.dataHostSubnetAvailabilityZone!
-    });
+    const appHostSubnet = this.findImportedPublicSubnet(vpc, config.appHostSubnetId!, 'APP_HOST_SUBNET_ID');
+    const dataHostSubnet = this.findImportedPublicSubnet(vpc, config.dataHostSubnetId!, 'DATA_HOST_SUBNET_ID');
     const runtimeImageMap = this.buildRuntimeImageMap(config);
     const runtimeImageMapParam = new ssm.StringParameter(this, 'RuntimeImageMapParam', {
       parameterName: `/${runtimeNamePrefix}/runtime/images`,
@@ -2879,5 +2871,13 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         ? { 'service-telemetry-listener': config.telemetryListenerImageUri }
         : {})
     };
+  }
+
+  private findImportedPublicSubnet(vpc: ec2.IVpc, subnetId: string, label: string): ec2.ISubnet {
+    const subnet = vpc.publicSubnets.find((candidate) => candidate.subnetId === subnetId);
+    if (!subnet) {
+      throw new Error(`${label} must be one of PUBLIC_SUBNET_IDS for the EC2 runtime lane`);
+    }
+    return subnet;
   }
 }

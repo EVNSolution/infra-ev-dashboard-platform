@@ -54,6 +54,7 @@ export class Ec2DataHost extends Construct {
     this.instance = new ec2.Instance(this, 'Instance', {
       vpc: props.vpc,
       vpcSubnets: { subnets: [props.subnet] },
+      associatePublicIpAddress: true,
       securityGroup: props.securityGroup,
       instanceType: new ec2.InstanceType(props.instanceType),
       machineImage: machineImageForInstanceType(props.instanceType),

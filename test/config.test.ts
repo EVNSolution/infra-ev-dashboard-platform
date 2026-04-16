@@ -436,6 +436,88 @@ describe('buildPlatformConfigFromEnv', () => {
     ).toThrow('PRIVATE_SUBNET_IDS');
   });
 
+  test('does not require private subnets when ec2 runtime mode is enabled', () => {
+    const config = buildPlatformConfigFromEnv({
+      AWS_REGION: 'ap-northeast-2',
+      HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+      HOSTED_ZONE_NAME: 'ev-dashboard.com',
+      APEX_DOMAIN: 'candidate.ev-dashboard.com',
+      API_DOMAIN: 'api.candidate.ev-dashboard.com',
+      VPC_ID: 'vpc-015c89247f96e9221',
+      PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+      RUNTIME_MODE: 'ec2',
+      APP_HOST_SUBNET_ID: 'subnet-aaa',
+      DATA_HOST_SUBNET_ID: 'subnet-bbb',
+      APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2a',
+      DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+      FRONT_DESIRED_COUNT: '1',
+      GATEWAY_DESIRED_COUNT: '1',
+      ACCOUNT_ACCESS_DESIRED_COUNT: '1',
+      ORGANIZATION_DESIRED_COUNT: '1',
+      DRIVER_PROFILE_DESIRED_COUNT: '0',
+      PERSONNEL_DOCUMENT_DESIRED_COUNT: '0',
+      VEHICLE_ASSET_DESIRED_COUNT: '0',
+      DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '0',
+      DISPATCH_REGISTRY_DESIRED_COUNT: '0',
+      DELIVERY_RECORD_DESIRED_COUNT: '0',
+      ATTENDANCE_REGISTRY_DESIRED_COUNT: '0',
+      DISPATCH_OPS_DESIRED_COUNT: '0',
+      DRIVER_OPS_DESIRED_COUNT: '0',
+      VEHICLE_OPS_DESIRED_COUNT: '0',
+      SETTLEMENT_REGISTRY_DESIRED_COUNT: '0',
+      SETTLEMENT_PAYROLL_DESIRED_COUNT: '0',
+      SETTLEMENT_OPS_DESIRED_COUNT: '0',
+      REGION_REGISTRY_DESIRED_COUNT: '0',
+      REGION_ANALYTICS_DESIRED_COUNT: '0',
+      ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '0',
+      SUPPORT_REGISTRY_DESIRED_COUNT: '0',
+      NOTIFICATION_HUB_DESIRED_COUNT: '0',
+      FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+      GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+      ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
+      ORGANIZATION_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:test',
+      DRIVER_PROFILE_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test',
+      PERSONNEL_DOCUMENT_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
+      VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
+      DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+      DISPATCH_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+      DELIVERY_RECORD_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+      ATTENDANCE_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test',
+      DISPATCH_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:test',
+      DRIVER_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
+      VEHICLE_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+      SETTLEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+      SETTLEMENT_PAYROLL_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+      SETTLEMENT_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+      REGION_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+      REGION_ANALYTICS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+      SUPPORT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+      NOTIFICATION_HUB_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test'
+    });
+
+    expect(config.runtimeMode).toBe('ec2');
+    expect(config.privateSubnetIds).toEqual([]);
+    expect(config.appHostSubnetId).toBe('subnet-aaa');
+    expect(config.dataHostSubnetId).toBe('subnet-bbb');
+  });
+
   test('requires private subnets when dispatch inputs slice is enabled', () => {
     expect(() =>
       buildPlatformConfigFromEnv({
