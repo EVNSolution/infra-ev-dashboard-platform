@@ -367,6 +367,70 @@ class AppHostPartialReconcileTests(unittest.TestCase):
         self.assertEqual(updated_state["lastDetectedDrift"]["services"][0]["severity"], "medium")
         self.assertIn("image_mismatch", updated_state["lastDetectedDrift"]["services"][0]["reasons"])
 
+    def test_assert_release_ready_allows_internal_service_without_published_host_port(self) -> None:
+        current_state_path = self.state_dir / "current-state.json"
+        current_state_path.parent.mkdir(parents=True, exist_ok=True)
+        env_hash = app_host._sha256_text("ANNOUNCEMENT_MODE=live\n")
+        current_state_path.write_text(
+            json.dumps(
+                {
+                    "environment": "prod",
+                    "repairRequired": False,
+                    "updatedAt": "2026-04-16T12:00:00+09:00",
+                    "services": {
+                        "service-announcement-registry": {
+                            "exists": True,
+                            "serviceName": "service-announcement-registry",
+                            "imageUri": "repo/announcement:sha-live",
+                            "containerName": "announcement-registry-api",
+                            "containerPort": 8000,
+                            "hostPort": None,
+                            "runtimeSpec": {
+                                "containerName": "announcement-registry-api",
+                                "containerPort": 8000,
+                                "hostPort": None,
+                                "environment": {"ANNOUNCEMENT_MODE": "live"},
+                                "secretArns": {},
+                            },
+                            "envHash": env_hash,
+                            "updatedAt": "2026-04-16T12:00:00+09:00",
+                        }
+                    },
+                }
+            ),
+            encoding="utf8",
+        )
+        env_path = self.service_env_dir / "announcement-registry-api.env"
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+        env_path.write_text("ANNOUNCEMENT_MODE=live\n", encoding="utf8")
+
+        def run_output_side_effect(command: list[str]) -> str:
+            if command[:3] == ["docker", "inspect", "--type"]:
+                return json.dumps(
+                    [
+                        {
+                            "Name": "/announcement-registry-api",
+                            "Config": {"Image": "repo/announcement:sha-live"},
+                            "State": {"Running": True, "Status": "running"},
+                            "NetworkSettings": {"Ports": {}},
+                        }
+                    ]
+                )
+            raise AssertionError(f"Unexpected command: {command}")
+
+        with (
+            patch.object(app_host, "BASE_DIR", self.base_dir),
+            patch.object(app_host, "SERVICE_ENV_DIR", self.service_env_dir),
+            patch.object(app_host, "RECONCILE_LOCK_PATH", self.reconcile_lock_path),
+            patch.object(app_host, "run_output", side_effect=run_output_side_effect),
+        ):
+            exit_code = app_host.assert_app_release_ready()
+
+        self.assertEqual(exit_code, 0)
+        updated_state = json.loads(current_state_path.read_text(encoding="utf8"))
+        self.assertFalse(updated_state["repairRequired"])
+        self.assertNotIn("lastDetectedDrift", updated_state)
+
     def test_rollback_release_replays_reverse_wave_plan(self) -> None:
         commands: list[list[str]] = []
         writes: dict[str, str] = {}

@@ -986,7 +986,15 @@ def _detect_service_runtime_drift(service_name: str, service_state: dict[str, ob
             reasons.append("image_mismatch")
             severity = "medium"
 
-        if actual.get("hostPort") != expected["hostPort"] or actual.get("containerPort") != expected["containerPort"]:
+        if expected["hostPort"] is not None:
+            port_binding_matches = (
+                actual.get("hostPort") == expected["hostPort"]
+                and actual.get("containerPort") == expected["containerPort"]
+            )
+        else:
+            port_binding_matches = actual.get("hostPort") is None
+
+        if not port_binding_matches:
             reasons.append("port_binding_mismatch")
             severity = "medium"
 
