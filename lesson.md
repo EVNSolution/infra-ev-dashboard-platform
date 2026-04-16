@@ -2,6 +2,24 @@ Source: https://lessons.md
 
 # infra-ev-dashboard-platform Lessons.md
 
+Warm-host partial update is now a proven production path, but only after three separate non-stack issues were closed. The successful proof was workflow run `24508317262`, which updated `service-announcement-registry` from `dac56b6-slice6-20260414-150946` to `partial-rehearsal-20260416-202446` on the live prod app host without replacing the instance. The prod app-host launch time stayed at `2026-04-16T10:56:15+00:00`, and the service health checks stayed green after reconcile. Before that proof passed, the lane failed for reasons that CloudFormation and image tags could not reveal:
+
+- the GitHub infra role could read SSM parameters but could not issue `ssm:SendCommand` / `ssm:GetCommandInvocation`, so `warm-host-partial` died before the first reconcile wave
+- the runtime CLI worked under the systemd reconcile unit but failed under direct SSM invocation because `PYTHONPATH=/opt/ev-dashboard/bootstrap` was missing
+- runtime drift detection treated every internal backend as broken because it compared `containerPort=8000` from the saved spec against `docker inspect`, which reports no published `containerPort` when the service does not bind a host port
+
+Lesson: for this repo, "partial deploy works" means more than manifest parsing. It requires:
+
+- runner-side SSM command permission
+- direct CLI calls that recreate the service-unit Python path
+- drift rules that distinguish internal-only services from public host-port services
+
+Once those three conditions were true, the lane produced the intended state files on the host:
+
+- `current-state.json` updated to the new image URI
+- `releases/<releaseId>.json` recorded `status=succeeded`
+- rollback plan stayed available with the previous runtime spec
+
 ## Use Plain Deploy Terms
 
 In this repo, keep the machine values but explain them in plain language:
@@ -321,3 +339,63 @@ Periodic full reconcile is the wrong app-host steady state. The first `m6i.2xlar
 - keep `reconcile-app` as a boot/deploy oneshot
 - do not run a periodic timer that tears down the full fleet on a live host
 - rely on `runtimeFingerprint` plus `userDataCausesReplacement` to pick up manifest/image changes through host replacement instead of in-place churn
+
+App-host sizing for the EC2 lane has to be recorded with both memory and CPU credit evidence, not just "did the host eventually go green". The latest observations are:
+
+- `t3.small` is still only an honest `bootstrap-proof` default
+  - before worker tuning it reached the `support-surface` edge with roughly `1561 MiB used / 178 MiB available`
+  - after forcing backend `GUNICORN_WORKERS=1`, memory improved enough to keep the same host shape alive deeper into the cumulative lane, but `support-surface` and later groups still drove `CPUCreditBalance` to `0` and collapsed the public edge into `502`
+  - lesson: for `t3.small`, the hard limit is no longer just RAM; it is RAM plus t-family CPU-credit exhaustion during extended bootstrap
+- `t3.large` is the current minimum burstable app host that has actually proven the 17-service prod-like shape
+  - successful fresh create used: `core-entry + people-and-assets + dispatch-inputs + dispatch-read-models + settlement`
+  - worker override stayed at `GUNICORN_WORKERS=1`
+  - post-smoke host snapshot was roughly `1602 MiB used / 5921 MiB available`
+  - container memory settled mostly around `57-66 MiB` per backend service
+  - deploy/smoke CPU still peaked high enough that it should be treated as a "works, but still burst-based" host rather than a generous long-term ceiling
+  - a later prod update widened the same host class to `full-minus-listener`
+    - added `support-surface + terminal-registry + telemetry-hub + telemetry-dead-letter`
+    - kept `service-telemetry-listener desired=0`
+    - post-smoke host snapshot was roughly `2188 MiB used / 5334 MiB available`
+    - CloudWatch for the successful create-and-smoke window still showed burst behavior: CPU average about `49.2%`, busiest 5-minute bucket average about `91.2%`, `CPUCreditBalance=0`, `CPUSurplusCreditBalance≈3.42`
+  - lesson: `t3.large` is good enough for the current full-minus-listener proof, but it is still a burst-based host and should not be described as comfortable headroom
+- `t3.medium` has now been proven for the current `full-minus-listener` shape
+  - successful prod run: `24508999204`
+  - scope matched:
+    - `core-entry`
+    - `people-and-assets`
+    - `dispatch-inputs`
+    - `dispatch-read-models`
+    - `settlement`
+    - `support-surface`
+    - `terminal-registry`
+    - `telemetry-hub`
+    - `telemetry-dead-letter`
+  - `service-telemetry-listener` still stayed `desired=0`
+  - create-and-smoke window still burst hard:
+    - CPU average about `66.5%`
+    - peak bucket maximum about `87.8%`
+    - `CPUCreditBalance=0`
+    - `CPUSurplusCreditBalance≈1.85`
+  - post-smoke app-host snapshot after reconcile settled was roughly `2096 MiB used / 1458 MiB available`
+  - a one-second steady-state sample then showed about `98.51%` idle with load around `0.70 / 1.12 / 0.57`
+  - lesson: `t3.medium` is now an honest `full-minus-listener` proof host, but only as a tight burstable minimum; keep both the hot bootstrap bucket and the quiet steady-state sample in the sizing record
+
+Backend worker count is now part of sizing, not just app tuning. Dropping Python backend services from `GUNICORN_WORKERS=2` to `1` was the first change that moved the needle across the whole fleet:
+
+- dev cumulative measurements fell from the old `75-82 MiB` range per backend service down toward the low-50 MiB range
+- the fresh prod-like 17-service proof on `t3.large` settled mostly in the `57-66 MiB` range per backend service
+- lesson: for verification lanes, reduce workers before assuming the fleet needs a larger host; for production lanes, document the worker override explicitly so sizing discussions do not mix old `worker=2` numbers with new `worker=1` runs
+
+CloudFormation-managed data hosts do not tolerate out-of-band termination. The first `t3.large` prod-like rerun after the gateway fix still failed even though the app host had enough memory, because the stack's data-host resource had already been manually terminated. CloudFormation then hit `UPDATE_ROLLBACK_FAILED` trying to stop a terminated instance. For this repo:
+
+- if a managed app/data host is manually terminated, assume the next stack update can wedge
+- the clean recovery is to delete the stack and recreate it, not to keep patching over the broken logical resource
+- lesson: "protect data" means preserving the EBS-backed data path, not keeping a dead CloudFormation instance resource around
+
+Strict full is still blocked by telemetry-listener truth, not by a generic subnet rule. The successful `t3.large` widen-proof showed that terminal, telemetry hub, and telemetry dead-letter all work on the current default-VPC public-subnet lane. The only missing runtime piece is `service-telemetry-listener`, which still requires:
+
+- a real `TELEMETRY_LISTENER_MQTT_HOST`
+- confirmed broker credentials
+- confirmed broker reachability from the current lane
+
+Lesson: do not say "full needs new subnets" until the real broker proves that the current lane cannot reach it.
