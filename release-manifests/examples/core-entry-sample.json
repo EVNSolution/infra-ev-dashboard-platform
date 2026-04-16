@@ -1,0 +1,14 @@
+{
+  "release_id": "dev-core-entry-sample",
+  "services": {
+    "front-web-console": {
+      "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front"
+    },
+    "service-account-access": {
+      "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account"
+    },
+    "service-organization-registry": {
+      "image_uri": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:sha-organization"
+    }
+  }
+}
