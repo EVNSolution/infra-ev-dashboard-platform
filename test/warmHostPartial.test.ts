@@ -115,7 +115,7 @@ describe('warm host partial deploy helpers', () => {
   test('derives stack and app host names from the deploy environment', () => {
     expect(buildEc2RuntimeStackName('dev')).toBe('EvDashboardPlatformDevStack');
     expect(buildEc2RuntimeStackName('stage')).toBe('EvDashboardPlatformStageStack');
-    expect(buildEc2RuntimeStackName('prod')).toBe('EvDashboardPlatformProdStack');
+    expect(buildEc2RuntimeStackName('prod')).toBe('EvDashboardPlatformStack');
     expect(buildAppHostInstanceName('dev')).toBe('EvDashboardPlatformDevStack-app-host');
   });
 });

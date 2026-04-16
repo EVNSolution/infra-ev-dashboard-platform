@@ -20,7 +20,7 @@ export function buildEc2RuntimeStackName(environment: string): string {
   if (environment === 'stage') {
     return 'EvDashboardPlatformStageStack';
   }
-  return 'EvDashboardPlatformProdStack';
+  return 'EvDashboardPlatformStack';
 }
 
 export function buildAppHostInstanceName(environment: string): string {

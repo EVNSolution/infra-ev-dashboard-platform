@@ -593,7 +593,7 @@ function buildEc2RuntimeStackName(environment: string): string {
     return 'EvDashboardPlatformStageStack';
   }
 
-  return 'EvDashboardPlatformProdStack';
+  return 'EvDashboardPlatformStack';
 }
 
 function resolvePreflightRepoRoot(env: NodeJS.ProcessEnv): string {
