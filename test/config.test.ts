@@ -1,6 +1,68 @@
 import { buildPlatformConfigFromEnv } from '../lib/config';
 
 describe('buildPlatformConfigFromEnv', () => {
+  test('parses deploy environment explicitly when provided', () => {
+    const config = buildPlatformConfigFromEnv({
+      DEPLOY_ENVIRONMENT: 'dev',
+      RUNTIME_MODE: 'ec2',
+      AWS_REGION: 'ap-northeast-2',
+      HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+      HOSTED_ZONE_NAME: 'ev-dashboard.com',
+      APEX_DOMAIN: 'candidate.ev-dashboard.com',
+      API_DOMAIN: 'api.candidate.ev-dashboard.com',
+      VPC_ID: 'vpc-015c89247f96e9221',
+      PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+      APP_HOST_SUBNET_ID: 'subnet-aaa',
+      DATA_HOST_SUBNET_ID: 'subnet-bbb',
+      APP_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2a',
+      DATA_HOST_SUBNET_AVAILABILITY_ZONE: 'ap-northeast-2c',
+      FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+      GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+      ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
+      ORGANIZATION_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:test',
+      DRIVER_PROFILE_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test',
+      PERSONNEL_DOCUMENT_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
+      VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
+      DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+      DISPATCH_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+      DELIVERY_RECORD_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+      ATTENDANCE_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test',
+      DISPATCH_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:test',
+      DRIVER_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
+      VEHICLE_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+      SETTLEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+      SETTLEMENT_PAYROLL_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+      SETTLEMENT_OPS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+      REGION_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+      REGION_ANALYTICS_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+      ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+      SUPPORT_REGISTRY_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+      NOTIFICATION_HUB_IMAGE_URI:
+        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test',
+      FRONT_DESIRED_COUNT: '1',
+      GATEWAY_DESIRED_COUNT: '1',
+      ACCOUNT_ACCESS_DESIRED_COUNT: '1',
+      ORGANIZATION_DESIRED_COUNT: '1'
+    });
+
+    expect(config.deployEnvironment).toBe('dev');
+  });
+
   test('treats empty optional environment values as defaults', () => {
     const config = buildPlatformConfigFromEnv({
       AWS_REGION: 'ap-northeast-2',

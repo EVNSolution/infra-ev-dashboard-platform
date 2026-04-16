@@ -4,152 +4,183 @@ import { Match, Template } from 'aws-cdk-lib/assertions';
 import { buildPlatformConfig } from '../lib/config';
 import { EvDashboardPlatformStack } from '../lib/ev-dashboard-platform-stack';
 
+function baseEc2RuntimeInput() {
+  return {
+    runtimeMode: 'ec2' as const,
+    region: 'ap-northeast-2',
+    hostedZoneId: 'Z0258898ULH367BASCGC',
+    hostedZoneName: 'ev-dashboard.com',
+    apexDomain: 'ev-dashboard.com',
+    apiDomain: 'api.ev-dashboard.com',
+    cockpitHosts: ['cheonha.ev-dashboard.com'],
+    vpcId: 'vpc-1234567890abcdef0',
+    publicSubnetIds: ['subnet-aaa', 'subnet-bbb'],
+    appHostSubnetId: 'subnet-aaa',
+    dataHostSubnetId: 'subnet-bbb',
+    appHostSubnetAvailabilityZone: 'ap-northeast-2a',
+    dataHostSubnetAvailabilityZone: 'ap-northeast-2c',
+    frontImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
+    gatewayImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
+    accountAccessImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account',
+    organizationImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:sha-organization',
+    driverProfileImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:sha-driver',
+    personnelDocumentImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:sha-document',
+    vehicleAssetImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:sha-vehicle',
+    driverVehicleAssignmentImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:sha-assignment',
+    dispatchRegistryImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:sha-dispatch',
+    deliveryRecordImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:sha-delivery',
+    attendanceRegistryImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:sha-attendance',
+    dispatchOpsImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:sha-dispatch-ops',
+    driverOpsImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:sha-driver-ops',
+    vehicleOpsImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:sha-vehicle-ops',
+    settlementRegistryImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:sha-settlement-registry',
+    settlementPayrollImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:sha-settlement-payroll',
+    settlementOpsImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:sha-settlement-ops',
+    regionRegistryImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:sha-region-registry',
+    regionAnalyticsImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:sha-region-analytics',
+    announcementRegistryImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:sha-announcement',
+    supportRegistryImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:sha-support',
+    notificationHubImageUri:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:sha-notification',
+    frontDesiredCount: 1,
+    gatewayDesiredCount: 1,
+    accountAccessDesiredCount: 1,
+    organizationDesiredCount: 1,
+    driverProfileDesiredCount: 1,
+    personnelDocumentDesiredCount: 1,
+    vehicleAssetDesiredCount: 1,
+    driverVehicleAssignmentDesiredCount: 1,
+    dispatchRegistryDesiredCount: 1,
+    deliveryRecordDesiredCount: 1,
+    attendanceRegistryDesiredCount: 1,
+    dispatchOpsDesiredCount: 1,
+    driverOpsDesiredCount: 1,
+    vehicleOpsDesiredCount: 1,
+    settlementRegistryDesiredCount: 1,
+    settlementPayrollDesiredCount: 1,
+    settlementOpsDesiredCount: 1,
+    regionRegistryDesiredCount: 1,
+    regionAnalyticsDesiredCount: 1,
+    announcementRegistryDesiredCount: 1,
+    supportRegistryDesiredCount: 1,
+    notificationHubDesiredCount: 1,
+    frontCpu: 256,
+    frontMemoryMiB: 512,
+    gatewayCpu: 256,
+    gatewayMemoryMiB: 512,
+    accountAccessCpu: 256,
+    accountAccessMemoryMiB: 512,
+    organizationCpu: 256,
+    organizationMemoryMiB: 512,
+    driverProfileCpu: 256,
+    driverProfileMemoryMiB: 512,
+    personnelDocumentCpu: 256,
+    personnelDocumentMemoryMiB: 512,
+    vehicleAssetCpu: 256,
+    vehicleAssetMemoryMiB: 512,
+    driverVehicleAssignmentCpu: 256,
+    driverVehicleAssignmentMemoryMiB: 512,
+    dispatchRegistryCpu: 256,
+    dispatchRegistryMemoryMiB: 512,
+    deliveryRecordCpu: 256,
+    deliveryRecordMemoryMiB: 512,
+    attendanceRegistryCpu: 256,
+    attendanceRegistryMemoryMiB: 512,
+    dispatchOpsCpu: 256,
+    dispatchOpsMemoryMiB: 512,
+    driverOpsCpu: 256,
+    driverOpsMemoryMiB: 512,
+    vehicleOpsCpu: 256,
+    vehicleOpsMemoryMiB: 512,
+    settlementRegistryCpu: 256,
+    settlementRegistryMemoryMiB: 512,
+    settlementPayrollCpu: 256,
+    settlementPayrollMemoryMiB: 512,
+    settlementOpsCpu: 256,
+    settlementOpsMemoryMiB: 512,
+    regionRegistryCpu: 256,
+    regionRegistryMemoryMiB: 512,
+    regionAnalyticsCpu: 256,
+    regionAnalyticsMemoryMiB: 512,
+    announcementRegistryCpu: 256,
+    announcementRegistryMemoryMiB: 512,
+    supportRegistryCpu: 256,
+    supportRegistryMemoryMiB: 512,
+    notificationHubCpu: 256,
+    notificationHubMemoryMiB: 512,
+    frontHealthCheckPath: '/',
+    gatewayHealthCheckPath: '/healthz',
+    accountAccessHealthCheckPath: '/healthz',
+    organizationHealthCheckPath: '/health/',
+    driverProfileHealthCheckPath: '/health/',
+    personnelDocumentHealthCheckPath: '/health/',
+    vehicleAssetHealthCheckPath: '/health/',
+    driverVehicleAssignmentHealthCheckPath: '/health/',
+    dispatchRegistryHealthCheckPath: '/health/',
+    deliveryRecordHealthCheckPath: '/health/',
+    attendanceRegistryHealthCheckPath: '/health/',
+    dispatchOpsHealthCheckPath: '/health/',
+    driverOpsHealthCheckPath: '/health/',
+    vehicleOpsHealthCheckPath: '/health/',
+    settlementRegistryHealthCheckPath: '/health/',
+    settlementPayrollHealthCheckPath: '/health/',
+    settlementOpsHealthCheckPath: '/health/',
+    regionRegistryHealthCheckPath: '/health/',
+    regionAnalyticsHealthCheckPath: '/health/',
+    announcementRegistryHealthCheckPath: '/health/',
+    supportRegistryHealthCheckPath: '/health/',
+    notificationHubHealthCheckPath: '/health/',
+    settlementOpsBaseUrl: 'https://ev-dashboard.com/api/settlement-ops',
+    telemetryHubBaseUrl: 'https://api.ev-dashboard.com/api/telemetry',
+    terminalRegistryBaseUrl: 'https://api.ev-dashboard.com/api/terminals'
+  };
+}
+
+function extractAppServiceManifestEnvironment(
+  template: Template,
+  containerName: string
+): Record<string, string> | undefined {
+  const rendered = template.toJSON();
+  const secrets = Object.values(rendered.Resources).filter(
+    (resource: any) =>
+      resource.Type === 'AWS::SecretsManager::Secret' &&
+      resource.Properties?.Description === 'Resolved runtime manifest for ev-dashboard EC2 app host services'
+  ) as Array<{ Properties: { SecretString: { 'Fn::Join': [string, Array<string | Record<string, unknown>>] } } }>;
+
+  const appManifest = secrets[0];
+  const secretStringParts = appManifest.Properties.SecretString['Fn::Join'][1];
+  const serializedManifest = secretStringParts
+    .map((part) => (typeof part === 'string' ? part : '__TOKEN__'))
+    .join('');
+  const manifest = JSON.parse(serializedManifest) as Array<{
+    containerName: string;
+    environment?: Record<string, string>;
+  }>;
+
+  return manifest.find((service) => service.containerName === containerName)?.environment;
+}
+
 describe('EvDashboardPlatformStack', () => {
   test('synthesizes the ev-dashboard canonical runtime as EC2 app and data hosts', () => {
     const app = new App();
     const config = buildPlatformConfig({
-      runtimeMode: 'ec2',
-      region: 'ap-northeast-2',
-      hostedZoneId: 'Z0258898ULH367BASCGC',
-      hostedZoneName: 'ev-dashboard.com',
-      apexDomain: 'ev-dashboard.com',
-      apiDomain: 'api.ev-dashboard.com',
-      cockpitHosts: ['cheonha.ev-dashboard.com'],
-      vpcId: 'vpc-1234567890abcdef0',
-      publicSubnetIds: ['subnet-aaa', 'subnet-bbb'],
-      appHostSubnetId: 'subnet-aaa',
-      dataHostSubnetId: 'subnet-bbb',
-      appHostSubnetAvailabilityZone: 'ap-northeast-2a',
-      dataHostSubnetAvailabilityZone: 'ap-northeast-2c',
-      frontImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:sha-front',
-      gatewayImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:sha-gateway',
-      accountAccessImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account',
-      organizationImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:sha-organization',
-      driverProfileImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:sha-driver',
-      personnelDocumentImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:sha-document',
-      vehicleAssetImageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:sha-vehicle',
-      driverVehicleAssignmentImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:sha-assignment',
-      dispatchRegistryImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:sha-dispatch',
-      deliveryRecordImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:sha-delivery',
-      attendanceRegistryImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:sha-attendance',
-      dispatchOpsImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:sha-dispatch-ops',
-      driverOpsImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:sha-driver-ops',
-      vehicleOpsImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:sha-vehicle-ops',
-      settlementRegistryImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:sha-settlement-registry',
-      settlementPayrollImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:sha-settlement-payroll',
-      settlementOpsImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:sha-settlement-ops',
-      regionRegistryImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:sha-region-registry',
-      regionAnalyticsImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:sha-region-analytics',
-      announcementRegistryImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:sha-announcement',
-      supportRegistryImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:sha-support',
-      notificationHubImageUri:
-        '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:sha-notification',
-      frontDesiredCount: 1,
-      gatewayDesiredCount: 1,
-      accountAccessDesiredCount: 1,
-      organizationDesiredCount: 1,
-      driverProfileDesiredCount: 1,
-      personnelDocumentDesiredCount: 1,
-      vehicleAssetDesiredCount: 1,
-      driverVehicleAssignmentDesiredCount: 1,
-      dispatchRegistryDesiredCount: 1,
-      deliveryRecordDesiredCount: 1,
-      attendanceRegistryDesiredCount: 1,
-      dispatchOpsDesiredCount: 1,
-      driverOpsDesiredCount: 1,
-      vehicleOpsDesiredCount: 1,
-      settlementRegistryDesiredCount: 1,
-      settlementPayrollDesiredCount: 1,
-      settlementOpsDesiredCount: 1,
-      regionRegistryDesiredCount: 1,
-      regionAnalyticsDesiredCount: 1,
-      announcementRegistryDesiredCount: 1,
-      supportRegistryDesiredCount: 1,
-      notificationHubDesiredCount: 1,
-      frontCpu: 256,
-      frontMemoryMiB: 512,
-      gatewayCpu: 256,
-      gatewayMemoryMiB: 512,
-      accountAccessCpu: 256,
-      accountAccessMemoryMiB: 512,
-      organizationCpu: 256,
-      organizationMemoryMiB: 512,
-      driverProfileCpu: 256,
-      driverProfileMemoryMiB: 512,
-      personnelDocumentCpu: 256,
-      personnelDocumentMemoryMiB: 512,
-      vehicleAssetCpu: 256,
-      vehicleAssetMemoryMiB: 512,
-      driverVehicleAssignmentCpu: 256,
-      driverVehicleAssignmentMemoryMiB: 512,
-      dispatchRegistryCpu: 256,
-      dispatchRegistryMemoryMiB: 512,
-      deliveryRecordCpu: 256,
-      deliveryRecordMemoryMiB: 512,
-      attendanceRegistryCpu: 256,
-      attendanceRegistryMemoryMiB: 512,
-      dispatchOpsCpu: 256,
-      dispatchOpsMemoryMiB: 512,
-      driverOpsCpu: 256,
-      driverOpsMemoryMiB: 512,
-      vehicleOpsCpu: 256,
-      vehicleOpsMemoryMiB: 512,
-      settlementRegistryCpu: 256,
-      settlementRegistryMemoryMiB: 512,
-      settlementPayrollCpu: 256,
-      settlementPayrollMemoryMiB: 512,
-      settlementOpsCpu: 256,
-      settlementOpsMemoryMiB: 512,
-      regionRegistryCpu: 256,
-      regionRegistryMemoryMiB: 512,
-      regionAnalyticsCpu: 256,
-      regionAnalyticsMemoryMiB: 512,
-      announcementRegistryCpu: 256,
-      announcementRegistryMemoryMiB: 512,
-      supportRegistryCpu: 256,
-      supportRegistryMemoryMiB: 512,
-      notificationHubCpu: 256,
-      notificationHubMemoryMiB: 512,
-      frontHealthCheckPath: '/',
-      gatewayHealthCheckPath: '/healthz',
-      accountAccessHealthCheckPath: '/healthz',
-      organizationHealthCheckPath: '/health/',
-      driverProfileHealthCheckPath: '/health/',
-      personnelDocumentHealthCheckPath: '/health/',
-      vehicleAssetHealthCheckPath: '/health/',
-      driverVehicleAssignmentHealthCheckPath: '/health/',
-      dispatchRegistryHealthCheckPath: '/health/',
-      deliveryRecordHealthCheckPath: '/health/',
-      attendanceRegistryHealthCheckPath: '/health/',
-      dispatchOpsHealthCheckPath: '/health/',
-      driverOpsHealthCheckPath: '/health/',
-      vehicleOpsHealthCheckPath: '/health/',
-      settlementRegistryHealthCheckPath: '/health/',
-      settlementPayrollHealthCheckPath: '/health/',
-      settlementOpsHealthCheckPath: '/health/',
-      regionRegistryHealthCheckPath: '/health/',
-      regionAnalyticsHealthCheckPath: '/health/',
-      announcementRegistryHealthCheckPath: '/health/',
-      supportRegistryHealthCheckPath: '/health/',
-      notificationHubHealthCheckPath: '/health/',
-      settlementOpsBaseUrl: 'https://ev-dashboard.com/api/settlement-ops',
-      telemetryHubBaseUrl: 'https://api.ev-dashboard.com/api/telemetry',
-      terminalRegistryBaseUrl: 'https://api.ev-dashboard.com/api/terminals'
+      ...baseEc2RuntimeInput(),
+      deployEnvironment: 'prod'
     });
 
     const stack = new EvDashboardPlatformStack(app, 'TestStack', { config });
@@ -255,5 +286,54 @@ describe('EvDashboardPlatformStack', () => {
         })
       ])
     });
+  });
+
+  test('injects GUNICORN_WORKERS=1 into backend service manifests for dev only', () => {
+    const devApp = new App();
+    const devConfig = buildPlatformConfig({
+      ...baseEc2RuntimeInput(),
+      deployEnvironment: 'dev',
+      apexDomain: 'candidate.ev-dashboard.com',
+      apiDomain: 'api.candidate.ev-dashboard.com'
+    });
+    const devStack = new EvDashboardPlatformStack(devApp, 'DevTestStack', { config: devConfig });
+    const devTemplate = Template.fromStack(devStack);
+
+    expect(extractAppServiceManifestEnvironment(devTemplate, 'account-auth-api')).toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
+    expect(extractAppServiceManifestEnvironment(devTemplate, 'dispatch-ops-api')).toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
+    expect(extractAppServiceManifestEnvironment(devTemplate, 'edge-api-gateway')).not.toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
+  });
+
+  test('does not inject the dev Gunicorn override into prod backend service manifests', () => {
+    const prodApp = new App();
+    const prodConfig = buildPlatformConfig({
+      ...baseEc2RuntimeInput(),
+      deployEnvironment: 'prod'
+    });
+    const prodStack = new EvDashboardPlatformStack(prodApp, 'ProdTestStack', { config: prodConfig });
+    const prodTemplate = Template.fromStack(prodStack);
+
+    expect(extractAppServiceManifestEnvironment(prodTemplate, 'account-auth-api')).not.toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
+    expect(extractAppServiceManifestEnvironment(prodTemplate, 'dispatch-ops-api')).not.toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
   });
 });

@@ -1968,6 +1968,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     const browserAllowedHosts = (internalHost: string) => this.buildBrowserAllowedHosts(config, internalHost);
     const internalOnlyAllowedHosts = (internalHost: string) =>
       this.uniqueValues([internalHost, 'localhost', '127.0.0.1']).join(',');
+    const withDevGunicornWorkers = (environment: Record<string, string> = {}): Record<string, string> =>
+      config.deployEnvironment === 'dev' ? { ...environment, GUNICORN_WORKERS: '1' } : environment;
     const databaseEnvironment = (databaseName: string, username: string) => ({
       POSTGRES_HOST: dataHost.instance.instancePrivateIp,
       POSTGRES_PORT: '5432',
@@ -1998,13 +2000,13 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerName: 'account-auth-api',
         enabled: config.accountAccessDesiredCount > 0,
         containerPort: 8000,
-        environment: {
+        environment: withDevGunicornWorkers({
           ...databaseEnvironment('account_auth', 'account_auth'),
           REDIS_URL: `redis://${dataHost.instance.instancePrivateIp}:6379/0`,
           ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
           DJANGO_ALLOWED_HOSTS: browserAllowedHosts('account-auth-api'),
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-        },
+        }),
         secretArns: {
           POSTGRES_PASSWORD: accountAccessSecrets.postgresSecret.secretArn,
           ...djangoSecretArns(accountAccessSecrets.djangoSecret)
@@ -2017,11 +2019,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.organizationDesiredCount > 0,
         containerPort: 8000,
         environment: organizationSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('organization_master', 'organization_master'),
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('organization-master-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: organizationSecrets
           ? {
               POSTGRES_PASSWORD: organizationSecrets.postgresSecret.secretArn,
@@ -2050,11 +2052,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.driverProfileDesiredCount > 0,
         containerPort: 8000,
         environment: driverProfileSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('driver_profile', 'driver_profile'),
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('driver-profile-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: driverProfileSecrets
           ? {
               POSTGRES_PASSWORD: driverProfileSecrets.postgresSecret.secretArn,
@@ -2069,11 +2071,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.vehicleAssetDesiredCount > 0,
         containerPort: 8000,
         environment: vehicleAssetSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('vehicle_asset', 'vehicle_asset'),
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('vehicle-asset-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: vehicleAssetSecrets
           ? {
               POSTGRES_PASSWORD: vehicleAssetSecrets.postgresSecret.secretArn,
@@ -2088,12 +2090,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.personnelDocumentDesiredCount > 0,
         containerPort: 8000,
         environment: personnelDocumentSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('personnel_document', 'personnel_document'),
               DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('personnel-document-registry-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: personnelDocumentSecrets
           ? {
               POSTGRES_PASSWORD: personnelDocumentSecrets.postgresSecret.secretArn,
@@ -2108,13 +2110,13 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.driverVehicleAssignmentDesiredCount > 0,
         containerPort: 8000,
         environment: driverVehicleAssignmentSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('driver_vehicle_assignment', 'driver_vehicle_assignment'),
               DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
               VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('driver-vehicle-assignment-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: driverVehicleAssignmentSecrets
           ? {
               POSTGRES_PASSWORD: driverVehicleAssignmentSecrets.postgresSecret.secretArn,
@@ -2129,11 +2131,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.attendanceRegistryDesiredCount > 0,
         containerPort: 8000,
         environment: attendanceRegistrySecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('attendance_registry', 'attendance_registry'),
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('attendance-registry-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: attendanceRegistrySecrets
           ? {
               POSTGRES_PASSWORD: attendanceRegistrySecrets.postgresSecret.secretArn,
@@ -2148,15 +2150,15 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.dispatchRegistryDesiredCount > 0,
         containerPort: 8000,
         environment: dispatchRegistrySecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('dispatch_registry', 'dispatch_registry'),
               VEHICLE_REGISTRY_BASE_URL: 'http://vehicle-asset-api:8000',
               DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
               DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
               ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('dispatch-registry-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: dispatchRegistrySecrets
           ? {
               POSTGRES_PASSWORD: dispatchRegistrySecrets.postgresSecret.secretArn,
@@ -2171,15 +2173,15 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.deliveryRecordDesiredCount > 0,
         containerPort: 8000,
         environment: deliveryRecordSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('delivery_record', 'delivery_record'),
               ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
               DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
               DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
               ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
               DJANGO_ALLOWED_HOSTS: internalOnlyAllowedHosts('delivery-record-api')
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: deliveryRecordSecrets
           ? {
               POSTGRES_PASSWORD: deliveryRecordSecrets.postgresSecret.secretArn,
@@ -2194,13 +2196,13 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.settlementRegistryDesiredCount > 0,
         containerPort: 8000,
         environment: settlementRegistrySecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('settlement_registry', 'settlement_registry'),
               ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('settlement-registry-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: settlementRegistrySecrets
           ? {
               POSTGRES_PASSWORD: settlementRegistrySecrets.postgresSecret.secretArn,
@@ -2215,7 +2217,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.settlementPayrollDesiredCount > 0,
         containerPort: 8000,
         environment: settlementPayrollSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('settlement_payroll', 'settlement_payroll'),
               SETTLEMENT_ORG_BASE_URL: 'http://organization-master-api:8000',
               SETTLEMENT_DRIVER_BASE_URL: 'http://driver-profile-api:8000',
@@ -2225,8 +2227,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
               ATTENDANCE_REGISTRY_BASE_URL: 'http://attendance-registry-api:8000',
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('settlement-payroll-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: settlementPayrollSecrets
           ? {
               POSTGRES_PASSWORD: settlementPayrollSecrets.postgresSecret.secretArn,
@@ -2241,12 +2243,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.regionRegistryDesiredCount > 0,
         containerPort: 8000,
         environment: regionRegistrySecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('region_registry', 'region_registry'),
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('region-registry-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: regionRegistrySecrets
           ? {
               POSTGRES_PASSWORD: regionRegistrySecrets.postgresSecret.secretArn,
@@ -2261,12 +2263,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.regionAnalyticsDesiredCount > 0,
         containerPort: 8000,
         environment: regionAnalyticsSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('region_analytics', 'region_analytics'),
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('region-analytics-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: regionAnalyticsSecrets
           ? {
               POSTGRES_PASSWORD: regionAnalyticsSecrets.postgresSecret.secretArn,
@@ -2281,12 +2283,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.announcementRegistryDesiredCount > 0,
         containerPort: 8000,
         environment: announcementRegistrySecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('announcement_registry', 'announcement_registry'),
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('announcement-registry-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: announcementRegistrySecrets
           ? {
               POSTGRES_PASSWORD: announcementRegistrySecrets.postgresSecret.secretArn,
@@ -2301,12 +2303,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.notificationHubDesiredCount > 0,
         containerPort: 8000,
         environment: notificationHubSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('notification_hub', 'notification_hub'),
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('notification-hub-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: notificationHubSecrets
           ? {
               POSTGRES_PASSWORD: notificationHubSecrets.postgresSecret.secretArn,
@@ -2321,13 +2323,13 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: config.supportRegistryDesiredCount > 0,
         containerPort: 8000,
         environment: supportRegistrySecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('support_registry', 'support_registry'),
               NOTIFICATION_HUB_BASE_URL: 'http://notification-hub-api:8000',
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('support-registry-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: supportRegistrySecrets
           ? {
               POSTGRES_PASSWORD: supportRegistrySecrets.postgresSecret.secretArn,
@@ -2342,13 +2344,13 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: (config.terminalRegistryDesiredCount ?? 0) > 0,
         containerPort: 8000,
         environment: terminalRegistrySecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('terminal_registry', 'terminal_registry'),
               VEHICLE_REGISTRY_BASE_URL: 'http://vehicle-asset-api:8000',
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('terminal-registry-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: terminalRegistrySecrets
           ? {
               POSTGRES_PASSWORD: terminalRegistrySecrets.postgresSecret.secretArn,
@@ -2363,12 +2365,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: (config.telemetryHubDesiredCount ?? 0) > 0,
         containerPort: 8000,
         environment: telemetryHubSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('telemetry_hub', 'telemetry_hub'),
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('telemetry-hub-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: telemetryHubSecrets
           ? {
               POSTGRES_PASSWORD: telemetryHubSecrets.postgresSecret.secretArn,
@@ -2384,12 +2386,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         enabled: (config.telemetryDeadLetterDesiredCount ?? 0) > 0,
         containerPort: 8000,
         environment: telemetryDeadLetterSecrets
-          ? {
+          ? withDevGunicornWorkers({
               ...databaseEnvironment('telemetry_dead_letter', 'telemetry_dead_letter'),
               DJANGO_ALLOWED_HOSTS: browserAllowedHosts('telemetry-dead-letter-api'),
               CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-            }
-          : {},
+            })
+          : withDevGunicornWorkers({}),
         secretArns: telemetryDeadLetterSecrets
           ? {
               POSTGRES_PASSWORD: telemetryDeadLetterSecrets.postgresSecret.secretArn,
@@ -2406,14 +2408,14 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerName: 'dispatch-ops-api',
         enabled: config.dispatchOpsDesiredCount > 0,
         containerPort: 8000,
-        environment: {
+        environment: withDevGunicornWorkers({
           DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
           DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
           VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
           DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
           DJANGO_ALLOWED_HOSTS: browserAllowedHosts('dispatch-ops-api'),
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-        },
+        }),
         secretArns: dispatchOpsSecrets ? djangoSecretArns(dispatchOpsSecrets.djangoSecret) : {}
       },
       {
@@ -2422,7 +2424,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerName: 'driver-ops-api',
         enabled: config.driverOpsDesiredCount > 0,
         containerPort: 8000,
-        environment: {
+        environment: withDevGunicornWorkers({
           ACCOUNT_AUTH_BASE_URL: 'http://account-auth-api:8000',
           DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
           ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
@@ -2430,7 +2432,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           PERSONNEL_DOCUMENT_BASE_URL: 'http://personnel-document-registry-api:8000',
           DJANGO_ALLOWED_HOSTS: browserAllowedHosts('driver-ops-api'),
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-        },
+        }),
         secretArns: driverOpsSecrets ? djangoSecretArns(driverOpsSecrets.djangoSecret) : {}
       },
       {
@@ -2439,7 +2441,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerName: 'vehicle-ops-api',
         enabled: config.vehicleOpsDesiredCount > 0,
         containerPort: 8000,
-        environment: {
+        environment: withDevGunicornWorkers({
           VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
           DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
           ORGANIZATION_MASTER_BASE_URL: 'http://organization-master-api:8000',
@@ -2447,7 +2449,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           TERMINAL_REGISTRY_BASE_URL: config.terminalRegistryBaseUrl,
           DJANGO_ALLOWED_HOSTS: browserAllowedHosts('vehicle-ops-api'),
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-        },
+        }),
         secretArns: vehicleOpsSecrets ? djangoSecretArns(vehicleOpsSecrets.djangoSecret) : {}
       },
       {
@@ -2456,13 +2458,13 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         containerName: 'settlement-ops-api',
         enabled: config.settlementOpsDesiredCount > 0,
         containerPort: 8000,
-        environment: {
+        environment: withDevGunicornWorkers({
           SETTLEMENT_PAYROLL_BASE_URL: 'http://settlement-payroll-api:8000',
           DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
           DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
           DJANGO_ALLOWED_HOSTS: browserAllowedHosts('settlement-ops-api'),
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
-        },
+        }),
         secretArns: settlementOpsSecrets ? djangoSecretArns(settlementOpsSecrets.djangoSecret) : {}
       },
       {

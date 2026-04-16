@@ -1,4 +1,5 @@
 export type PlatformConfigInput = {
+  deployEnvironment?: 'dev' | 'stage' | 'prod';
   runProfile?: 'full' | 'bootstrap-proof' | 'incremental-expand' | 'smoke-only' | 'warm-host-partial';
   runtimeMode?: 'ecs' | 'ec2';
   releaseManifestPath?: string;
@@ -163,6 +164,7 @@ export type PlatformConfigInput = {
 };
 
 export type PlatformConfig = PlatformConfigInput & {
+  deployEnvironment: 'dev' | 'stage' | 'prod';
   runProfile: 'full' | 'bootstrap-proof' | 'incremental-expand' | 'smoke-only' | 'warm-host-partial';
   runtimeMode: 'ecs' | 'ec2';
   cockpitHosts: string[];
@@ -180,6 +182,7 @@ export type PlatformConfig = PlatformConfigInput & {
 };
 
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
+  const deployEnvironment = input.deployEnvironment ?? 'prod';
   const runProfile = input.runProfile ?? 'full';
   const runtimeMode = input.runtimeMode ?? 'ecs';
   if (runProfile === 'warm-host-partial' && !input.releaseManifestPath) {
@@ -229,6 +232,7 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
 
   const config: PlatformConfig = {
     ...input,
+    deployEnvironment,
     runProfile,
     runtimeMode,
     cockpitHosts: normalizeHosts(input.cockpitHosts),
@@ -319,6 +323,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   const telemetryListenerMqttTopics = optionalList(env.TELEMETRY_LISTENER_MQTT_TOPICS) ?? ['telemetry/#'];
 
   return buildPlatformConfig({
+    deployEnvironment: toDeployEnvironment(env.DEPLOY_ENVIRONMENT),
     runProfile: toRunProfile(env.RUN_PROFILE),
     runtimeMode: toRuntimeMode(env.RUNTIME_MODE),
     releaseManifestPath: emptyToUndefined(env.RELEASE_MANIFEST_PATH),
@@ -591,6 +596,18 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       5
     )
   });
+}
+
+function toDeployEnvironment(value: string | undefined): 'dev' | 'stage' | 'prod' | undefined {
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+
+  if (value === 'dev' || value === 'stage' || value === 'prod') {
+    return value;
+  }
+
+  throw new Error(`Environment variable DEPLOY_ENVIRONMENT must be one of dev, stage, prod`);
 }
 
 function required(value: string | undefined, name: string): string {

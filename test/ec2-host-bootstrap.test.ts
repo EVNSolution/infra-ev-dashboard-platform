@@ -149,7 +149,7 @@ describe('EC2 host bootstrap renderers', () => {
 
   test('runtime manifest starts bootstrap-proof edge services before remaining business services', () => {
     const source = readFileSync(join(__dirname, '..', 'lib', 'ev-dashboard-platform-stack.ts'), 'utf8');
-    const manifestStart = source.indexOf('const appServices: AppHostRuntimeService[] = [');
+    const manifestStart = source.indexOf('const appServices = orderAppHostRuntimeServices([');
     const manifestEnd = source.indexOf('const appServiceManifest = new secretsmanager.Secret');
     const manifestSource = source.slice(manifestStart, manifestEnd);
 
