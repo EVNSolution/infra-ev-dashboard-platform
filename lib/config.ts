@@ -1,3 +1,6 @@
+import type { ReleaseManifestServiceName } from './releaseManifest';
+import { listServiceCatalogEntries } from './serviceCatalog';
+
 export type PlatformConfigInput = {
   deployEnvironment?: 'dev' | 'stage' | 'prod';
   backendGunicornWorkers?: number;
@@ -182,6 +185,14 @@ export type PlatformConfig = PlatformConfigInput & {
   dataVolumeSizeGiB: number;
 };
 
+export type CatalogBackedServiceSetting = {
+  imageUri?: string;
+  desiredCount: number;
+  cpu: number;
+  memoryMiB: number;
+  healthCheckPath?: string;
+};
+
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
   const deployEnvironment = input.deployEnvironment ?? 'prod';
   const runProfile = input.runProfile ?? 'full';
@@ -280,47 +291,11 @@ export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig 
 
 export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConfig {
   const serviceConnectNamespace = emptyToUndefined(env.SERVICE_CONNECT_NAMESPACE);
-  const frontHealthCheckPath = emptyToUndefined(env.FRONT_HEALTH_CHECK_PATH);
-  const gatewayHealthCheckPath = emptyToUndefined(env.GATEWAY_HEALTH_CHECK_PATH);
-  const accountAccessHealthCheckPath = emptyToUndefined(env.ACCOUNT_ACCESS_HEALTH_CHECK_PATH);
-  const organizationHealthCheckPath = emptyToUndefined(env.ORGANIZATION_HEALTH_CHECK_PATH);
-  const driverProfileHealthCheckPath = emptyToUndefined(env.DRIVER_PROFILE_HEALTH_CHECK_PATH);
-  const personnelDocumentHealthCheckPath = emptyToUndefined(env.PERSONNEL_DOCUMENT_HEALTH_CHECK_PATH);
-  const vehicleAssetHealthCheckPath = emptyToUndefined(env.VEHICLE_ASSET_HEALTH_CHECK_PATH);
-  const driverVehicleAssignmentHealthCheckPath = emptyToUndefined(env.DRIVER_VEHICLE_ASSIGNMENT_HEALTH_CHECK_PATH);
-  const dispatchRegistryHealthCheckPath = emptyToUndefined(env.DISPATCH_REGISTRY_HEALTH_CHECK_PATH);
-  const deliveryRecordHealthCheckPath = emptyToUndefined(env.DELIVERY_RECORD_HEALTH_CHECK_PATH);
-  const attendanceRegistryHealthCheckPath = emptyToUndefined(env.ATTENDANCE_REGISTRY_HEALTH_CHECK_PATH);
-  const dispatchOpsHealthCheckPath = emptyToUndefined(env.DISPATCH_OPS_HEALTH_CHECK_PATH);
-  const driverOpsHealthCheckPath = emptyToUndefined(env.DRIVER_OPS_HEALTH_CHECK_PATH);
-  const vehicleOpsHealthCheckPath = emptyToUndefined(env.VEHICLE_OPS_HEALTH_CHECK_PATH);
-  const settlementRegistryHealthCheckPath = emptyToUndefined(env.SETTLEMENT_REGISTRY_HEALTH_CHECK_PATH);
-  const settlementPayrollHealthCheckPath = emptyToUndefined(env.SETTLEMENT_PAYROLL_HEALTH_CHECK_PATH);
-  const settlementOpsHealthCheckPath = emptyToUndefined(env.SETTLEMENT_OPS_HEALTH_CHECK_PATH);
-  const regionRegistryHealthCheckPath = emptyToUndefined(env.REGION_REGISTRY_HEALTH_CHECK_PATH);
-  const regionAnalyticsHealthCheckPath = emptyToUndefined(env.REGION_ANALYTICS_HEALTH_CHECK_PATH);
-  const announcementRegistryHealthCheckPath = emptyToUndefined(env.ANNOUNCEMENT_REGISTRY_HEALTH_CHECK_PATH);
-  const supportRegistryHealthCheckPath = emptyToUndefined(env.SUPPORT_REGISTRY_HEALTH_CHECK_PATH);
-  const notificationHubHealthCheckPath = emptyToUndefined(env.NOTIFICATION_HUB_HEALTH_CHECK_PATH);
-  const terminalRegistryHealthCheckPath = emptyToUndefined(env.TERMINAL_REGISTRY_HEALTH_CHECK_PATH);
-  const telemetryHubHealthCheckPath = emptyToUndefined(env.TELEMETRY_HUB_HEALTH_CHECK_PATH);
-  const telemetryDeadLetterHealthCheckPath = emptyToUndefined(env.TELEMETRY_DEAD_LETTER_HEALTH_CHECK_PATH);
-  const terminalRegistryDesiredCount = toNumber(
-    env.TERMINAL_REGISTRY_DESIRED_COUNT,
-    'TERMINAL_REGISTRY_DESIRED_COUNT',
-    0
-  );
-  const telemetryHubDesiredCount = toNumber(env.TELEMETRY_HUB_DESIRED_COUNT, 'TELEMETRY_HUB_DESIRED_COUNT', 0);
-  const telemetryDeadLetterDesiredCount = toNumber(
-    env.TELEMETRY_DEAD_LETTER_DESIRED_COUNT,
-    'TELEMETRY_DEAD_LETTER_DESIRED_COUNT',
-    0
-  );
-  const telemetryListenerDesiredCount = toNumber(
-    env.TELEMETRY_LISTENER_DESIRED_COUNT,
-    'TELEMETRY_LISTENER_DESIRED_COUNT',
-    0
-  );
+  const serviceSettings = buildCatalogBackedServiceSettings(env);
+  const terminalRegistryDesiredCount = serviceSettings['service-terminal-registry'].desiredCount;
+  const telemetryHubDesiredCount = serviceSettings['service-telemetry-hub'].desiredCount;
+  const telemetryDeadLetterDesiredCount = serviceSettings['service-telemetry-dead-letter'].desiredCount;
+  const telemetryListenerDesiredCount = serviceSettings['service-telemetry-listener'].desiredCount;
   const telemetryListenerMqttTopics = optionalList(env.TELEMETRY_LISTENER_MQTT_TOPICS) ?? ['telemetry/#'];
 
   return buildPlatformConfig({
@@ -354,225 +329,135 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
     appHostVolumeSizeGiB: toNumber(env.APP_HOST_VOLUME_SIZE_GIB, 'APP_HOST_VOLUME_SIZE_GIB', 32),
     dataHostInstanceType: emptyToUndefined(env.DATA_HOST_INSTANCE_TYPE),
     dataVolumeSizeGiB: toNumber(env.DATA_VOLUME_SIZE_GIB, 'DATA_VOLUME_SIZE_GIB', 100),
-    frontImageUri: required(env.FRONT_IMAGE_URI, 'FRONT_IMAGE_URI'),
-    gatewayImageUri: required(env.GATEWAY_IMAGE_URI, 'GATEWAY_IMAGE_URI'),
-    accountAccessImageUri: required(env.ACCOUNT_ACCESS_IMAGE_URI, 'ACCOUNT_ACCESS_IMAGE_URI'),
-    organizationImageUri: required(env.ORGANIZATION_IMAGE_URI, 'ORGANIZATION_IMAGE_URI'),
-    driverProfileImageUri: required(env.DRIVER_PROFILE_IMAGE_URI, 'DRIVER_PROFILE_IMAGE_URI'),
-    personnelDocumentImageUri: required(env.PERSONNEL_DOCUMENT_IMAGE_URI, 'PERSONNEL_DOCUMENT_IMAGE_URI'),
-    vehicleAssetImageUri: required(env.VEHICLE_ASSET_IMAGE_URI, 'VEHICLE_ASSET_IMAGE_URI'),
-    driverVehicleAssignmentImageUri: required(
-      env.DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI,
-      'DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI'
-    ),
-    dispatchRegistryImageUri: required(env.DISPATCH_REGISTRY_IMAGE_URI, 'DISPATCH_REGISTRY_IMAGE_URI'),
-    deliveryRecordImageUri: required(env.DELIVERY_RECORD_IMAGE_URI, 'DELIVERY_RECORD_IMAGE_URI'),
-    attendanceRegistryImageUri: required(env.ATTENDANCE_REGISTRY_IMAGE_URI, 'ATTENDANCE_REGISTRY_IMAGE_URI'),
-    dispatchOpsImageUri: required(env.DISPATCH_OPS_IMAGE_URI, 'DISPATCH_OPS_IMAGE_URI'),
-    driverOpsImageUri: required(env.DRIVER_OPS_IMAGE_URI, 'DRIVER_OPS_IMAGE_URI'),
-    vehicleOpsImageUri: required(env.VEHICLE_OPS_IMAGE_URI, 'VEHICLE_OPS_IMAGE_URI'),
-    settlementRegistryImageUri: required(env.SETTLEMENT_REGISTRY_IMAGE_URI, 'SETTLEMENT_REGISTRY_IMAGE_URI'),
-    settlementPayrollImageUri: required(env.SETTLEMENT_PAYROLL_IMAGE_URI, 'SETTLEMENT_PAYROLL_IMAGE_URI'),
-    settlementOpsImageUri: required(env.SETTLEMENT_OPS_IMAGE_URI, 'SETTLEMENT_OPS_IMAGE_URI'),
-    regionRegistryImageUri: required(env.REGION_REGISTRY_IMAGE_URI, 'REGION_REGISTRY_IMAGE_URI'),
-    regionAnalyticsImageUri: required(env.REGION_ANALYTICS_IMAGE_URI, 'REGION_ANALYTICS_IMAGE_URI'),
-    announcementRegistryImageUri: required(
-      env.ANNOUNCEMENT_REGISTRY_IMAGE_URI,
-      'ANNOUNCEMENT_REGISTRY_IMAGE_URI'
-    ),
-    supportRegistryImageUri: required(env.SUPPORT_REGISTRY_IMAGE_URI, 'SUPPORT_REGISTRY_IMAGE_URI'),
-    notificationHubImageUri: required(env.NOTIFICATION_HUB_IMAGE_URI, 'NOTIFICATION_HUB_IMAGE_URI'),
-    terminalRegistryImageUri: requiredWhenEnabled(
-      env.TERMINAL_REGISTRY_IMAGE_URI,
-      'TERMINAL_REGISTRY_IMAGE_URI',
-      terminalRegistryDesiredCount
-    ),
-    telemetryHubImageUri: requiredWhenEnabled(
-      env.TELEMETRY_HUB_IMAGE_URI,
-      'TELEMETRY_HUB_IMAGE_URI',
-      telemetryHubDesiredCount
-    ),
-    telemetryDeadLetterImageUri: requiredWhenEnabled(
-      env.TELEMETRY_DEAD_LETTER_IMAGE_URI,
-      'TELEMETRY_DEAD_LETTER_IMAGE_URI',
-      telemetryDeadLetterDesiredCount
-    ),
-    telemetryListenerImageUri: requiredWhenEnabled(
-      env.TELEMETRY_LISTENER_IMAGE_URI,
-      'TELEMETRY_LISTENER_IMAGE_URI',
-      telemetryListenerDesiredCount
-    ),
-    frontDesiredCount: toNumber(env.FRONT_DESIRED_COUNT, 'FRONT_DESIRED_COUNT', 1),
-    gatewayDesiredCount: toNumber(env.GATEWAY_DESIRED_COUNT, 'GATEWAY_DESIRED_COUNT', 1),
-    accountAccessDesiredCount: toNumber(env.ACCOUNT_ACCESS_DESIRED_COUNT, 'ACCOUNT_ACCESS_DESIRED_COUNT', 1),
-    organizationDesiredCount: toNumber(env.ORGANIZATION_DESIRED_COUNT, 'ORGANIZATION_DESIRED_COUNT', 0),
-    driverProfileDesiredCount: toNumber(env.DRIVER_PROFILE_DESIRED_COUNT, 'DRIVER_PROFILE_DESIRED_COUNT', 0),
-    personnelDocumentDesiredCount: toNumber(
-      env.PERSONNEL_DOCUMENT_DESIRED_COUNT,
-      'PERSONNEL_DOCUMENT_DESIRED_COUNT',
-      0
-    ),
-    vehicleAssetDesiredCount: toNumber(env.VEHICLE_ASSET_DESIRED_COUNT, 'VEHICLE_ASSET_DESIRED_COUNT', 0),
-    driverVehicleAssignmentDesiredCount: toNumber(
-      env.DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT,
-      'DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT',
-      0
-    ),
-    dispatchRegistryDesiredCount: toNumber(env.DISPATCH_REGISTRY_DESIRED_COUNT, 'DISPATCH_REGISTRY_DESIRED_COUNT', 0),
-    deliveryRecordDesiredCount: toNumber(env.DELIVERY_RECORD_DESIRED_COUNT, 'DELIVERY_RECORD_DESIRED_COUNT', 0),
-    attendanceRegistryDesiredCount: toNumber(
-      env.ATTENDANCE_REGISTRY_DESIRED_COUNT,
-      'ATTENDANCE_REGISTRY_DESIRED_COUNT',
-      0
-    ),
-    dispatchOpsDesiredCount: toNumber(env.DISPATCH_OPS_DESIRED_COUNT, 'DISPATCH_OPS_DESIRED_COUNT', 0),
-    driverOpsDesiredCount: toNumber(env.DRIVER_OPS_DESIRED_COUNT, 'DRIVER_OPS_DESIRED_COUNT', 0),
-    vehicleOpsDesiredCount: toNumber(env.VEHICLE_OPS_DESIRED_COUNT, 'VEHICLE_OPS_DESIRED_COUNT', 0),
-    settlementRegistryDesiredCount: toNumber(
-      env.SETTLEMENT_REGISTRY_DESIRED_COUNT,
-      'SETTLEMENT_REGISTRY_DESIRED_COUNT',
-      0
-    ),
-    settlementPayrollDesiredCount: toNumber(
-      env.SETTLEMENT_PAYROLL_DESIRED_COUNT,
-      'SETTLEMENT_PAYROLL_DESIRED_COUNT',
-      0
-    ),
-    settlementOpsDesiredCount: toNumber(env.SETTLEMENT_OPS_DESIRED_COUNT, 'SETTLEMENT_OPS_DESIRED_COUNT', 0),
-    regionRegistryDesiredCount: toNumber(env.REGION_REGISTRY_DESIRED_COUNT, 'REGION_REGISTRY_DESIRED_COUNT', 0),
-    regionAnalyticsDesiredCount: toNumber(env.REGION_ANALYTICS_DESIRED_COUNT, 'REGION_ANALYTICS_DESIRED_COUNT', 0),
-    announcementRegistryDesiredCount: toNumber(
-      env.ANNOUNCEMENT_REGISTRY_DESIRED_COUNT,
-      'ANNOUNCEMENT_REGISTRY_DESIRED_COUNT',
-      0
-    ),
-    supportRegistryDesiredCount: toNumber(env.SUPPORT_REGISTRY_DESIRED_COUNT, 'SUPPORT_REGISTRY_DESIRED_COUNT', 0),
-    notificationHubDesiredCount: toNumber(
-      env.NOTIFICATION_HUB_DESIRED_COUNT,
-      'NOTIFICATION_HUB_DESIRED_COUNT',
-      0
-    ),
+    frontImageUri: serviceSettings['front-web-console'].imageUri!,
+    gatewayImageUri: serviceSettings['edge-api-gateway'].imageUri!,
+    accountAccessImageUri: serviceSettings['service-account-access'].imageUri!,
+    organizationImageUri: serviceSettings['service-organization-registry'].imageUri!,
+    driverProfileImageUri: serviceSettings['service-driver-profile'].imageUri!,
+    personnelDocumentImageUri: serviceSettings['service-personnel-document-registry'].imageUri!,
+    vehicleAssetImageUri: serviceSettings['service-vehicle-registry'].imageUri!,
+    driverVehicleAssignmentImageUri: serviceSettings['service-vehicle-assignment'].imageUri!,
+    dispatchRegistryImageUri: serviceSettings['service-dispatch-registry'].imageUri!,
+    deliveryRecordImageUri: serviceSettings['service-delivery-record'].imageUri!,
+    attendanceRegistryImageUri: serviceSettings['service-attendance-registry'].imageUri!,
+    dispatchOpsImageUri: serviceSettings['service-dispatch-operations-view'].imageUri!,
+    driverOpsImageUri: serviceSettings['service-driver-operations-view'].imageUri!,
+    vehicleOpsImageUri: serviceSettings['service-vehicle-operations-view'].imageUri!,
+    settlementRegistryImageUri: serviceSettings['service-settlement-registry'].imageUri!,
+    settlementPayrollImageUri: serviceSettings['service-settlement-payroll'].imageUri!,
+    settlementOpsImageUri: serviceSettings['service-settlement-operations-view'].imageUri!,
+    regionRegistryImageUri: serviceSettings['service-region-registry'].imageUri!,
+    regionAnalyticsImageUri: serviceSettings['service-region-analytics'].imageUri!,
+    announcementRegistryImageUri: serviceSettings['service-announcement-registry'].imageUri!,
+    supportRegistryImageUri: serviceSettings['service-support-registry'].imageUri!,
+    notificationHubImageUri: serviceSettings['service-notification-hub'].imageUri!,
+    terminalRegistryImageUri: serviceSettings['service-terminal-registry'].imageUri,
+    telemetryHubImageUri: serviceSettings['service-telemetry-hub'].imageUri,
+    telemetryDeadLetterImageUri: serviceSettings['service-telemetry-dead-letter'].imageUri,
+    telemetryListenerImageUri: serviceSettings['service-telemetry-listener'].imageUri,
+    frontDesiredCount: serviceSettings['front-web-console'].desiredCount,
+    gatewayDesiredCount: serviceSettings['edge-api-gateway'].desiredCount,
+    accountAccessDesiredCount: serviceSettings['service-account-access'].desiredCount,
+    organizationDesiredCount: serviceSettings['service-organization-registry'].desiredCount,
+    driverProfileDesiredCount: serviceSettings['service-driver-profile'].desiredCount,
+    personnelDocumentDesiredCount: serviceSettings['service-personnel-document-registry'].desiredCount,
+    vehicleAssetDesiredCount: serviceSettings['service-vehicle-registry'].desiredCount,
+    driverVehicleAssignmentDesiredCount: serviceSettings['service-vehicle-assignment'].desiredCount,
+    dispatchRegistryDesiredCount: serviceSettings['service-dispatch-registry'].desiredCount,
+    deliveryRecordDesiredCount: serviceSettings['service-delivery-record'].desiredCount,
+    attendanceRegistryDesiredCount: serviceSettings['service-attendance-registry'].desiredCount,
+    dispatchOpsDesiredCount: serviceSettings['service-dispatch-operations-view'].desiredCount,
+    driverOpsDesiredCount: serviceSettings['service-driver-operations-view'].desiredCount,
+    vehicleOpsDesiredCount: serviceSettings['service-vehicle-operations-view'].desiredCount,
+    settlementRegistryDesiredCount: serviceSettings['service-settlement-registry'].desiredCount,
+    settlementPayrollDesiredCount: serviceSettings['service-settlement-payroll'].desiredCount,
+    settlementOpsDesiredCount: serviceSettings['service-settlement-operations-view'].desiredCount,
+    regionRegistryDesiredCount: serviceSettings['service-region-registry'].desiredCount,
+    regionAnalyticsDesiredCount: serviceSettings['service-region-analytics'].desiredCount,
+    announcementRegistryDesiredCount: serviceSettings['service-announcement-registry'].desiredCount,
+    supportRegistryDesiredCount: serviceSettings['service-support-registry'].desiredCount,
+    notificationHubDesiredCount: serviceSettings['service-notification-hub'].desiredCount,
     terminalRegistryDesiredCount,
     telemetryHubDesiredCount,
     telemetryDeadLetterDesiredCount,
     telemetryListenerDesiredCount,
-    frontCpu: toNumber(env.FRONT_CPU, 'FRONT_CPU', 256),
-    frontMemoryMiB: toNumber(env.FRONT_MEMORY_MIB, 'FRONT_MEMORY_MIB', 512),
-    gatewayCpu: toNumber(env.GATEWAY_CPU, 'GATEWAY_CPU', 256),
-    gatewayMemoryMiB: toNumber(env.GATEWAY_MEMORY_MIB, 'GATEWAY_MEMORY_MIB', 512),
-    accountAccessCpu: toNumber(env.ACCOUNT_ACCESS_CPU, 'ACCOUNT_ACCESS_CPU', 256),
-    accountAccessMemoryMiB: toNumber(env.ACCOUNT_ACCESS_MEMORY_MIB, 'ACCOUNT_ACCESS_MEMORY_MIB', 512),
-    organizationCpu: toNumber(env.ORGANIZATION_CPU, 'ORGANIZATION_CPU', 256),
-    organizationMemoryMiB: toNumber(env.ORGANIZATION_MEMORY_MIB, 'ORGANIZATION_MEMORY_MIB', 512),
-    driverProfileCpu: toNumber(env.DRIVER_PROFILE_CPU, 'DRIVER_PROFILE_CPU', 256),
-    driverProfileMemoryMiB: toNumber(env.DRIVER_PROFILE_MEMORY_MIB, 'DRIVER_PROFILE_MEMORY_MIB', 512),
-    personnelDocumentCpu: toNumber(env.PERSONNEL_DOCUMENT_CPU, 'PERSONNEL_DOCUMENT_CPU', 256),
-    personnelDocumentMemoryMiB: toNumber(
-      env.PERSONNEL_DOCUMENT_MEMORY_MIB,
-      'PERSONNEL_DOCUMENT_MEMORY_MIB',
-      512
-    ),
-    vehicleAssetCpu: toNumber(env.VEHICLE_ASSET_CPU, 'VEHICLE_ASSET_CPU', 256),
-    vehicleAssetMemoryMiB: toNumber(env.VEHICLE_ASSET_MEMORY_MIB, 'VEHICLE_ASSET_MEMORY_MIB', 512),
-    driverVehicleAssignmentCpu: toNumber(
-      env.DRIVER_VEHICLE_ASSIGNMENT_CPU,
-      'DRIVER_VEHICLE_ASSIGNMENT_CPU',
-      256
-    ),
-    driverVehicleAssignmentMemoryMiB: toNumber(
-      env.DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB,
-      'DRIVER_VEHICLE_ASSIGNMENT_MEMORY_MIB',
-      512
-    ),
-    dispatchRegistryCpu: toNumber(env.DISPATCH_REGISTRY_CPU, 'DISPATCH_REGISTRY_CPU', 256),
-    dispatchRegistryMemoryMiB: toNumber(env.DISPATCH_REGISTRY_MEMORY_MIB, 'DISPATCH_REGISTRY_MEMORY_MIB', 512),
-    deliveryRecordCpu: toNumber(env.DELIVERY_RECORD_CPU, 'DELIVERY_RECORD_CPU', 256),
-    deliveryRecordMemoryMiB: toNumber(env.DELIVERY_RECORD_MEMORY_MIB, 'DELIVERY_RECORD_MEMORY_MIB', 512),
-    attendanceRegistryCpu: toNumber(env.ATTENDANCE_REGISTRY_CPU, 'ATTENDANCE_REGISTRY_CPU', 256),
-    attendanceRegistryMemoryMiB: toNumber(
-      env.ATTENDANCE_REGISTRY_MEMORY_MIB,
-      'ATTENDANCE_REGISTRY_MEMORY_MIB',
-      512
-    ),
-    dispatchOpsCpu: toNumber(env.DISPATCH_OPS_CPU, 'DISPATCH_OPS_CPU', 256),
-    dispatchOpsMemoryMiB: toNumber(env.DISPATCH_OPS_MEMORY_MIB, 'DISPATCH_OPS_MEMORY_MIB', 512),
-    driverOpsCpu: toNumber(env.DRIVER_OPS_CPU, 'DRIVER_OPS_CPU', 256),
-    driverOpsMemoryMiB: toNumber(env.DRIVER_OPS_MEMORY_MIB, 'DRIVER_OPS_MEMORY_MIB', 512),
-    vehicleOpsCpu: toNumber(env.VEHICLE_OPS_CPU, 'VEHICLE_OPS_CPU', 256),
-    vehicleOpsMemoryMiB: toNumber(env.VEHICLE_OPS_MEMORY_MIB, 'VEHICLE_OPS_MEMORY_MIB', 512),
-    settlementRegistryCpu: toNumber(env.SETTLEMENT_REGISTRY_CPU, 'SETTLEMENT_REGISTRY_CPU', 256),
-    settlementRegistryMemoryMiB: toNumber(
-      env.SETTLEMENT_REGISTRY_MEMORY_MIB,
-      'SETTLEMENT_REGISTRY_MEMORY_MIB',
-      512
-    ),
-    settlementPayrollCpu: toNumber(env.SETTLEMENT_PAYROLL_CPU, 'SETTLEMENT_PAYROLL_CPU', 256),
-    settlementPayrollMemoryMiB: toNumber(
-      env.SETTLEMENT_PAYROLL_MEMORY_MIB,
-      'SETTLEMENT_PAYROLL_MEMORY_MIB',
-      512
-    ),
-    settlementOpsCpu: toNumber(env.SETTLEMENT_OPS_CPU, 'SETTLEMENT_OPS_CPU', 256),
-    settlementOpsMemoryMiB: toNumber(env.SETTLEMENT_OPS_MEMORY_MIB, 'SETTLEMENT_OPS_MEMORY_MIB', 512),
-    regionRegistryCpu: toNumber(env.REGION_REGISTRY_CPU, 'REGION_REGISTRY_CPU', 256),
-    regionRegistryMemoryMiB: toNumber(env.REGION_REGISTRY_MEMORY_MIB, 'REGION_REGISTRY_MEMORY_MIB', 512),
-    regionAnalyticsCpu: toNumber(env.REGION_ANALYTICS_CPU, 'REGION_ANALYTICS_CPU', 256),
-    regionAnalyticsMemoryMiB: toNumber(
-      env.REGION_ANALYTICS_MEMORY_MIB,
-      'REGION_ANALYTICS_MEMORY_MIB',
-      512
-    ),
-    announcementRegistryCpu: toNumber(env.ANNOUNCEMENT_REGISTRY_CPU, 'ANNOUNCEMENT_REGISTRY_CPU', 256),
-    announcementRegistryMemoryMiB: toNumber(
-      env.ANNOUNCEMENT_REGISTRY_MEMORY_MIB,
-      'ANNOUNCEMENT_REGISTRY_MEMORY_MIB',
-      512
-    ),
-    supportRegistryCpu: toNumber(env.SUPPORT_REGISTRY_CPU, 'SUPPORT_REGISTRY_CPU', 256),
-    supportRegistryMemoryMiB: toNumber(env.SUPPORT_REGISTRY_MEMORY_MIB, 'SUPPORT_REGISTRY_MEMORY_MIB', 512),
-    notificationHubCpu: toNumber(env.NOTIFICATION_HUB_CPU, 'NOTIFICATION_HUB_CPU', 256),
-    notificationHubMemoryMiB: toNumber(
-      env.NOTIFICATION_HUB_MEMORY_MIB,
-      'NOTIFICATION_HUB_MEMORY_MIB',
-      512
-    ),
-    terminalRegistryCpu: toNumber(env.TERMINAL_REGISTRY_CPU, 'TERMINAL_REGISTRY_CPU', 256),
-    terminalRegistryMemoryMiB: toNumber(env.TERMINAL_REGISTRY_MEMORY_MIB, 'TERMINAL_REGISTRY_MEMORY_MIB', 512),
-    telemetryHubCpu: toNumber(env.TELEMETRY_HUB_CPU, 'TELEMETRY_HUB_CPU', 256),
-    telemetryHubMemoryMiB: toNumber(env.TELEMETRY_HUB_MEMORY_MIB, 'TELEMETRY_HUB_MEMORY_MIB', 512),
-    telemetryDeadLetterCpu: toNumber(env.TELEMETRY_DEAD_LETTER_CPU, 'TELEMETRY_DEAD_LETTER_CPU', 256),
-    telemetryDeadLetterMemoryMiB: toNumber(
-      env.TELEMETRY_DEAD_LETTER_MEMORY_MIB,
-      'TELEMETRY_DEAD_LETTER_MEMORY_MIB',
-      512
-    ),
-    telemetryListenerCpu: toNumber(env.TELEMETRY_LISTENER_CPU, 'TELEMETRY_LISTENER_CPU', 256),
-    telemetryListenerMemoryMiB: toNumber(env.TELEMETRY_LISTENER_MEMORY_MIB, 'TELEMETRY_LISTENER_MEMORY_MIB', 512),
-    frontHealthCheckPath: frontHealthCheckPath ?? '/healthz',
-    gatewayHealthCheckPath: gatewayHealthCheckPath ?? '/healthz',
-    accountAccessHealthCheckPath: accountAccessHealthCheckPath ?? '/healthz',
-    organizationHealthCheckPath: organizationHealthCheckPath ?? '/health/',
-    driverProfileHealthCheckPath: driverProfileHealthCheckPath ?? '/health/',
-    personnelDocumentHealthCheckPath: personnelDocumentHealthCheckPath ?? '/health/',
-    vehicleAssetHealthCheckPath: vehicleAssetHealthCheckPath ?? '/health/',
-    driverVehicleAssignmentHealthCheckPath: driverVehicleAssignmentHealthCheckPath ?? '/health/',
-    dispatchRegistryHealthCheckPath: dispatchRegistryHealthCheckPath ?? '/health/',
-    deliveryRecordHealthCheckPath: deliveryRecordHealthCheckPath ?? '/health/',
-    attendanceRegistryHealthCheckPath: attendanceRegistryHealthCheckPath ?? '/health/',
-    dispatchOpsHealthCheckPath: dispatchOpsHealthCheckPath ?? '/health/',
-    driverOpsHealthCheckPath: driverOpsHealthCheckPath ?? '/health/',
-    vehicleOpsHealthCheckPath: vehicleOpsHealthCheckPath ?? '/health/',
-    settlementRegistryHealthCheckPath: settlementRegistryHealthCheckPath ?? '/health/',
-    settlementPayrollHealthCheckPath: settlementPayrollHealthCheckPath ?? '/health/',
-    settlementOpsHealthCheckPath: settlementOpsHealthCheckPath ?? '/health/',
-    regionRegistryHealthCheckPath: regionRegistryHealthCheckPath ?? '/health/',
-    regionAnalyticsHealthCheckPath: regionAnalyticsHealthCheckPath ?? '/health/',
-    announcementRegistryHealthCheckPath: announcementRegistryHealthCheckPath ?? '/health/',
-    supportRegistryHealthCheckPath: supportRegistryHealthCheckPath ?? '/health/',
-    notificationHubHealthCheckPath: notificationHubHealthCheckPath ?? '/health/',
-    terminalRegistryHealthCheckPath: terminalRegistryHealthCheckPath ?? '/health/',
-    telemetryHubHealthCheckPath: telemetryHubHealthCheckPath ?? '/health/',
-    telemetryDeadLetterHealthCheckPath: telemetryDeadLetterHealthCheckPath ?? '/health/',
+    frontCpu: serviceSettings['front-web-console'].cpu,
+    frontMemoryMiB: serviceSettings['front-web-console'].memoryMiB,
+    gatewayCpu: serviceSettings['edge-api-gateway'].cpu,
+    gatewayMemoryMiB: serviceSettings['edge-api-gateway'].memoryMiB,
+    accountAccessCpu: serviceSettings['service-account-access'].cpu,
+    accountAccessMemoryMiB: serviceSettings['service-account-access'].memoryMiB,
+    organizationCpu: serviceSettings['service-organization-registry'].cpu,
+    organizationMemoryMiB: serviceSettings['service-organization-registry'].memoryMiB,
+    driverProfileCpu: serviceSettings['service-driver-profile'].cpu,
+    driverProfileMemoryMiB: serviceSettings['service-driver-profile'].memoryMiB,
+    personnelDocumentCpu: serviceSettings['service-personnel-document-registry'].cpu,
+    personnelDocumentMemoryMiB: serviceSettings['service-personnel-document-registry'].memoryMiB,
+    vehicleAssetCpu: serviceSettings['service-vehicle-registry'].cpu,
+    vehicleAssetMemoryMiB: serviceSettings['service-vehicle-registry'].memoryMiB,
+    driverVehicleAssignmentCpu: serviceSettings['service-vehicle-assignment'].cpu,
+    driverVehicleAssignmentMemoryMiB: serviceSettings['service-vehicle-assignment'].memoryMiB,
+    dispatchRegistryCpu: serviceSettings['service-dispatch-registry'].cpu,
+    dispatchRegistryMemoryMiB: serviceSettings['service-dispatch-registry'].memoryMiB,
+    deliveryRecordCpu: serviceSettings['service-delivery-record'].cpu,
+    deliveryRecordMemoryMiB: serviceSettings['service-delivery-record'].memoryMiB,
+    attendanceRegistryCpu: serviceSettings['service-attendance-registry'].cpu,
+    attendanceRegistryMemoryMiB: serviceSettings['service-attendance-registry'].memoryMiB,
+    dispatchOpsCpu: serviceSettings['service-dispatch-operations-view'].cpu,
+    dispatchOpsMemoryMiB: serviceSettings['service-dispatch-operations-view'].memoryMiB,
+    driverOpsCpu: serviceSettings['service-driver-operations-view'].cpu,
+    driverOpsMemoryMiB: serviceSettings['service-driver-operations-view'].memoryMiB,
+    vehicleOpsCpu: serviceSettings['service-vehicle-operations-view'].cpu,
+    vehicleOpsMemoryMiB: serviceSettings['service-vehicle-operations-view'].memoryMiB,
+    settlementRegistryCpu: serviceSettings['service-settlement-registry'].cpu,
+    settlementRegistryMemoryMiB: serviceSettings['service-settlement-registry'].memoryMiB,
+    settlementPayrollCpu: serviceSettings['service-settlement-payroll'].cpu,
+    settlementPayrollMemoryMiB: serviceSettings['service-settlement-payroll'].memoryMiB,
+    settlementOpsCpu: serviceSettings['service-settlement-operations-view'].cpu,
+    settlementOpsMemoryMiB: serviceSettings['service-settlement-operations-view'].memoryMiB,
+    regionRegistryCpu: serviceSettings['service-region-registry'].cpu,
+    regionRegistryMemoryMiB: serviceSettings['service-region-registry'].memoryMiB,
+    regionAnalyticsCpu: serviceSettings['service-region-analytics'].cpu,
+    regionAnalyticsMemoryMiB: serviceSettings['service-region-analytics'].memoryMiB,
+    announcementRegistryCpu: serviceSettings['service-announcement-registry'].cpu,
+    announcementRegistryMemoryMiB: serviceSettings['service-announcement-registry'].memoryMiB,
+    supportRegistryCpu: serviceSettings['service-support-registry'].cpu,
+    supportRegistryMemoryMiB: serviceSettings['service-support-registry'].memoryMiB,
+    notificationHubCpu: serviceSettings['service-notification-hub'].cpu,
+    notificationHubMemoryMiB: serviceSettings['service-notification-hub'].memoryMiB,
+    terminalRegistryCpu: serviceSettings['service-terminal-registry'].cpu,
+    terminalRegistryMemoryMiB: serviceSettings['service-terminal-registry'].memoryMiB,
+    telemetryHubCpu: serviceSettings['service-telemetry-hub'].cpu,
+    telemetryHubMemoryMiB: serviceSettings['service-telemetry-hub'].memoryMiB,
+    telemetryDeadLetterCpu: serviceSettings['service-telemetry-dead-letter'].cpu,
+    telemetryDeadLetterMemoryMiB: serviceSettings['service-telemetry-dead-letter'].memoryMiB,
+    telemetryListenerCpu: serviceSettings['service-telemetry-listener'].cpu,
+    telemetryListenerMemoryMiB: serviceSettings['service-telemetry-listener'].memoryMiB,
+    frontHealthCheckPath: serviceSettings['front-web-console'].healthCheckPath!,
+    gatewayHealthCheckPath: serviceSettings['edge-api-gateway'].healthCheckPath!,
+    accountAccessHealthCheckPath: serviceSettings['service-account-access'].healthCheckPath!,
+    organizationHealthCheckPath: serviceSettings['service-organization-registry'].healthCheckPath!,
+    driverProfileHealthCheckPath: serviceSettings['service-driver-profile'].healthCheckPath!,
+    personnelDocumentHealthCheckPath: serviceSettings['service-personnel-document-registry'].healthCheckPath!,
+    vehicleAssetHealthCheckPath: serviceSettings['service-vehicle-registry'].healthCheckPath!,
+    driverVehicleAssignmentHealthCheckPath: serviceSettings['service-vehicle-assignment'].healthCheckPath!,
+    dispatchRegistryHealthCheckPath: serviceSettings['service-dispatch-registry'].healthCheckPath!,
+    deliveryRecordHealthCheckPath: serviceSettings['service-delivery-record'].healthCheckPath!,
+    attendanceRegistryHealthCheckPath: serviceSettings['service-attendance-registry'].healthCheckPath!,
+    dispatchOpsHealthCheckPath: serviceSettings['service-dispatch-operations-view'].healthCheckPath!,
+    driverOpsHealthCheckPath: serviceSettings['service-driver-operations-view'].healthCheckPath!,
+    vehicleOpsHealthCheckPath: serviceSettings['service-vehicle-operations-view'].healthCheckPath!,
+    settlementRegistryHealthCheckPath: serviceSettings['service-settlement-registry'].healthCheckPath!,
+    settlementPayrollHealthCheckPath: serviceSettings['service-settlement-payroll'].healthCheckPath!,
+    settlementOpsHealthCheckPath: serviceSettings['service-settlement-operations-view'].healthCheckPath!,
+    regionRegistryHealthCheckPath: serviceSettings['service-region-registry'].healthCheckPath!,
+    regionAnalyticsHealthCheckPath: serviceSettings['service-region-analytics'].healthCheckPath!,
+    announcementRegistryHealthCheckPath: serviceSettings['service-announcement-registry'].healthCheckPath!,
+    supportRegistryHealthCheckPath: serviceSettings['service-support-registry'].healthCheckPath!,
+    notificationHubHealthCheckPath: serviceSettings['service-notification-hub'].healthCheckPath!,
+    terminalRegistryHealthCheckPath: serviceSettings['service-terminal-registry'].healthCheckPath,
+    telemetryHubHealthCheckPath: serviceSettings['service-telemetry-hub'].healthCheckPath,
+    telemetryDeadLetterHealthCheckPath: serviceSettings['service-telemetry-dead-letter'].healthCheckPath,
     settlementOpsBaseUrl: env.SETTLEMENT_OPS_BASE_URL || 'http://settlement-ops-api:8000',
     telemetryHubBaseUrl: env.TELEMETRY_HUB_BASE_URL || 'http://telemetry-hub-api:8000',
     terminalRegistryBaseUrl: env.TERMINAL_REGISTRY_BASE_URL || 'http://terminal-registry-api:8000',
@@ -601,6 +486,32 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
       5
     )
   });
+}
+
+export function buildCatalogBackedServiceSettings(
+  env: NodeJS.ProcessEnv
+): Record<ReleaseManifestServiceName, CatalogBackedServiceSetting> {
+  const settings = {} as Record<ReleaseManifestServiceName, CatalogBackedServiceSetting>;
+
+  for (const entry of listServiceCatalogEntries()) {
+    const desiredCount = toNumber(env[entry.desiredCountEnvKey], String(entry.desiredCountEnvKey), entry.defaultDesiredCount);
+    const imageValue = entry.imageRequiredWhenEnabledOnly
+      ? requiredWhenEnabled(env[entry.imageEnvKey], String(entry.imageEnvKey), desiredCount)
+      : required(env[entry.imageEnvKey], String(entry.imageEnvKey));
+
+    settings[entry.service] = {
+      imageUri: imageValue,
+      desiredCount,
+      cpu: toNumber(env[entry.cpuEnvKey], String(entry.cpuEnvKey), entry.defaultCpu),
+      memoryMiB: toNumber(env[entry.memoryEnvKey], String(entry.memoryEnvKey), entry.defaultMemoryMiB),
+      healthCheckPath:
+        entry.healthCheckPathEnvKey && entry.defaultHealthCheckPath
+          ? emptyToUndefined(env[entry.healthCheckPathEnvKey]) ?? entry.defaultHealthCheckPath
+          : undefined
+    };
+  }
+
+  return settings;
 }
 
 function toDeployEnvironment(value: string | undefined): 'dev' | 'stage' | 'prod' | undefined {

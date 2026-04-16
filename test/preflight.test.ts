@@ -7,7 +7,14 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as childProcess from 'node:child_process';
 
-import { buildDeployPreflightReport, formatDeployPreflightReport } from '../lib/preflight';
+import { buildPlatformConfigFromEnv } from '../lib/config';
+import {
+  buildDeployPreflightReport,
+  formatDeployPreflightReport,
+  listEnabledServiceGroupsFromCatalog,
+  listPreflightImageEnvKeysToValidate
+} from '../lib/preflight';
+import { listCatalogImageEnvKeys } from '../lib/serviceCatalog';
 
 function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
@@ -228,6 +235,21 @@ describe('deploy preflight', () => {
       ]),
       expect.any(Object)
     );
+  });
+
+  test('sources full-fleet preflight image env keys from the service catalog', () => {
+    expect(listPreflightImageEnvKeysToValidate()).toEqual(listCatalogImageEnvKeys());
+  });
+
+  test('formats enabled service groups from catalog-backed membership', () => {
+    const config = buildPlatformConfigFromEnv(
+      createBaseEnv({
+        ORGANIZATION_DESIRED_COUNT: '1',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '1'
+      })
+    );
+
+    expect(listEnabledServiceGroupsFromCatalog(config)).toEqual(['Auth Surface', 'Company Governance', 'Dispatch Inputs']);
   });
 
   test('rejects warm-host partial deploy when gateway impact is required but gateway is missing', () => {

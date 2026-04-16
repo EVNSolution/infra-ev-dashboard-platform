@@ -1,6 +1,102 @@
-import { buildPlatformConfigFromEnv } from '../lib/config';
+import { buildCatalogBackedServiceSettings, buildPlatformConfigFromEnv } from '../lib/config';
+
+function createCatalogBaseEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
+  return {
+    AWS_REGION: 'ap-northeast-2',
+    HOSTED_ZONE_ID: 'Z0258898ULH367BASCGC',
+    HOSTED_ZONE_NAME: 'ev-dashboard.com',
+    APEX_DOMAIN: 'candidate.ev-dashboard.com',
+    API_DOMAIN: 'api.candidate.ev-dashboard.com',
+    VPC_ID: 'vpc-015c89247f96e9221',
+    PUBLIC_SUBNET_IDS: 'subnet-aaa,subnet-bbb',
+    PRIVATE_SUBNET_IDS: 'subnet-ccc,subnet-ddd',
+    FRONT_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/front-web-console:test',
+    GATEWAY_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:test',
+    ACCOUNT_ACCESS_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:test',
+    ORGANIZATION_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-organization-registry:test',
+    DRIVER_PROFILE_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test',
+    PERSONNEL_DOCUMENT_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:test',
+    VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:test',
+    DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:test',
+    DISPATCH_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-registry:test',
+    DELIVERY_RECORD_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-delivery-record:test',
+    ATTENDANCE_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-attendance-registry:test',
+    DISPATCH_OPS_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-dispatch-operations-view:test',
+    DRIVER_OPS_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-operations-view:test',
+    VEHICLE_OPS_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-operations-view:test',
+    SETTLEMENT_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-registry:test',
+    SETTLEMENT_PAYROLL_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-payroll:test',
+    SETTLEMENT_OPS_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-settlement-operations-view:test',
+    REGION_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-registry:test',
+    REGION_ANALYTICS_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-region-analytics:test',
+    ANNOUNCEMENT_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-announcement-registry:test',
+    SUPPORT_REGISTRY_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-support-registry:test',
+    NOTIFICATION_HUB_IMAGE_URI:
+      '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-notification-hub:test',
+    ...overrides
+  };
+}
 
 describe('buildPlatformConfigFromEnv', () => {
+  test('builds catalog-backed defaults for service runtime settings', () => {
+    const settings = buildCatalogBackedServiceSettings(
+      createCatalogBaseEnv({
+        DRIVER_PROFILE_DESIRED_COUNT: '1',
+        DRIVER_PROFILE_CPU: '512',
+        DRIVER_PROFILE_MEMORY_MIB: '1024'
+      })
+    );
+
+    expect(settings['service-driver-profile']).toMatchObject({
+      desiredCount: 1,
+      cpu: 512,
+      memoryMiB: 1024,
+      healthCheckPath: '/health/',
+      imageUri: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:test'
+    });
+    expect(settings['service-support-registry']).toMatchObject({
+      desiredCount: 0,
+      cpu: 256,
+      memoryMiB: 512,
+      healthCheckPath: '/health/'
+    });
+  });
+
+  test('keeps listener image optional when desired count is zero in catalog-backed settings', () => {
+    const settings = buildCatalogBackedServiceSettings(
+      createCatalogBaseEnv({
+        TERMINAL_REGISTRY_IMAGE_URI: '',
+        TELEMETRY_HUB_IMAGE_URI: '',
+        TELEMETRY_DEAD_LETTER_IMAGE_URI: '',
+        TELEMETRY_LISTENER_IMAGE_URI: ''
+      })
+    );
+
+    expect(settings['service-terminal-registry']).toMatchObject({
+      desiredCount: 0,
+      imageUri: undefined
+    });
+    expect(settings['service-telemetry-listener']).toMatchObject({
+      desiredCount: 0,
+      imageUri: undefined
+    });
+  });
+
   test('parses deploy environment explicitly when provided', () => {
     const config = buildPlatformConfigFromEnv({
       DEPLOY_ENVIRONMENT: 'dev',

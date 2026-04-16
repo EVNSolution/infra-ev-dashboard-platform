@@ -7,6 +7,7 @@ import {
   RELEASE_MANIFEST_IMAGE_ENV_KEYS,
   type ReleaseManifest
 } from './releaseManifest';
+import { listCatalogEnabledPreflightGroups, listCatalogImageEnvKeys } from './serviceCatalog';
 
 export type DeployPreflightReport = {
   environment: string;
@@ -27,35 +28,6 @@ type SliceState = {
   supportSurface: boolean;
   terminalAndTelemetry: boolean;
 };
-
-const IMAGE_ENV_KEYS: Array<keyof NodeJS.ProcessEnv> = [
-  'FRONT_IMAGE_URI',
-  'GATEWAY_IMAGE_URI',
-  'ACCOUNT_ACCESS_IMAGE_URI',
-  'ORGANIZATION_IMAGE_URI',
-  'DRIVER_PROFILE_IMAGE_URI',
-  'PERSONNEL_DOCUMENT_IMAGE_URI',
-  'VEHICLE_ASSET_IMAGE_URI',
-  'DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI',
-  'DISPATCH_REGISTRY_IMAGE_URI',
-  'DELIVERY_RECORD_IMAGE_URI',
-  'ATTENDANCE_REGISTRY_IMAGE_URI',
-  'DISPATCH_OPS_IMAGE_URI',
-  'DRIVER_OPS_IMAGE_URI',
-  'VEHICLE_OPS_IMAGE_URI',
-  'SETTLEMENT_REGISTRY_IMAGE_URI',
-  'SETTLEMENT_PAYROLL_IMAGE_URI',
-  'SETTLEMENT_OPS_IMAGE_URI',
-  'REGION_REGISTRY_IMAGE_URI',
-  'REGION_ANALYTICS_IMAGE_URI',
-  'ANNOUNCEMENT_REGISTRY_IMAGE_URI',
-  'SUPPORT_REGISTRY_IMAGE_URI',
-  'NOTIFICATION_HUB_IMAGE_URI',
-  'TERMINAL_REGISTRY_IMAGE_URI',
-  'TELEMETRY_HUB_IMAGE_URI',
-  'TELEMETRY_DEAD_LETTER_IMAGE_URI',
-  'TELEMETRY_LISTENER_IMAGE_URI'
-];
 
 export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPreflightReport {
   const environment = normalizeEnvironment(env.DEPLOY_ENVIRONMENT);
@@ -109,11 +81,15 @@ export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPrefli
   return {
     environment,
     runtimeMode: config.runtimeMode,
-    enabledSlices: formatEnabledSlices(slices),
+    enabledSlices: listEnabledServiceGroupsFromCatalog(config),
     warnings,
     errors,
     waitSignals: buildWaitSignals(config, slices)
   };
+}
+
+export function listEnabledServiceGroupsFromCatalog(config: PlatformConfig): string[] {
+  return [...listCatalogEnabledPreflightGroups(config)];
 }
 
 export function formatDeployPreflightReport(report: DeployPreflightReport): string {
@@ -153,7 +129,7 @@ function validateImageUris(
   errors: string[],
   releaseManifest?: ReleaseManifest
 ): void {
-  for (const key of getImageEnvKeysToValidate(releaseManifest)) {
+  for (const key of listPreflightImageEnvKeysToValidate(releaseManifest)) {
     const value = env[key];
     if (!value) {
       continue;
@@ -185,7 +161,7 @@ function validateEcrImageAvailability(
     return;
   }
 
-  for (const key of getImageEnvKeysToValidate(releaseManifest)) {
+  for (const key of listPreflightImageEnvKeysToValidate(releaseManifest)) {
     const imageUri = env[key];
     if (!imageUri || !hasTagOrDigest(imageUri) || imageUri.includes('@sha256:') || imageUri.endsWith(':latest')) {
       continue;
@@ -486,40 +462,11 @@ function getSliceState(config: PlatformConfig): SliceState {
   };
 }
 
-function formatEnabledSlices(slices: SliceState): string[] {
-  const labels: string[] = [];
-
-  if (slices.authSurface) {
-    labels.push('Auth Surface');
-  }
-  if (slices.companyGovernance) {
-    labels.push('Company Governance');
-  }
-  if (slices.peopleAndAssets) {
-    labels.push('People And Assets');
-  }
-  if (slices.dispatchInputs) {
-    labels.push('Dispatch Inputs');
-  }
-  if (slices.dispatchReadModels) {
-    labels.push('Dispatch Read Models');
-  }
-  if (slices.settlement) {
-    labels.push('Settlement');
-  }
-  if (slices.supportSurface) {
-    labels.push('Support Surface');
-  }
-  if (slices.terminalAndTelemetry) {
-    labels.push('Terminal And Telemetry');
-  }
-
-  return labels;
-}
-
-function getImageEnvKeysToValidate(releaseManifest?: ReleaseManifest): Array<keyof NodeJS.ProcessEnv> {
+export function listPreflightImageEnvKeysToValidate(
+  releaseManifest?: ReleaseManifest
+): Array<keyof NodeJS.ProcessEnv> {
   if (!releaseManifest) {
-    return IMAGE_ENV_KEYS;
+    return [...listCatalogImageEnvKeys()];
   }
 
   return releaseManifest.services
