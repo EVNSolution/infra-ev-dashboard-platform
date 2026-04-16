@@ -18,6 +18,7 @@ import { aws_ssm as ssm } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 import type { PlatformConfig } from './config';
+import { orderAppHostRuntimeServices } from './appHostRuntimeOrder';
 import { getBootstrapAssetRoot } from './bootstrapPackage';
 import { Ec2AppHost } from './ec2-app-host';
 import type { AppHostRuntimeService } from './ec2-bootstrap';
@@ -1982,7 +1983,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       ...extra
     });
 
-    const appServices: AppHostRuntimeService[] = [
+    const appServices = orderAppHostRuntimeServices([
       {
         id: 'FRONT',
         imageMapKey: 'front-web-console',
@@ -2489,7 +2490,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
             }
           : {}
       }
-    ];
+    ], gatewayRouteProfile.profile);
 
     const appServiceManifest = new secretsmanager.Secret(this, 'AppServiceManifest', {
       description: 'Resolved runtime manifest for ev-dashboard EC2 app host services',
