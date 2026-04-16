@@ -1,5 +1,6 @@
 export type PlatformConfigInput = {
   deployEnvironment?: 'dev' | 'stage' | 'prod';
+  backendGunicornWorkers?: number;
   runProfile?: 'full' | 'bootstrap-proof' | 'incremental-expand' | 'smoke-only' | 'warm-host-partial';
   runtimeMode?: 'ecs' | 'ec2';
   releaseManifestPath?: string;
@@ -324,6 +325,10 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
 
   return buildPlatformConfig({
     deployEnvironment: toDeployEnvironment(env.DEPLOY_ENVIRONMENT),
+    backendGunicornWorkers: toOptionalPositiveInteger(
+      env.BACKEND_GUNICORN_WORKERS,
+      'BACKEND_GUNICORN_WORKERS'
+    ),
     runProfile: toRunProfile(env.RUN_PROFILE),
     runtimeMode: toRuntimeMode(env.RUNTIME_MODE),
     releaseManifestPath: emptyToUndefined(env.RELEASE_MANIFEST_PATH),
@@ -633,6 +638,19 @@ function toNumber(value: string | undefined, name: string, fallback: number): nu
   const parsed = Number(value);
   if (Number.isNaN(parsed)) {
     throw new Error(`Environment variable ${name} must be a number`);
+  }
+
+  return parsed;
+}
+
+function toOptionalPositiveInteger(value: string | undefined, name: string): number | undefined {
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Environment variable ${name} must be a positive integer`);
   }
 
   return parsed;

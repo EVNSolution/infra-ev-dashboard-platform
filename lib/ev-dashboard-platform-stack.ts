@@ -1969,7 +1969,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     const internalOnlyAllowedHosts = (internalHost: string) =>
       this.uniqueValues([internalHost, 'localhost', '127.0.0.1']).join(',');
     const withDevGunicornWorkers = (environment: Record<string, string> = {}): Record<string, string> =>
-      config.deployEnvironment === 'dev' ? { ...environment, GUNICORN_WORKERS: '1' } : environment;
+      config.backendGunicornWorkers !== undefined
+        ? { ...environment, GUNICORN_WORKERS: String(config.backendGunicornWorkers) }
+        : config.deployEnvironment === 'dev'
+          ? { ...environment, GUNICORN_WORKERS: '1' }
+          : environment;
     const databaseEnvironment = (databaseName: string, username: string) => ({
       POSTGRES_HOST: dataHost.instance.instancePrivateIp,
       POSTGRES_PORT: '5432',

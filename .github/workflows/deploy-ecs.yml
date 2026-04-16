@@ -43,6 +43,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     env:
       DEPLOY_ENVIRONMENT: ${{ github.event.inputs.environment }}
+      BACKEND_GUNICORN_WORKERS: ${{ vars.BACKEND_GUNICORN_WORKERS }}
       RUN_PROFILE: ${{ github.event.inputs.run_profile }}
       RELEASE_MANIFEST_PATH: ${{ github.event.inputs.release_manifest_path }}
       RUNTIME_MODE: ec2

@@ -336,4 +336,31 @@ describe('EvDashboardPlatformStack', () => {
       })
     );
   });
+
+  test('injects configured gunicorn workers into prod backend service manifests when overridden', () => {
+    const prodApp = new App();
+    const prodConfig = buildPlatformConfig({
+      ...baseEc2RuntimeInput(),
+      deployEnvironment: 'prod',
+      backendGunicornWorkers: 1
+    });
+    const prodStack = new EvDashboardPlatformStack(prodApp, 'ProdWorkerOverrideStack', { config: prodConfig });
+    const prodTemplate = Template.fromStack(prodStack);
+
+    expect(extractAppServiceManifestEnvironment(prodTemplate, 'account-auth-api')).toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
+    expect(extractAppServiceManifestEnvironment(prodTemplate, 'dispatch-ops-api')).toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
+    expect(extractAppServiceManifestEnvironment(prodTemplate, 'edge-api-gateway')).not.toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
+  });
 });
