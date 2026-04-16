@@ -20,7 +20,12 @@ on:
         options:
           - full
           - bootstrap-proof
+          - warm-host-partial
           - smoke-only
+      release_manifest_path:
+        type: string
+        description: Repo-relative release manifest path for warm-host-partial runs
+        required: false
 
 permissions:
   id-token: write
@@ -34,6 +39,7 @@ jobs:
     env:
       DEPLOY_ENVIRONMENT: ${{ github.event.inputs.environment }}
       RUN_PROFILE: ${{ github.event.inputs.run_profile }}
+      RELEASE_MANIFEST_PATH: ${{ github.event.inputs.release_manifest_path }}
       RUNTIME_MODE: ec2
       INFRA_ROLE_ARN: ${{ secrets.GH_ACTIONS_INFRA_ROLE_ARN }}
       AWS_REGION: ${{ vars.AWS_REGION }}
@@ -219,7 +225,7 @@ jobs:
           action-timeout-s: 120
 
       - name: Run preflight gate
-        if: ${{ env.RUN_PROFILE == 'full' }}
+        if: ${{ env.RUN_PROFILE == 'full' || env.RUN_PROFILE == 'warm-host-partial' }}
         run: npm run preflight
 
       - name: Run unit tests
@@ -238,6 +244,7 @@ jobs:
           - Run profile: `${{ env.RUN_PROFILE }}`
           - `full`: preflight -> unit tests -> synth -> deploy -> smoke
           - `bootstrap-proof`: synth -> deploy -> smoke
+          - `warm-host-partial`: preflight -> synth -> deploy -> smoke on an existing base stack
           - `smoke-only`: smoke only on the current live lane
           - Typical runtime verification deploy: about `10-20m`
           - Wait phases: `CloudFormation start -> EC2 launch -> user-data/bootstrap -> ALB target healthy -> public smoke`

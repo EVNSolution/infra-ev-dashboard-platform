@@ -1,0 +1,20 @@
+{
+  "release_id": "dev-people-and-assets-wave-1",
+  "services": {
+    "edge-api-gateway": {
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/edge-api-gateway:285a65a8be02e88be13f220a7b81fb4d86c10cb4"
+    },
+    "service-driver-profile": {
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-driver-profile:f485c36cb5b0a74692379eb9581f7279518808db"
+    },
+    "service-personnel-document-registry": {
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-personnel-document-registry:8374b15607a8d63270c6adce8714f3c599230b1e"
+    },
+    "service-vehicle-assignment": {
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-assignment:5ec6d7f8b8dddfeb55fe078b20937cdb7dc3fbc7"
+    },
+    "service-vehicle-registry": {
+      "image_uri": "902837199612.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:fda45c89cb9238b1711d7463054e01535453dc6b"
+    }
+  }
+}
