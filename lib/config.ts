@@ -1,6 +1,7 @@
 export type PlatformConfigInput = {
-  runProfile?: 'full' | 'bootstrap-proof' | 'smoke-only';
+  runProfile?: 'full' | 'bootstrap-proof' | 'smoke-only' | 'warm-host-partial';
   runtimeMode?: 'ecs' | 'ec2';
+  releaseManifestPath?: string;
   region: string;
   hostedZoneId: string;
   hostedZoneName: string;
@@ -162,7 +163,7 @@ export type PlatformConfigInput = {
 };
 
 export type PlatformConfig = PlatformConfigInput & {
-  runProfile: 'full' | 'bootstrap-proof' | 'smoke-only';
+  runProfile: 'full' | 'bootstrap-proof' | 'smoke-only' | 'warm-host-partial';
   runtimeMode: 'ecs' | 'ec2';
   cockpitHosts: string[];
   availabilityZones: string[];
@@ -181,6 +182,10 @@ export type PlatformConfig = PlatformConfigInput & {
 export function buildPlatformConfig(input: PlatformConfigInput): PlatformConfig {
   const runProfile = input.runProfile ?? 'full';
   const runtimeMode = input.runtimeMode ?? 'ecs';
+  if (runProfile === 'warm-host-partial' && !input.releaseManifestPath) {
+    throw new Error('Missing required environment variable: RELEASE_MANIFEST_PATH');
+  }
+
   const privateSubnetIds = input.privateSubnetIds ?? [];
   const requiresPrivateSubnets =
     input.accountAccessDesiredCount > 0 ||
@@ -316,6 +321,7 @@ export function buildPlatformConfigFromEnv(env: NodeJS.ProcessEnv): PlatformConf
   return buildPlatformConfig({
     runProfile: toRunProfile(env.RUN_PROFILE),
     runtimeMode: toRuntimeMode(env.RUNTIME_MODE),
+    releaseManifestPath: emptyToUndefined(env.RELEASE_MANIFEST_PATH),
     region: required(env.AWS_REGION ?? env.CDK_DEFAULT_REGION, 'AWS_REGION'),
     hostedZoneId: required(env.HOSTED_ZONE_ID, 'HOSTED_ZONE_ID'),
     hostedZoneName: required(env.HOSTED_ZONE_NAME, 'HOSTED_ZONE_NAME'),
@@ -667,16 +673,16 @@ function toRuntimeMode(value: string | undefined): 'ecs' | 'ec2' {
   throw new Error('Environment variable RUNTIME_MODE must be either ecs or ec2');
 }
 
-function toRunProfile(value: string | undefined): 'full' | 'bootstrap-proof' | 'smoke-only' {
+function toRunProfile(value: string | undefined): 'full' | 'bootstrap-proof' | 'smoke-only' | 'warm-host-partial' {
   if (!value || value.trim() === '') {
     return 'full';
   }
 
-  if (value === 'full' || value === 'bootstrap-proof' || value === 'smoke-only') {
+  if (value === 'full' || value === 'bootstrap-proof' || value === 'smoke-only' || value === 'warm-host-partial') {
     return value;
   }
 
-  throw new Error('Environment variable RUN_PROFILE must be full, bootstrap-proof, or smoke-only');
+  throw new Error('Environment variable RUN_PROFILE must be full, bootstrap-proof, smoke-only, or warm-host-partial');
 }
 
 function buildDefaultAvailabilityZones(region: string, count: number): string[] {

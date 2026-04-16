@@ -1,6 +1,11 @@
 import * as childProcess from 'node:child_process';
 
 import { buildPlatformConfigFromEnv, PlatformConfig } from './config';
+import {
+  loadReleaseManifest,
+  RELEASE_MANIFEST_IMAGE_ENV_KEYS,
+  type ReleaseManifest
+} from './releaseManifest';
 
 export type DeployPreflightReport = {
   environment: string;
@@ -83,9 +88,19 @@ export function buildDeployPreflightReport(env: NodeJS.ProcessEnv): DeployPrefli
     };
   }
 
-  validateImageUris(env, errors);
-  validateEcrImageAvailability(env, errors);
+  let releaseManifest: ReleaseManifest | undefined;
+  if (config.runProfile === 'warm-host-partial') {
+    try {
+      releaseManifest = loadReleaseManifest(resolvePreflightRepoRoot(env), config.releaseManifestPath!);
+    } catch (error) {
+      errors.push((error as Error).message);
+    }
+  }
+
+  validateImageUris(env, errors, releaseManifest);
+  validateEcrImageAvailability(env, errors, releaseManifest);
   validateEnvironmentDomains(environment, config, errors);
+  validateWarmHostPartialDeploy(config, env, environment, releaseManifest, errors);
 
   const slices = getSliceState(config);
   validateSliceDependencies(config, slices, errors, warnings);
@@ -132,8 +147,12 @@ export function formatDeployPreflightReport(report: DeployPreflightReport): stri
   return `${lines.join('\n')}\n`;
 }
 
-function validateImageUris(env: NodeJS.ProcessEnv, errors: string[]): void {
-  for (const key of IMAGE_ENV_KEYS) {
+function validateImageUris(
+  env: NodeJS.ProcessEnv,
+  errors: string[],
+  releaseManifest?: ReleaseManifest
+): void {
+  for (const key of getImageEnvKeysToValidate(releaseManifest)) {
     const value = env[key];
     if (!value) {
       continue;
@@ -150,7 +169,11 @@ function validateImageUris(env: NodeJS.ProcessEnv, errors: string[]): void {
   }
 }
 
-function validateEcrImageAvailability(env: NodeJS.ProcessEnv, errors: string[]): void {
+function validateEcrImageAvailability(
+  env: NodeJS.ProcessEnv,
+  errors: string[],
+  releaseManifest?: ReleaseManifest
+): void {
   if (env.PREFLIGHT_SKIP_ECR_IMAGE_LOOKUP === '1') {
     return;
   }
@@ -161,7 +184,7 @@ function validateEcrImageAvailability(env: NodeJS.ProcessEnv, errors: string[]):
     return;
   }
 
-  for (const key of IMAGE_ENV_KEYS) {
+  for (const key of getImageEnvKeysToValidate(releaseManifest)) {
     const imageUri = env[key];
     if (!imageUri || !hasTagOrDigest(imageUri) || imageUri.includes('@sha256:') || imageUri.endsWith(':latest')) {
       continue;
@@ -203,6 +226,52 @@ function validateEcrImageAvailability(env: NodeJS.ProcessEnv, errors: string[]):
     } catch {
       errors.push(`${key} points to an ECR tag that does not exist: ${imageUri}`);
     }
+  }
+}
+
+function validateWarmHostPartialDeploy(
+  config: PlatformConfig,
+  env: NodeJS.ProcessEnv,
+  environment: string,
+  releaseManifest: ReleaseManifest | undefined,
+  errors: string[]
+): void {
+  if (config.runProfile !== 'warm-host-partial' || !releaseManifest) {
+    return;
+  }
+
+  if (env.PREFLIGHT_SKIP_WARM_HOST_LOOKUP === '1') {
+    return;
+  }
+
+  try {
+    const stackStatus = childProcess
+      .execFileSync(
+        'aws',
+        [
+          'cloudformation',
+          'describe-stacks',
+          '--region',
+          config.region,
+          '--stack-name',
+          buildEc2RuntimeStackName(environment),
+          '--query',
+          'Stacks[0].StackStatus',
+          '--output',
+          'text'
+        ],
+        {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      )
+      .trim();
+
+    if (!stackStatus || stackStatus === 'None' || stackStatus.startsWith('DELETE_')) {
+      errors.push('Warm-host partial deploy requires an existing EC2 base stack and app host. Bring up the base stack first.');
+    }
+  } catch {
+    errors.push('Warm-host partial deploy requires an existing EC2 base stack and app host. Bring up the base stack first.');
   }
 }
 
@@ -350,6 +419,12 @@ function buildWaitSignals(config: PlatformConfig, slices: SliceState): string[] 
       );
     }
 
+    if (config.runProfile === 'warm-host-partial') {
+      signals.push(
+        'Warm-host partial deploy keeps the existing base stack and updates only manifest-listed services in fixed waves.'
+      );
+    }
+
     return signals;
   }
 
@@ -432,6 +507,14 @@ function formatEnabledSlices(slices: SliceState): string[] {
   return labels;
 }
 
+function getImageEnvKeysToValidate(releaseManifest?: ReleaseManifest): Array<keyof NodeJS.ProcessEnv> {
+  if (!releaseManifest) {
+    return IMAGE_ENV_KEYS;
+  }
+
+  return releaseManifest.services.map((service) => RELEASE_MANIFEST_IMAGE_ENV_KEYS[service.service]);
+}
+
 function hasStatefulSlices(slices: SliceState): boolean {
   return (
     slices.authSurface ||
@@ -487,6 +570,22 @@ function parseTaggedEcrImageUri(imageUri: string): { repositoryName: string; tag
     repositoryName: match[1],
     tag: match[2]
   };
+}
+
+function buildEc2RuntimeStackName(environment: string): string {
+  if (environment === 'dev') {
+    return 'EvDashboardPlatformDevStack';
+  }
+
+  if (environment === 'stage') {
+    return 'EvDashboardPlatformStageStack';
+  }
+
+  return 'EvDashboardPlatformProdStack';
+}
+
+function resolvePreflightRepoRoot(env: NodeJS.ProcessEnv): string {
+  return env.PREFLIGHT_REPO_ROOT || process.cwd();
 }
 
 function normalizeRuntimeMode(value: string | undefined): DeployPreflightReport['runtimeMode'] {

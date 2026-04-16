@@ -32,6 +32,38 @@ const RELEASE_MANIFEST_SERVICE_KEYS = [
 
 export type ReleaseManifestServiceName = (typeof RELEASE_MANIFEST_SERVICE_KEYS)[number];
 
+export const RELEASE_MANIFEST_IMAGE_ENV_KEYS: Record<
+  ReleaseManifestServiceName,
+  keyof NodeJS.ProcessEnv
+> = {
+  'edge-api-gateway': 'GATEWAY_IMAGE_URI',
+  'front-web-console': 'FRONT_IMAGE_URI',
+  'service-account-access': 'ACCOUNT_ACCESS_IMAGE_URI',
+  'service-announcement-registry': 'ANNOUNCEMENT_REGISTRY_IMAGE_URI',
+  'service-attendance-registry': 'ATTENDANCE_REGISTRY_IMAGE_URI',
+  'service-delivery-record': 'DELIVERY_RECORD_IMAGE_URI',
+  'service-dispatch-operations-view': 'DISPATCH_OPS_IMAGE_URI',
+  'service-dispatch-registry': 'DISPATCH_REGISTRY_IMAGE_URI',
+  'service-driver-operations-view': 'DRIVER_OPS_IMAGE_URI',
+  'service-driver-profile': 'DRIVER_PROFILE_IMAGE_URI',
+  'service-notification-hub': 'NOTIFICATION_HUB_IMAGE_URI',
+  'service-organization-registry': 'ORGANIZATION_IMAGE_URI',
+  'service-personnel-document-registry': 'PERSONNEL_DOCUMENT_IMAGE_URI',
+  'service-region-analytics': 'REGION_ANALYTICS_IMAGE_URI',
+  'service-region-registry': 'REGION_REGISTRY_IMAGE_URI',
+  'service-settlement-operations-view': 'SETTLEMENT_OPS_IMAGE_URI',
+  'service-settlement-payroll': 'SETTLEMENT_PAYROLL_IMAGE_URI',
+  'service-settlement-registry': 'SETTLEMENT_REGISTRY_IMAGE_URI',
+  'service-support-registry': 'SUPPORT_REGISTRY_IMAGE_URI',
+  'service-telemetry-dead-letter': 'TELEMETRY_DEAD_LETTER_IMAGE_URI',
+  'service-telemetry-hub': 'TELEMETRY_HUB_IMAGE_URI',
+  'service-telemetry-listener': 'TELEMETRY_LISTENER_IMAGE_URI',
+  'service-terminal-registry': 'TERMINAL_REGISTRY_IMAGE_URI',
+  'service-vehicle-assignment': 'DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI',
+  'service-vehicle-operations-view': 'VEHICLE_OPS_IMAGE_URI',
+  'service-vehicle-registry': 'VEHICLE_ASSET_IMAGE_URI'
+};
+
 export type ReleaseManifestService = {
   service: ReleaseManifestServiceName;
   imageUri: string;

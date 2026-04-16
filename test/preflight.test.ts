@@ -2,6 +2,9 @@ jest.mock('node:child_process', () => ({
   execFileSync: jest.fn()
 }));
 
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as childProcess from 'node:child_process';
 
 import { buildDeployPreflightReport, formatDeployPreflightReport } from '../lib/preflight';
@@ -88,6 +91,17 @@ function createBaseEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   };
 }
 
+function createTempRepoRoot(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'preflight-release-manifest-'));
+}
+
+function writeReleaseManifest(repoRoot: string, relativePath: string, content: string): string {
+  const absolutePath = path.join(repoRoot, relativePath);
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(absolutePath, content, 'utf8');
+  return absolutePath;
+}
+
 describe('deploy preflight', () => {
   afterEach(() => {
     jest.resetAllMocks();
@@ -102,6 +116,115 @@ describe('deploy preflight', () => {
 
     expect(report.errors).toContain(
       'FRONT_IMAGE_URI must not use the mutable "latest" tag. Use an immutable SHA-style tag instead.'
+    );
+  });
+
+  test('requires release manifest path for warm-host partial deploys', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        RUN_PROFILE: 'warm-host-partial'
+      })
+    );
+
+    expect(report.errors).toContain('Missing required environment variable: RELEASE_MANIFEST_PATH');
+  });
+
+  test('rejects warm-host partial deploys when the base stack is missing', () => {
+    (childProcess.execFileSync as jest.Mock).mockImplementation((command: string, args?: string[]) => {
+      if (command === 'aws' && args?.[0] === 'cloudformation') {
+        throw new Error('Stack does not exist');
+      }
+      return '';
+    });
+
+    const repoRoot = createTempRepoRoot();
+    writeReleaseManifest(
+      repoRoot,
+      'release-manifests/dev/account-access.json',
+      JSON.stringify({
+        release_id: 'dev-account-access-only',
+        services: {
+          'service-account-access': {
+            image_uri:
+              '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account'
+          }
+        }
+      })
+    );
+
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        RUN_PROFILE: 'warm-host-partial',
+        RELEASE_MANIFEST_PATH: 'release-manifests/dev/account-access.json',
+        PREFLIGHT_REPO_ROOT: repoRoot,
+        PREFLIGHT_SKIP_ECR_IMAGE_LOOKUP: '1',
+        PREFLIGHT_SKIP_WARM_HOST_LOOKUP: '0'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Warm-host partial deploy requires an existing EC2 base stack and app host. Bring up the base stack first.'
+    );
+  });
+
+  test('checks ECR tags only for services listed in the release manifest during warm-host partial deploys', () => {
+    (childProcess.execFileSync as jest.Mock).mockImplementation((command: string, args?: string[]) => {
+      if (command !== 'aws' || !args) {
+        return '';
+      }
+
+      if (args[0] === 'cloudformation') {
+        return 'UPDATE_COMPLETE';
+      }
+
+      if (args[0] === 'ecr') {
+        const imageTagArgument = args.find((argument) => argument.startsWith('imageTag='));
+        if (imageTagArgument === 'imageTag=sha-account') {
+          return 'sha256:account';
+        }
+        throw new Error(`Unexpected ECR lookup: ${imageTagArgument ?? 'none'}`);
+      }
+
+      return '';
+    });
+
+    const repoRoot = createTempRepoRoot();
+    writeReleaseManifest(
+      repoRoot,
+      'release-manifests/dev/account-access.json',
+      JSON.stringify({
+        release_id: 'dev-account-access-only',
+        services: {
+          'service-account-access': {
+            image_uri:
+              '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-account-access:sha-account'
+          }
+        }
+      })
+    );
+
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        RUN_PROFILE: 'warm-host-partial',
+        RELEASE_MANIFEST_PATH: 'release-manifests/dev/account-access.json',
+        PREFLIGHT_REPO_ROOT: repoRoot,
+        PREFLIGHT_SKIP_ECR_IMAGE_LOOKUP: '0',
+        PREFLIGHT_SKIP_WARM_HOST_LOOKUP: '1',
+        VEHICLE_ASSET_IMAGE_URI: '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-vehicle-registry:latest'
+      })
+    );
+
+    expect(report.errors).toEqual([]);
+    expect(childProcess.execFileSync).toHaveBeenCalledWith(
+      'aws',
+      expect.arrayContaining([
+        'ecr',
+        'describe-images',
+        '--repository-name',
+        'service-account-access',
+        'imageTag=sha-account'
+      ]),
+      expect.any(Object)
     );
   });
 
