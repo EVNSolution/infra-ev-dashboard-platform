@@ -399,3 +399,9 @@ Current `full` still stops at the telemetry-listener truth boundary, not at a ge
 - confirmed broker reachability from the current lane
 
 Lesson: do not say "full needs new subnets" until the real broker proves that the current lane cannot reach it.
+
+Bootstrap time and stack complexity are related, but they are not the same optimization target. The immediate timing cost in the current `full` lane comes from app-host replacement plus bootstrap, image pull, and smoke wait. For this repo:
+
+- treat **replacement surface reduction** as the current optimization phase
+- record replacement proofs with `AppHost` instance id before/after, stack events, and public smoke
+- keep **stack secret/metadata simplification** as the next phase, because event-count cleanup and secret consolidation are broader than the current timing fix

@@ -487,6 +487,8 @@ GitHub variable scope matters for the EC2 runtime cutover. The shared network va
 - The ALB still routes `ev-dashboard.com/api/*` and `api.ev-dashboard.com/*` to the same edge entry on the app host so the front can keep same-host `/api` calls.
 - The runtime image map is stored in SSM and consumed by the app-host bootstrap.
 - App-host reconcile is boot/deploy scoped, not periodic. `userDataCausesReplacement` plus `runtimeFingerprint` already force host replacement when the manifest changes, so a timer that re-runs full reconcile on a live host only creates avoidable gateway churn.
+- The current bootstrap optimization phase is focused on **narrowing the app-host replacement surface**, not on changing the meaning of `full`. The replacement payload must be deterministic and must only include enabled bootstrap-bound runtime material.
+- The next optimization phase is **stack secret/metadata simplification**. Keep that work separate from the current replacement-surface phase so timing regressions and stack-diff simplification do not get conflated.
 - The post-deploy smoke step is allowed to poll for host readiness because CloudFormation can finish before a fresh EC2 app host completes `cloud-init`, Docker install, and the first reconcile loop.
 - The runtime is no longer modeled as ECS services, Service Connect, dedicated RDS instances, or ElastiCache clusters in canonical mode.
 - Frontend and gateway container contracts stay the same:
