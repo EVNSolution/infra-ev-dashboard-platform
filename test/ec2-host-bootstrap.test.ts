@@ -154,10 +154,16 @@ describe('EC2 host bootstrap renderers', () => {
     const manifestSource = source.slice(manifestStart, manifestEnd);
 
     const frontIndex = manifestSource.indexOf("id: 'FRONT'");
-    const accountIndex = manifestSource.indexOf("id: 'ACCOUNT_ACCESS'");
-    const organizationIndex = manifestSource.indexOf("id: 'ORGANIZATION'");
+    const accountIndex = manifestSource.indexOf(
+      "buildCatalogBackedAppHostRuntimeService('service-account-access'"
+    );
+    const organizationIndex = manifestSource.indexOf(
+      "buildCatalogBackedAppHostRuntimeService('service-organization-registry'"
+    );
     const gatewayIndex = manifestSource.indexOf("id: 'GATEWAY'");
-    const firstLaterSliceIndex = manifestSource.indexOf("id: 'DRIVER_PROFILE'");
+    const firstLaterSliceIndex = manifestSource.indexOf(
+      "buildCatalogBackedAppHostRuntimeService('service-driver-profile'"
+    );
 
     expect(frontIndex).toBeGreaterThanOrEqual(0);
     expect(accountIndex).toBeGreaterThan(frontIndex);
