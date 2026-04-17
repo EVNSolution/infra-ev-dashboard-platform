@@ -31,6 +31,53 @@ type EvDashboardPlatformStackProps = cdk.StackProps & {
   config: PlatformConfig;
 };
 
+export type AppRuntimeReplacementPayloadInput = {
+  runProfile: string;
+  runtimeImageMap: Record<string, string>;
+  appServices: AppHostRuntimeService[];
+  bootstrapPackageIdentity: {
+    bucketName: string;
+    objectKey: string;
+  };
+};
+
+export function buildAppRuntimeReplacementPayload(input: AppRuntimeReplacementPayloadInput): {
+  bootstrapPackageIdentity: {
+    bucketName: string;
+    objectKey: string;
+  };
+  services: Array<{
+    id: string;
+    imageMapKey: string;
+    image: string | null;
+    containerName: string;
+    hostPort: number | null;
+    containerPort: number | null;
+    environment: Record<string, string>;
+  }>;
+} {
+  const services = [...input.appServices]
+    .filter((service) => service.enabled)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((service) => ({
+      id: service.id,
+      imageMapKey: service.imageMapKey,
+      image: input.runtimeImageMap[service.imageMapKey] ?? null,
+      containerName: service.containerName,
+      hostPort: service.hostPort ?? null,
+      containerPort: service.containerPort ?? null,
+      environment: normalizeStringRecord(service.environment ?? {})
+    }));
+
+  return {
+    bootstrapPackageIdentity: {
+      bucketName: input.bootstrapPackageIdentity.bucketName,
+      objectKey: input.bootstrapPackageIdentity.objectKey
+    },
+    services
+  };
+}
+
 export class EvDashboardPlatformStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EvDashboardPlatformStackProps) {
     super(scope, id, props);
@@ -2494,18 +2541,17 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     const appRuntimeFingerprint = crypto
       .createHash('sha256')
       .update(
-        JSON.stringify({
-          runProfile: config.runProfile,
-          imageMap: runtimeImageMap,
-          serviceManifest: appServices.map((service) => ({
-            id: service.id,
-            enabled: service.enabled,
-            imageMapKey: service.imageMapKey,
-            hostPort: service.hostPort ?? null,
-            containerPort: service.containerPort ?? null,
-            environment: service.environment ?? {}
-          }))
-        })
+        JSON.stringify(
+          buildAppRuntimeReplacementPayload({
+            runProfile: config.runProfile,
+            runtimeImageMap,
+            appServices,
+            bootstrapPackageIdentity: {
+              bucketName: bootstrapPackageAsset.s3BucketName,
+              objectKey: bootstrapPackageAsset.s3ObjectKey
+            }
+          })
+        )
       )
       .digest('hex');
 
@@ -2859,4 +2905,12 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     }
     return subnet;
   }
+}
+
+function normalizeStringRecord(record: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(record)
+      .filter(([, value]) => value !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+  );
 }

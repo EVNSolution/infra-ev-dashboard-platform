@@ -5,7 +5,8 @@ import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 
 import { buildPlatformConfig } from '../lib/config';
-import { EvDashboardPlatformStack } from '../lib/ev-dashboard-platform-stack';
+import { buildAppRuntimeReplacementPayload, EvDashboardPlatformStack } from '../lib/ev-dashboard-platform-stack';
+import type { AppHostRuntimeService } from '../lib/ec2-bootstrap';
 
 function baseEc2RuntimeInput() {
   return {
@@ -188,7 +189,112 @@ function extractRuntimeImageMap(template: Template): Record<string, string> {
   return JSON.parse(parameters[0].Properties.Value) as Record<string, string>;
 }
 
+function buildReplacementPayloadInput(input?: {
+  runProfile?: 'full' | 'incremental-expand';
+  enabledAccountImage?: string;
+  disabledTelemetryImage?: string;
+  accountEnvironment?: Record<string, string>;
+  bootstrapPackageObjectKey?: string;
+}): {
+  runProfile: 'full' | 'incremental-expand';
+  runtimeImageMap: Record<string, string>;
+  appServices: AppHostRuntimeService[];
+  bootstrapPackageIdentity: { bucketName: string; objectKey: string };
+} {
+  return {
+    runProfile: input?.runProfile ?? 'full',
+    runtimeImageMap: {
+      'service-account-access': input?.enabledAccountImage ?? 'account@sha256:enabled-a',
+      'service-telemetry-listener': input?.disabledTelemetryImage ?? 'listener@sha256:disabled-a'
+    },
+    appServices: [
+      {
+        id: 'ACCOUNT_ACCESS',
+        imageMapKey: 'service-account-access',
+        containerName: 'account-auth-api',
+        enabled: true,
+        containerPort: 8000,
+        hostPort: 8000,
+        environment: input?.accountEnvironment ?? {
+          DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com'
+        }
+      },
+      {
+        id: 'TELEMETRY_LISTENER',
+        imageMapKey: 'service-telemetry-listener',
+        containerName: 'telemetry-listener',
+        enabled: false,
+        environment: {
+          TELEMETRY_LISTENER_MQTT_HOST: 'mqtt.example.internal'
+        }
+      }
+    ],
+    bootstrapPackageIdentity: {
+      bucketName: 'clever-bootstrap-bucket',
+      objectKey: input?.bootstrapPackageObjectKey ?? 'bootstrap/runtime-a.zip'
+    }
+  };
+}
+
 describe('EvDashboardPlatformStack', () => {
+  test('keeps the replacement payload stable when runProfile changes without runtime changes', () => {
+    expect(
+      buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ runProfile: 'full' }))
+    ).toEqual(buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ runProfile: 'incremental-expand' })));
+  });
+
+  test('ignores disabled-service image changes in the replacement payload', () => {
+    expect(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({ disabledTelemetryImage: 'listener@sha256:disabled-a' })
+      )
+    ).toEqual(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({ disabledTelemetryImage: 'listener@sha256:disabled-b' })
+      )
+    );
+  });
+
+  test('changes the replacement payload when an enabled-service image changes', () => {
+    expect(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({ enabledAccountImage: 'account@sha256:enabled-a' })
+      )
+    ).not.toEqual(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({ enabledAccountImage: 'account@sha256:enabled-b' })
+      )
+    );
+  });
+
+  test('changes the replacement payload when an enabled-service runtime spec changes', () => {
+    expect(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({
+          accountEnvironment: { DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com' }
+        })
+      )
+    ).not.toEqual(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({
+          accountEnvironment: { DJANGO_ALLOWED_HOSTS: 'api-next.ev-dashboard.com' }
+        })
+      )
+    );
+  });
+
+  test('changes the replacement payload when the bootstrap package identity changes', () => {
+    expect(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({ bootstrapPackageObjectKey: 'bootstrap/runtime-a.zip' })
+      )
+    ).not.toEqual(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({ bootstrapPackageObjectKey: 'bootstrap/runtime-b.zip' })
+      )
+    );
+  });
+
   test('sources core backend app-host runtime base metadata from the service catalog', () => {
     const source = readFileSync(join(__dirname, '..', 'lib', 'ev-dashboard-platform-stack.ts'), 'utf8');
 
