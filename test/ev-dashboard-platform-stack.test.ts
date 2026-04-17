@@ -197,6 +197,7 @@ describe('EvDashboardPlatformStack', () => {
     expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-organization-registry'");
     expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-driver-profile'");
     expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-dispatch-operations-view'");
+    expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-settlement-operations-view'");
     expect(source).not.toContain("buildCatalogBackedAppHostRuntimeService('front-web-console'");
     expect(source).not.toContain("buildCatalogBackedAppHostRuntimeService('edge-api-gateway'");
   });
@@ -207,6 +208,7 @@ describe('EvDashboardPlatformStack', () => {
     expect(source).toContain('buildCatalogBackedRuntimeImageMapEntries');
     expect(source).not.toContain("'service-driver-profile': config.driverProfileImageUri");
     expect(source).not.toContain("'service-dispatch-operations-view': config.dispatchOpsImageUri");
+    expect(source).not.toContain("'service-settlement-operations-view': config.settlementOpsImageUri");
   });
 
   test('synthesizes the ev-dashboard canonical runtime as EC2 app and data hosts', () => {
@@ -342,6 +344,14 @@ describe('EvDashboardPlatformStack', () => {
         GUNICORN_WORKERS: '1'
       })
     );
+    expect(extractAppServiceManifestEnvironment(devTemplate, 'settlement-ops-api')).toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1',
+        SETTLEMENT_PAYROLL_BASE_URL: 'http://settlement-payroll-api:8000',
+        DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000'
+      })
+    );
     expect(extractAppServiceManifestEnvironment(devTemplate, 'edge-api-gateway')).not.toEqual(
       expect.objectContaining({
         GUNICORN_WORKERS: '1'
@@ -368,6 +378,11 @@ describe('EvDashboardPlatformStack', () => {
         GUNICORN_WORKERS: '1'
       })
     );
+    expect(extractAppServiceManifestEnvironment(prodTemplate, 'settlement-ops-api')).not.toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1'
+      })
+    );
   });
 
   test('injects configured gunicorn workers into prod backend service manifests when overridden', () => {
@@ -388,6 +403,14 @@ describe('EvDashboardPlatformStack', () => {
     expect(extractAppServiceManifestEnvironment(prodTemplate, 'dispatch-ops-api')).toEqual(
       expect.objectContaining({
         GUNICORN_WORKERS: '1'
+      })
+    );
+    expect(extractAppServiceManifestEnvironment(prodTemplate, 'settlement-ops-api')).toEqual(
+      expect.objectContaining({
+        GUNICORN_WORKERS: '1',
+        SETTLEMENT_PAYROLL_BASE_URL: 'http://settlement-payroll-api:8000',
+        DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
+        DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000'
       })
     );
     expect(extractAppServiceManifestEnvironment(prodTemplate, 'edge-api-gateway')).not.toEqual(

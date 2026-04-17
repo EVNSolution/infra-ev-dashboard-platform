@@ -461,6 +461,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 2,
     slice: 'settlement',
     preflightGroup: 'Settlement',
+    appHostRuntime: {
+      id: 'SETTLEMENT_OPS',
+      imageMapKey: 'service-settlement-operations-view',
+      containerName: 'settlement-ops-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'settlementOpsImageUri',
     imageEnvKey: 'SETTLEMENT_OPS_IMAGE_URI',
     defaultDesiredCount: 0,

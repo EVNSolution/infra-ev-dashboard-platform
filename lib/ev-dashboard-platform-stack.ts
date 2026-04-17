@@ -2436,12 +2436,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         }),
         secretArns: vehicleOpsSecrets ? djangoSecretArns(vehicleOpsSecrets.djangoSecret) : {}
       }),
-      {
-        id: 'SETTLEMENT_OPS',
-        imageMapKey: 'service-settlement-operations-view',
-        containerName: 'settlement-ops-api',
+      buildCatalogBackedAppHostRuntimeService('service-settlement-operations-view', {
         enabled: config.settlementOpsDesiredCount > 0,
-        containerPort: 8000,
         environment: withDevGunicornWorkers({
           SETTLEMENT_PAYROLL_BASE_URL: 'http://settlement-payroll-api:8000',
           DELIVERY_RECORD_BASE_URL: 'http://delivery-record-api:8000',
@@ -2450,7 +2446,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
         }),
         secretArns: settlementOpsSecrets ? djangoSecretArns(settlementOpsSecrets.djangoSecret) : {}
-      },
+      }),
       {
         id: 'TELEMETRY_LISTENER',
         imageMapKey: 'service-telemetry-listener',
@@ -2840,7 +2836,6 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       'service-attendance-registry': config.attendanceRegistryImageUri,
       'service-settlement-registry': config.settlementRegistryImageUri,
       'service-settlement-payroll': config.settlementPayrollImageUri,
-      'service-settlement-operations-view': config.settlementOpsImageUri,
       'service-region-registry': config.regionRegistryImageUri,
       'service-region-analytics': config.regionAnalyticsImageUri,
       'service-announcement-registry': config.announcementRegistryImageUri,
