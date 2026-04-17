@@ -1,5 +1,4 @@
 import * as crypto from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -7,11 +6,6 @@ export type BootstrapPackageFile = {
   absolutePath: string;
   relativePath: string;
   contents: string;
-};
-
-export type BootstrapPackageSourceIdentity = {
-  relativePath: string;
-  objectId: string;
 };
 
 export function listBootstrapPackageFiles(): BootstrapPackageFile[] {
@@ -37,49 +31,12 @@ export function getBootstrapAssetRoot(): string {
   return path.resolve(__dirname, '..', 'bootstrap');
 }
 
-export function listBootstrapPackageSourceIdentities(
-  files: BootstrapPackageFile[] = listBootstrapPackageFiles()
-): BootstrapPackageSourceIdentity[] {
-  const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-    cwd: getBootstrapAssetRoot(),
-    encoding: 'utf8'
-  }).trim();
-  const repoRelativePaths = files.map((file) => path.posix.join('bootstrap', file.relativePath));
-  const dirtyStatus = execFileSync('git', ['status', '--porcelain', '--untracked-files=all', '--', ...repoRelativePaths], {
-    cwd: repoRoot,
-    encoding: 'utf8'
-  }).trim();
-
-  if (dirtyStatus.length > 0) {
-    throw new Error(`Bootstrap package sources must be committed before digesting:\n${dirtyStatus}`);
-  }
-
-  const trackedFiles = execFileSync('git', ['ls-files', '-s', '--', ...repoRelativePaths], {
-    cwd: repoRoot,
-    encoding: 'utf8'
-  })
-    .trim()
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => {
-      const [, objectId, , repoRelativePath] = line.split(/\s+/);
-      return {
-        relativePath: repoRelativePath.replace(/^bootstrap\//, ''),
-        objectId
-      };
-    });
-
-  if (trackedFiles.length !== repoRelativePaths.length) {
-    throw new Error('Bootstrap package sources must be git-tracked before digesting.');
-  }
-
-  return trackedFiles.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
-}
-
-export function buildBootstrapPackageDigest(
-  identities: BootstrapPackageSourceIdentity[] = listBootstrapPackageSourceIdentities()
-): string {
-  const normalizedFiles = [...identities]
+export function buildBootstrapPackageDigest(files: BootstrapPackageFile[] = listBootstrapPackageFiles()): string {
+  const normalizedFiles = [...files]
+    .map((file) => ({
+      relativePath: file.relativePath,
+      contents: file.contents,
+    }))
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 
   return crypto.createHash('sha256').update(JSON.stringify(normalizedFiles)).digest('hex');
