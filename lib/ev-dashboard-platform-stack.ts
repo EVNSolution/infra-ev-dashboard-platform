@@ -24,6 +24,7 @@ import { Ec2AppHost } from './ec2-app-host';
 import type { AppHostRuntimeService } from './ec2-bootstrap';
 import { Ec2DataHost } from './ec2-data-host';
 import { buildGatewayRouteProfile } from './gatewayRouteProfile';
+import type { ReleaseManifestServiceName } from './releaseManifest';
 import { getCatalogAppHostRuntimeMetadata } from './serviceCatalog';
 
 type EvDashboardPlatformStackProps = cdk.StackProps & {
@@ -1990,7 +1991,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
       ...extra
     });
     const buildCatalogBackedAppHostRuntimeService = (
-      service: 'service-account-access' | 'service-organization-registry',
+      service: ReleaseManifestServiceName,
       input: Omit<AppHostRuntimeService, 'id' | 'imageMapKey' | 'containerName' | 'containerPort' | 'hostPort'>
     ): AppHostRuntimeService => {
       const metadata = getCatalogAppHostRuntimeMetadata(service);
@@ -2056,12 +2057,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
             : {})
         }
       },
-      {
-        id: 'DRIVER_PROFILE',
-        imageMapKey: 'service-driver-profile',
-        containerName: 'driver-profile-api',
+      buildCatalogBackedAppHostRuntimeService('service-driver-profile', {
         enabled: config.driverProfileDesiredCount > 0,
-        containerPort: 8000,
         environment: driverProfileSecrets
           ? withDevGunicornWorkers({
               ...databaseEnvironment('driver_profile', 'driver_profile'),
@@ -2074,13 +2071,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
               ...djangoSecretArns(driverProfileSecrets.djangoSecret)
             }
           : {}
-      },
-      {
-        id: 'VEHICLE_ASSET',
-        imageMapKey: 'service-vehicle-registry',
-        containerName: 'vehicle-asset-api',
+      }),
+      buildCatalogBackedAppHostRuntimeService('service-vehicle-registry', {
         enabled: config.vehicleAssetDesiredCount > 0,
-        containerPort: 8000,
         environment: vehicleAssetSecrets
           ? withDevGunicornWorkers({
               ...databaseEnvironment('vehicle_asset', 'vehicle_asset'),
@@ -2093,13 +2086,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
               ...djangoSecretArns(vehicleAssetSecrets.djangoSecret)
             }
           : {}
-      },
-      {
-        id: 'PERSONNEL_DOCUMENT',
-        imageMapKey: 'service-personnel-document-registry',
-        containerName: 'personnel-document-registry-api',
+      }),
+      buildCatalogBackedAppHostRuntimeService('service-personnel-document-registry', {
         enabled: config.personnelDocumentDesiredCount > 0,
-        containerPort: 8000,
         environment: personnelDocumentSecrets
           ? withDevGunicornWorkers({
               ...databaseEnvironment('personnel_document', 'personnel_document'),
@@ -2113,13 +2102,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
               ...djangoSecretArns(personnelDocumentSecrets.djangoSecret)
             }
           : {}
-      },
-      {
-        id: 'DRIVER_VEHICLE_ASSIGNMENT',
-        imageMapKey: 'service-vehicle-assignment',
-        containerName: 'driver-vehicle-assignment-api',
+      }),
+      buildCatalogBackedAppHostRuntimeService('service-vehicle-assignment', {
         enabled: config.driverVehicleAssignmentDesiredCount > 0,
-        containerPort: 8000,
         environment: driverVehicleAssignmentSecrets
           ? withDevGunicornWorkers({
               ...databaseEnvironment('driver_vehicle_assignment', 'driver_vehicle_assignment'),
@@ -2134,7 +2119,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
               ...djangoSecretArns(driverVehicleAssignmentSecrets.djangoSecret)
             }
           : {}
-      },
+      }),
       {
         id: 'ATTENDANCE_REGISTRY',
         imageMapKey: 'service-attendance-registry',
@@ -2413,12 +2398,8 @@ export class EvDashboardPlatformStack extends cdk.Stack {
             }
           : {}
       },
-      {
-        id: 'DISPATCH_OPS',
-        imageMapKey: 'service-dispatch-operations-view',
-        containerName: 'dispatch-ops-api',
+      buildCatalogBackedAppHostRuntimeService('service-dispatch-operations-view', {
         enabled: config.dispatchOpsDesiredCount > 0,
-        containerPort: 8000,
         environment: withDevGunicornWorkers({
           DISPATCH_REGISTRY_BASE_URL: 'http://dispatch-registry-api:8000',
           DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
@@ -2428,13 +2409,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
         }),
         secretArns: dispatchOpsSecrets ? djangoSecretArns(dispatchOpsSecrets.djangoSecret) : {}
-      },
-      {
-        id: 'DRIVER_OPS',
-        imageMapKey: 'service-driver-operations-view',
-        containerName: 'driver-ops-api',
+      }),
+      buildCatalogBackedAppHostRuntimeService('service-driver-operations-view', {
         enabled: config.driverOpsDesiredCount > 0,
-        containerPort: 8000,
         environment: withDevGunicornWorkers({
           ACCOUNT_AUTH_BASE_URL: 'http://account-auth-api:8000',
           DRIVER_PROFILE_BASE_URL: 'http://driver-profile-api:8000',
@@ -2445,13 +2422,9 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
         }),
         secretArns: driverOpsSecrets ? djangoSecretArns(driverOpsSecrets.djangoSecret) : {}
-      },
-      {
-        id: 'VEHICLE_OPS',
-        imageMapKey: 'service-vehicle-operations-view',
-        containerName: 'vehicle-ops-api',
+      }),
+      buildCatalogBackedAppHostRuntimeService('service-vehicle-operations-view', {
         enabled: config.vehicleOpsDesiredCount > 0,
-        containerPort: 8000,
         environment: withDevGunicornWorkers({
           VEHICLE_ASSET_BASE_URL: 'http://vehicle-asset-api:8000',
           DRIVER_VEHICLE_ASSIGNMENT_BASE_URL: 'http://driver-vehicle-assignment-api:8000',
@@ -2462,7 +2435,7 @@ export class EvDashboardPlatformStack extends cdk.Stack {
           CSRF_TRUSTED_ORIGINS: csrfTrustedOrigins
         }),
         secretArns: vehicleOpsSecrets ? djangoSecretArns(vehicleOpsSecrets.djangoSecret) : {}
-      },
+      }),
       {
         id: 'SETTLEMENT_OPS',
         imageMapKey: 'service-settlement-operations-view',

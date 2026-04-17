@@ -185,6 +185,10 @@ describe('EvDashboardPlatformStack', () => {
     expect(source).toContain('buildCatalogBackedAppHostRuntimeService');
     expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-account-access'");
     expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-organization-registry'");
+    expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-driver-profile'");
+    expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-dispatch-operations-view'");
+    expect(source).not.toContain("buildCatalogBackedAppHostRuntimeService('front-web-console'");
+    expect(source).not.toContain("buildCatalogBackedAppHostRuntimeService('edge-api-gateway'");
   });
 
   test('synthesizes the ev-dashboard canonical runtime as EC2 app and data hosts', () => {

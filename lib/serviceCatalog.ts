@@ -167,6 +167,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 1,
     slice: 'people-and-assets',
     preflightGroup: 'People And Assets',
+    appHostRuntime: {
+      id: 'DRIVER_PROFILE',
+      imageMapKey: 'service-driver-profile',
+      containerName: 'driver-profile-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'driverProfileImageUri',
     imageEnvKey: 'DRIVER_PROFILE_IMAGE_URI',
     defaultDesiredCount: 0,
@@ -188,6 +194,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 1,
     slice: 'people-and-assets',
     preflightGroup: 'People And Assets',
+    appHostRuntime: {
+      id: 'PERSONNEL_DOCUMENT',
+      imageMapKey: 'service-personnel-document-registry',
+      containerName: 'personnel-document-registry-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'personnelDocumentImageUri',
     imageEnvKey: 'PERSONNEL_DOCUMENT_IMAGE_URI',
     defaultDesiredCount: 0,
@@ -209,6 +221,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 1,
     slice: 'people-and-assets',
     preflightGroup: 'People And Assets',
+    appHostRuntime: {
+      id: 'VEHICLE_ASSET',
+      imageMapKey: 'service-vehicle-registry',
+      containerName: 'vehicle-asset-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'vehicleAssetImageUri',
     imageEnvKey: 'VEHICLE_ASSET_IMAGE_URI',
     defaultDesiredCount: 0,
@@ -230,6 +248,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 1,
     slice: 'people-and-assets',
     preflightGroup: 'People And Assets',
+    appHostRuntime: {
+      id: 'DRIVER_VEHICLE_ASSIGNMENT',
+      imageMapKey: 'service-vehicle-assignment',
+      containerName: 'driver-vehicle-assignment-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'driverVehicleAssignmentImageUri',
     imageEnvKey: 'DRIVER_VEHICLE_ASSIGNMENT_IMAGE_URI',
     defaultDesiredCount: 0,
@@ -314,6 +338,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 2,
     slice: 'dispatch-read-models',
     preflightGroup: 'Dispatch Read Models',
+    appHostRuntime: {
+      id: 'DISPATCH_OPS',
+      imageMapKey: 'service-dispatch-operations-view',
+      containerName: 'dispatch-ops-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'dispatchOpsImageUri',
     imageEnvKey: 'DISPATCH_OPS_IMAGE_URI',
     defaultDesiredCount: 0,
@@ -335,6 +365,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 2,
     slice: 'dispatch-read-models',
     preflightGroup: 'Dispatch Read Models',
+    appHostRuntime: {
+      id: 'DRIVER_OPS',
+      imageMapKey: 'service-driver-operations-view',
+      containerName: 'driver-ops-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'driverOpsImageUri',
     imageEnvKey: 'DRIVER_OPS_IMAGE_URI',
     defaultDesiredCount: 0,
@@ -356,6 +392,12 @@ const serviceCatalogEntries: readonly ServiceCatalogEntry[] = [
     wave: 2,
     slice: 'dispatch-read-models',
     preflightGroup: 'Dispatch Read Models',
+    appHostRuntime: {
+      id: 'VEHICLE_OPS',
+      imageMapKey: 'service-vehicle-operations-view',
+      containerName: 'vehicle-ops-api',
+      containerPort: 8000
+    },
     imageConfigKey: 'vehicleOpsImageUri',
     imageEnvKey: 'VEHICLE_OPS_IMAGE_URI',
     defaultDesiredCount: 0,
