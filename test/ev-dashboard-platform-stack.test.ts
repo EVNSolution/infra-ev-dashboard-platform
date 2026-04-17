@@ -195,40 +195,43 @@ function buildReplacementPayloadInput(input?: {
   disabledTelemetryImage?: string;
   accountEnvironment?: Record<string, string>;
   bootstrapPackageObjectKey?: string;
+  reverseServiceOrder?: boolean;
 }): {
   runProfile: 'full' | 'incremental-expand';
   runtimeImageMap: Record<string, string>;
   appServices: AppHostRuntimeService[];
   bootstrapPackageIdentity: { bucketName: string; objectKey: string };
 } {
+  const appServices: AppHostRuntimeService[] = [
+    {
+      id: 'ACCOUNT_ACCESS',
+      imageMapKey: 'service-account-access',
+      containerName: 'account-auth-api',
+      enabled: true,
+      containerPort: 8000,
+      hostPort: 8000,
+      environment: input?.accountEnvironment ?? {
+        DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com'
+      }
+    },
+    {
+      id: 'TELEMETRY_LISTENER',
+      imageMapKey: 'service-telemetry-listener',
+      containerName: 'telemetry-listener',
+      enabled: false,
+      environment: {
+        TELEMETRY_LISTENER_MQTT_HOST: 'mqtt.example.internal'
+      }
+    }
+  ];
+
   return {
     runProfile: input?.runProfile ?? 'full',
     runtimeImageMap: {
       'service-account-access': input?.enabledAccountImage ?? 'account@sha256:enabled-a',
       'service-telemetry-listener': input?.disabledTelemetryImage ?? 'listener@sha256:disabled-a'
     },
-    appServices: [
-      {
-        id: 'ACCOUNT_ACCESS',
-        imageMapKey: 'service-account-access',
-        containerName: 'account-auth-api',
-        enabled: true,
-        containerPort: 8000,
-        hostPort: 8000,
-        environment: input?.accountEnvironment ?? {
-          DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com'
-        }
-      },
-      {
-        id: 'TELEMETRY_LISTENER',
-        imageMapKey: 'service-telemetry-listener',
-        containerName: 'telemetry-listener',
-        enabled: false,
-        environment: {
-          TELEMETRY_LISTENER_MQTT_HOST: 'mqtt.example.internal'
-        }
-      }
-    ],
+    appServices: input?.reverseServiceOrder ? [...appServices].reverse() : appServices,
     bootstrapPackageIdentity: {
       bucketName: 'clever-bootstrap-bucket',
       objectKey: input?.bootstrapPackageObjectKey ?? 'bootstrap/runtime-a.zip'
@@ -291,6 +294,34 @@ describe('EvDashboardPlatformStack', () => {
     ).not.toEqual(
       buildAppRuntimeReplacementPayload(
         buildReplacementPayloadInput({ bootstrapPackageObjectKey: 'bootstrap/runtime-b.zip' })
+      )
+    );
+  });
+
+  test('normalizes service ordering before hashing the replacement payload', () => {
+    expect(
+      buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ reverseServiceOrder: false }))
+    ).toEqual(buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ reverseServiceOrder: true })));
+  });
+
+  test('normalizes enabled-service environment key ordering before hashing the replacement payload', () => {
+    expect(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({
+          accountEnvironment: {
+            DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com',
+            POSTGRES_HOST: 'postgres.internal'
+          }
+        })
+      )
+    ).toEqual(
+      buildAppRuntimeReplacementPayload(
+        buildReplacementPayloadInput({
+          accountEnvironment: {
+            POSTGRES_HOST: 'postgres.internal',
+            DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com'
+          }
+        })
       )
     );
   });
