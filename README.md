@@ -420,7 +420,7 @@ Repository secrets:
 
 The workflow uses the selected GitHub Environment (`dev`, `stage`, `prod`) for approval gates. The actual CDK deploy runs with the shared infra role because the existing `GH_ACTIONS_*_DEPLOY_ROLE_ARN` roles remain EC2/SSM deploy roles for `clever-deploy-control`.
 
-For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`, `APP_HOST_SUBNET_AVAILABILITY_ZONE`, and `DATA_HOST_SUBNET_AVAILABILITY_ZONE` are required. The current default-VPC public-only EC2 lane expects both host subnets to be chosen from `PUBLIC_SUBNET_IDS`, and both hosts now force `associatePublicIpAddress: true` so bootstrap can reach SSM, ECR, Secrets Manager, and package mirrors even when the imported subnet metadata does not auto-assign public IPs. `PRIVATE_SUBNET_IDS` is optional for this EC2 lane and stays as network metadata for later hardening; the current verification does not place hosts in private lanes because that path still has no NAT or VPC endpoints. The default app host stays on x86_64 (`t3.small`) because the live service image fleet is still `linux/amd64` only, but that default is for `bootstrap-proof` only. If remaining business services are enabled under `RUN_PROFILE=full`, set `APP_HOST_INSTANCE_TYPE` explicitly to a non-burstable x86 host such as `m6i.2xlarge`; preflight now rejects t-family app hosts for full-service EC2 bring-up. The data host keeps its Graviton default (`t4g.small`) because it runs PostgreSQL and Redis locally and should avoid unnecessary EBS reattachment churn during verification updates. The EC2 data bootstrap currently expects the attached EBS volume at `/dev/sdf`; using `/dev/xvdf` on these Nitro instances leaves PostgreSQL and Redis permanently down even though the attachment exists.
+For canonical runtime deploys, set `RUNTIME_MODE=ec2`. In that mode, `APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`, `APP_HOST_SUBNET_AVAILABILITY_ZONE`, and `DATA_HOST_SUBNET_AVAILABILITY_ZONE` are required. The current default-VPC public-only EC2 lane expects both host subnets to be chosen from `PUBLIC_SUBNET_IDS`, and both hosts now force `associatePublicIpAddress: true` so bootstrap can reach SSM, ECR, Secrets Manager, and package mirrors even when the imported subnet metadata does not auto-assign public IPs. `PRIVATE_SUBNET_IDS` is optional for this EC2 lane and stays as network metadata for later hardening; the current verification does not place hosts in private lanes because that path still has no NAT or VPC endpoints. The default app host stays on x86_64 (`t3.small`) because the live service image fleet is still `linux/amd64` only, but that default is for `bootstrap-proof` only. Under `RUN_PROFILE=full`, preflight now allows the currently proven burstable full hosts (`t3.medium`, `t3.large`) while `service-telemetry-listener` remains disabled, rejects `t3.small`, and still requires a non-burstable x86 host such as `m6i.2xlarge` when a telemetry-listener cutover is part of the run. The data host keeps its Graviton default (`t4g.small`) because it runs PostgreSQL and Redis locally and should avoid unnecessary EBS reattachment churn during verification updates. The EC2 data bootstrap currently expects the attached EBS volume at `/dev/sdf`; using `/dev/xvdf` on these Nitro instances leaves PostgreSQL and Redis permanently down even though the attachment exists.
 
 Observed EC2 sizing rules now matter as much as the profile name. Use the app-host class that matches the verification scope:
 
@@ -429,7 +429,7 @@ Observed EC2 sizing rules now matter as much as the profile name. Use the app-ho
   - dev cumulative bring-up reached `core-entry + people-and-assets + dispatch-inputs + dispatch-read-models + settlement`
   - even after `GUNICORN_WORKERS=1`, the lane still ran out of CPU credit once `support-surface` and later groups were added; treat it as too small for extended remaining-business-service bootstrap
 - `t3.medium`
-  - now proven for the current `full-minus-listener` shape with backend `GUNICORN_WORKERS=1`
+  - now proven for the current `full` configuration with backend `GUNICORN_WORKERS=1`
   - successful prod run: `24508999204`
   - included:
     - `core-entry`
@@ -451,24 +451,24 @@ Observed EC2 sizing rules now matter as much as the profile name. Use the app-ho
     - peak bucket maximum about `87.8%`
     - `CPUCreditBalance=0`
     - `CPUSurplusCreditBalance≈1.85`
-  - lesson: `t3.medium` is now proven for `full-minus-listener`, but it remains a burst-dependent host and should be described as a tight minimum, not comfortable headroom
+  - lesson: `t3.medium` is now proven for the current `full` configuration, but it remains a burst-dependent host and should be described as a tight minimum, not comfortable headroom
 - `t3.large`
   - proven for the 17-service prod-like profile after forcing backend `GUNICORN_WORKERS=1`
   - fresh create succeeded with `core-entry + people-and-assets + dispatch-inputs + dispatch-read-models + settlement`
   - post-smoke host snapshot for that 17-service run: `1602 MiB used / 5921 MiB available`, CPU during deploy+smoke window averaged about `53.6%` and peaked about `84.4%`
-  - later update also proved the `full-minus-listener` shape
+  - later update also proved the current `full` configuration
     - added `support-surface + terminal-registry + telemetry-hub + telemetry-dead-letter`
     - kept `service-telemetry-listener desired=0`
     - post-smoke host snapshot for that wider run: `2188 MiB used / 5334 MiB available`
     - CloudWatch during the create-and-smoke window still showed burst behavior: CPU average `49.2%`, peak bucket average `91.2%`, `CPUCreditBalance=0`, `CPUSurplusCreditBalance≈3.42`
-  - current safer burstable host for the 17-service shape and for the larger `full-minus-listener` proof
+  - current safer burstable host for the 17-service shape and for the larger current-`full` proof
 - `m6i.2xlarge`
   - still the release-grade proof host for `RUN_PROFILE=full`
   - use it when all remaining business services must come up in one proof run and you do not want t-family credit behavior to dominate the result
 
 GitHub variable scope matters for the EC2 runtime cutover. The shared network values in this repo currently live at repo scope, but the new host-placement keys (`APP_HOST_SUBNET_ID`, `DATA_HOST_SUBNET_ID`) may need environment-specific values. If those keys are absent from the selected GitHub Environment, the workflow still starts but preflight fails before deploy.
 
-`service-telemetry-listener` is still the strict-full boundary. The rest of terminal and telemetry can run in the current default-VPC public-subnet EC2 lane, but the listener itself still needs a real `TELEMETRY_LISTENER_MQTT_HOST` plus confirmed broker reachability. Do not assume subnet redesign is required first. If the real broker is reachable from the existing lane, strict full may stay on the same subnets; if the broker is private-only, then network opening becomes part of the cutover.
+`service-telemetry-listener` is still the current full-cutover boundary. The rest of terminal and telemetry can run in the current default-VPC public-subnet EC2 lane, but the listener itself still needs a real `TELEMETRY_LISTENER_MQTT_HOST` plus confirmed broker reachability. Do not assume subnet redesign is required first. If the real broker is reachable from the existing lane, the same `full` profile may stay on the same subnets; if the broker is private-only, then network opening becomes part of the cutover.
 
 ## Runtime Notes
 

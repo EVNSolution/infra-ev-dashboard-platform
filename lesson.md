@@ -352,13 +352,13 @@ App-host sizing for the EC2 lane has to be recorded with both memory and CPU cre
   - post-smoke host snapshot was roughly `1602 MiB used / 5921 MiB available`
   - container memory settled mostly around `57-66 MiB` per backend service
   - deploy/smoke CPU still peaked high enough that it should be treated as a "works, but still burst-based" host rather than a generous long-term ceiling
-  - a later prod update widened the same host class to `full-minus-listener`
+  - a later prod update widened the same host class to the current `full` configuration
     - added `support-surface + terminal-registry + telemetry-hub + telemetry-dead-letter`
     - kept `service-telemetry-listener desired=0`
     - post-smoke host snapshot was roughly `2188 MiB used / 5334 MiB available`
     - CloudWatch for the successful create-and-smoke window still showed burst behavior: CPU average about `49.2%`, busiest 5-minute bucket average about `91.2%`, `CPUCreditBalance=0`, `CPUSurplusCreditBalance≈3.42`
-  - lesson: `t3.large` is good enough for the current full-minus-listener proof, but it is still a burst-based host and should not be described as comfortable headroom
-- `t3.medium` has now been proven for the current `full-minus-listener` shape
+  - lesson: `t3.large` is good enough for the current `full` configuration, but it is still a burst-based host and should not be described as comfortable headroom
+- `t3.medium` has now been proven for the current `full` configuration
   - successful prod run: `24508999204`
   - scope matched:
     - `core-entry`
@@ -378,7 +378,7 @@ App-host sizing for the EC2 lane has to be recorded with both memory and CPU cre
     - `CPUSurplusCreditBalance≈1.85`
   - post-smoke app-host snapshot after reconcile settled was roughly `2096 MiB used / 1458 MiB available`
   - a one-second steady-state sample then showed about `98.51%` idle with load around `0.70 / 1.12 / 0.57`
-  - lesson: `t3.medium` is now an honest `full-minus-listener` proof host, but only as a tight burstable minimum; keep both the hot bootstrap bucket and the quiet steady-state sample in the sizing record
+  - lesson: `t3.medium` is now an honest current-`full` proof host, but only as a tight burstable minimum; keep both the hot bootstrap bucket and the quiet steady-state sample in the sizing record
 
 Backend worker count is now part of sizing, not just app tuning. Dropping Python backend services from `GUNICORN_WORKERS=2` to `1` was the first change that moved the needle across the whole fleet:
 
@@ -392,7 +392,7 @@ CloudFormation-managed data hosts do not tolerate out-of-band termination. The f
 - the clean recovery is to delete the stack and recreate it, not to keep patching over the broken logical resource
 - lesson: "protect data" means preserving the EBS-backed data path, not keeping a dead CloudFormation instance resource around
 
-Strict full is still blocked by telemetry-listener truth, not by a generic subnet rule. The successful `t3.large` widen-proof showed that terminal, telemetry hub, and telemetry dead-letter all work on the current default-VPC public-subnet lane. The only missing runtime piece is `service-telemetry-listener`, which still requires:
+Current `full` still stops at the telemetry-listener truth boundary, not at a generic subnet rule. The successful `t3.large` widen-proof showed that terminal, telemetry hub, and telemetry dead-letter all work on the current default-VPC public-subnet lane. The only missing runtime piece is `service-telemetry-listener`, which still requires:
 
 - a real `TELEMETRY_LISTENER_MQTT_HOST`
 - confirmed broker credentials

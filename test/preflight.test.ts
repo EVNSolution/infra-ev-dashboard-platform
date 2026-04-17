@@ -506,10 +506,10 @@ describe('deploy preflight', () => {
     );
   });
 
-  test('rejects remaining business services in ec2 full profile when app host stays on a burstable t-family instance', () => {
+  test('rejects remaining business services in ec2 full profile when app host stays on t3.small', () => {
     const report = buildDeployPreflightReport(
       createBaseEnv({
-        APP_HOST_INSTANCE_TYPE: 't3.large',
+        APP_HOST_INSTANCE_TYPE: 't3.small',
         ORGANIZATION_DESIRED_COUNT: '1',
         DRIVER_PROFILE_DESIRED_COUNT: '1',
         PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
@@ -533,7 +533,86 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).toContain(
-      'EC2 full-service verification requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when remaining business services are enabled.'
+      'EC2 full-service verification rejects t3.small once remaining business services are enabled. Use at least the currently proven t3.medium/t3.large full host classes, or switch to a non-burstable x86 host when telemetry listener cutover is part of the run.'
+    );
+  });
+
+  test('allows current ec2 full profile on t3.large when telemetry listener stays disabled', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        APP_HOST_INSTANCE_TYPE: 't3.large',
+        ORGANIZATION_DESIRED_COUNT: '1',
+        DRIVER_PROFILE_DESIRED_COUNT: '1',
+        PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
+        VEHICLE_ASSET_DESIRED_COUNT: '1',
+        DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '1',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '1',
+        DELIVERY_RECORD_DESIRED_COUNT: '1',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '1',
+        DISPATCH_OPS_DESIRED_COUNT: '1',
+        DRIVER_OPS_DESIRED_COUNT: '1',
+        VEHICLE_OPS_DESIRED_COUNT: '1',
+        SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
+        SETTLEMENT_OPS_DESIRED_COUNT: '1',
+        REGION_REGISTRY_DESIRED_COUNT: '1',
+        REGION_ANALYTICS_DESIRED_COUNT: '1',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+        NOTIFICATION_HUB_DESIRED_COUNT: '1',
+        TERMINAL_REGISTRY_DESIRED_COUNT: '1',
+        TELEMETRY_HUB_DESIRED_COUNT: '1',
+        TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '1',
+        TELEMETRY_LISTENER_DESIRED_COUNT: '0'
+      })
+    );
+
+    expect(report.errors).not.toContain(
+      'EC2 full-service verification rejects t3.small once remaining business services are enabled. Use at least the currently proven t3.medium/t3.large full host classes, or switch to a non-burstable x86 host when telemetry listener cutover is part of the run.'
+    );
+  });
+
+  test('rejects telemetry-listener full cutover on a burstable t-family app host', () => {
+    const report = buildDeployPreflightReport(
+      createBaseEnv({
+        APP_HOST_INSTANCE_TYPE: 't3.large',
+        ORGANIZATION_DESIRED_COUNT: '1',
+        DRIVER_PROFILE_DESIRED_COUNT: '1',
+        PERSONNEL_DOCUMENT_DESIRED_COUNT: '1',
+        VEHICLE_ASSET_DESIRED_COUNT: '1',
+        DRIVER_VEHICLE_ASSIGNMENT_DESIRED_COUNT: '1',
+        DISPATCH_REGISTRY_DESIRED_COUNT: '1',
+        DELIVERY_RECORD_DESIRED_COUNT: '1',
+        ATTENDANCE_REGISTRY_DESIRED_COUNT: '1',
+        DISPATCH_OPS_DESIRED_COUNT: '1',
+        DRIVER_OPS_DESIRED_COUNT: '1',
+        VEHICLE_OPS_DESIRED_COUNT: '1',
+        SETTLEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SETTLEMENT_PAYROLL_DESIRED_COUNT: '1',
+        SETTLEMENT_OPS_DESIRED_COUNT: '1',
+        REGION_REGISTRY_DESIRED_COUNT: '1',
+        REGION_ANALYTICS_DESIRED_COUNT: '1',
+        ANNOUNCEMENT_REGISTRY_DESIRED_COUNT: '1',
+        SUPPORT_REGISTRY_DESIRED_COUNT: '1',
+        NOTIFICATION_HUB_DESIRED_COUNT: '1',
+        TERMINAL_REGISTRY_DESIRED_COUNT: '1',
+        TELEMETRY_HUB_DESIRED_COUNT: '1',
+        TELEMETRY_DEAD_LETTER_DESIRED_COUNT: '1',
+        TELEMETRY_LISTENER_DESIRED_COUNT: '1',
+        TELEMETRY_LISTENER_MQTT_HOST: 'mqtt-prod.example.internal',
+        TERMINAL_REGISTRY_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-terminal-registry:sha-terminal',
+        TELEMETRY_HUB_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-hub:sha-telemetry-hub',
+        TELEMETRY_DEAD_LETTER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-dead-letter:sha-telemetry-dead-letter',
+        TELEMETRY_LISTENER_IMAGE_URI:
+          '123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/service-telemetry-listener:sha-telemetry-listener'
+      })
+    );
+
+    expect(report.errors).toContain(
+      'Telemetry-listener full cutover requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Current t-family evidence only covers the listener-disabled full configuration.'
     );
   });
 
@@ -565,7 +644,7 @@ describe('deploy preflight', () => {
     );
 
     expect(report.errors).not.toContain(
-      'EC2 full-service verification requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when remaining business services are enabled.'
+      'EC2 full-service verification rejects t3.small once remaining business services are enabled. Use at least the currently proven t3.medium/t3.large full host classes, or switch to a non-burstable x86 host when telemetry listener cutover is part of the run.'
     );
   });
 

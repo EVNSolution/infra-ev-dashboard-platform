@@ -308,9 +308,20 @@ function validateSliceDependencies(
   }
 
   if (config.runtimeMode === 'ec2' && config.runProfile === 'full' && hasHeavyFullFleetSlices(slices)) {
-    if (isBurstableInstanceType(config.appHostInstanceType)) {
+    if (listenerEnabled && isBurstableInstanceType(config.appHostInstanceType)) {
       errors.push(
-        'EC2 full-service verification requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Do not use the bootstrap-proof default t3.small or any t-family burstable host when remaining business services are enabled.'
+        'Telemetry-listener full cutover requires a non-burstable x86 APP_HOST_INSTANCE_TYPE. Current t-family evidence only covers the listener-disabled full configuration.'
+      );
+    } else if (
+      isBurstableInstanceType(config.appHostInstanceType) &&
+      !isProvenBurstableEc2FullHost(config.appHostInstanceType)
+    ) {
+      errors.push(
+        'EC2 full-service verification rejects t3.small once remaining business services are enabled. Use at least the currently proven t3.medium/t3.large full host classes, or switch to a non-burstable x86 host when telemetry listener cutover is part of the run.'
+      );
+    } else if (isProvenBurstableEc2FullHost(config.appHostInstanceType)) {
+      warnings.push(
+        'Current full verification is running on a proven but burst-dependent t3.medium/t3.large app host. Keep the bootstrap CPU-credit sample with the post-smoke steady-state sample in the sizing record.'
       );
     }
   }
@@ -512,6 +523,10 @@ function hasHeavyFullFleetSlices(slices: SliceState): boolean {
 
 function isBurstableInstanceType(instanceType: string): boolean {
   return /^t\d[a-z]?\./i.test(instanceType);
+}
+
+function isProvenBurstableEc2FullHost(instanceType: string): boolean {
+  return /^t3\.(medium|large)$/i.test(instanceType);
 }
 
 function hasTagOrDigest(imageUri: string): boolean {
