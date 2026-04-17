@@ -5,7 +5,7 @@ import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 
 import { buildPlatformConfig } from '../lib/config';
-import { buildAppRuntimeReplacementPayload, EvDashboardPlatformStack } from '../lib/ev-dashboard-platform-stack';
+import { buildAppRuntimeFingerprint, buildAppRuntimeReplacementPayload, EvDashboardPlatformStack } from '../lib/ev-dashboard-platform-stack';
 import type { AppHostRuntimeService } from '../lib/ec2-bootstrap';
 
 function baseEc2RuntimeInput() {
@@ -190,17 +190,15 @@ function extractRuntimeImageMap(template: Template): Record<string, string> {
 }
 
 function buildReplacementPayloadInput(input?: {
-  runProfile?: 'full' | 'incremental-expand';
   enabledAccountImage?: string;
   disabledTelemetryImage?: string;
   accountEnvironment?: Record<string, string>;
-  bootstrapPackageObjectKey?: string;
+  bootstrapPackageDigest?: string;
   reverseServiceOrder?: boolean;
 }): {
-  runProfile: 'full' | 'incremental-expand';
   runtimeImageMap: Record<string, string>;
   appServices: AppHostRuntimeService[];
-  bootstrapPackageIdentity: { bucketName: string; objectKey: string };
+  bootstrapPackageDigest: string;
 } {
   const appServices: AppHostRuntimeService[] = [
     {
@@ -226,24 +224,38 @@ function buildReplacementPayloadInput(input?: {
   ];
 
   return {
-    runProfile: input?.runProfile ?? 'full',
     runtimeImageMap: {
       'service-account-access': input?.enabledAccountImage ?? 'account@sha256:enabled-a',
       'service-telemetry-listener': input?.disabledTelemetryImage ?? 'listener@sha256:disabled-a'
     },
     appServices: input?.reverseServiceOrder ? [...appServices].reverse() : appServices,
-    bootstrapPackageIdentity: {
-      bucketName: 'clever-bootstrap-bucket',
-      objectKey: input?.bootstrapPackageObjectKey ?? 'bootstrap/runtime-a.zip'
-    }
+    bootstrapPackageDigest: input?.bootstrapPackageDigest ?? 'bootstrap-digest-a'
   };
 }
 
 describe('EvDashboardPlatformStack', () => {
-  test('keeps the replacement payload stable when runProfile changes without runtime changes', () => {
+  test('keeps the replacement fingerprint stable for the same resolved runtime', () => {
     expect(
-      buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ runProfile: 'full' }))
-    ).toEqual(buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ runProfile: 'incremental-expand' })));
+      buildAppRuntimeFingerprint(
+        buildReplacementPayloadInput({
+          accountEnvironment: {
+            DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com',
+            POSTGRES_HOST: 'postgres.internal'
+          },
+          reverseServiceOrder: false
+        })
+      )
+    ).toEqual(
+      buildAppRuntimeFingerprint(
+        buildReplacementPayloadInput({
+          accountEnvironment: {
+            POSTGRES_HOST: 'postgres.internal',
+            DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com'
+          },
+          reverseServiceOrder: true
+        })
+      )
+    );
   });
 
   test('ignores disabled-service image changes in the replacement payload', () => {
@@ -286,42 +298,14 @@ describe('EvDashboardPlatformStack', () => {
     );
   });
 
-  test('changes the replacement payload when the bootstrap package identity changes', () => {
+  test('changes the replacement fingerprint when the bootstrap package digest changes', () => {
     expect(
-      buildAppRuntimeReplacementPayload(
-        buildReplacementPayloadInput({ bootstrapPackageObjectKey: 'bootstrap/runtime-a.zip' })
+      buildAppRuntimeFingerprint(
+        buildReplacementPayloadInput({ bootstrapPackageDigest: 'bootstrap-digest-a' })
       )
     ).not.toEqual(
-      buildAppRuntimeReplacementPayload(
-        buildReplacementPayloadInput({ bootstrapPackageObjectKey: 'bootstrap/runtime-b.zip' })
-      )
-    );
-  });
-
-  test('normalizes service ordering before hashing the replacement payload', () => {
-    expect(
-      buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ reverseServiceOrder: false }))
-    ).toEqual(buildAppRuntimeReplacementPayload(buildReplacementPayloadInput({ reverseServiceOrder: true })));
-  });
-
-  test('normalizes enabled-service environment key ordering before hashing the replacement payload', () => {
-    expect(
-      buildAppRuntimeReplacementPayload(
-        buildReplacementPayloadInput({
-          accountEnvironment: {
-            DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com',
-            POSTGRES_HOST: 'postgres.internal'
-          }
-        })
-      )
-    ).toEqual(
-      buildAppRuntimeReplacementPayload(
-        buildReplacementPayloadInput({
-          accountEnvironment: {
-            POSTGRES_HOST: 'postgres.internal',
-            DJANGO_ALLOWED_HOSTS: 'api.ev-dashboard.com'
-          }
-        })
+      buildAppRuntimeFingerprint(
+        buildReplacementPayloadInput({ bootstrapPackageDigest: 'bootstrap-digest-b' })
       )
     );
   });

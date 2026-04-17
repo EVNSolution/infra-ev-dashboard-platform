@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -28,6 +29,17 @@ export function getBootstrapPackageRoot(): string {
 
 export function getBootstrapAssetRoot(): string {
   return path.resolve(__dirname, '..', 'bootstrap');
+}
+
+export function buildBootstrapPackageDigest(files: BootstrapPackageFile[] = listBootstrapPackageFiles()): string {
+  const normalizedFiles = [...files]
+    .map((file) => ({
+      relativePath: file.relativePath,
+      contents: file.contents,
+    }))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+
+  return crypto.createHash('sha256').update(JSON.stringify(normalizedFiles)).digest('hex');
 }
 
 export function renderBootstrapPackageStageCommands(targetRoot: string): string[] {

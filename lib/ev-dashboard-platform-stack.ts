@@ -19,7 +19,7 @@ import { Construct } from 'constructs';
 
 import type { PlatformConfig } from './config';
 import { orderAppHostRuntimeServices } from './appHostRuntimeOrder';
-import { getBootstrapAssetRoot } from './bootstrapPackage';
+import { buildBootstrapPackageDigest, getBootstrapAssetRoot } from './bootstrapPackage';
 import { Ec2AppHost } from './ec2-app-host';
 import type { AppHostRuntimeService } from './ec2-bootstrap';
 import { Ec2DataHost } from './ec2-data-host';
@@ -32,20 +32,13 @@ type EvDashboardPlatformStackProps = cdk.StackProps & {
 };
 
 export type AppRuntimeReplacementPayloadInput = {
-  runProfile: string;
   runtimeImageMap: Record<string, string>;
   appServices: AppHostRuntimeService[];
-  bootstrapPackageIdentity: {
-    bucketName: string;
-    objectKey: string;
-  };
+  bootstrapPackageDigest: string;
 };
 
 export function buildAppRuntimeReplacementPayload(input: AppRuntimeReplacementPayloadInput): {
-  bootstrapPackageIdentity: {
-    bucketName: string;
-    objectKey: string;
-  };
+  bootstrapPackageDigest: string;
   services: Array<{
     id: string;
     imageMapKey: string;
@@ -70,12 +63,13 @@ export function buildAppRuntimeReplacementPayload(input: AppRuntimeReplacementPa
     }));
 
   return {
-    bootstrapPackageIdentity: {
-      bucketName: input.bootstrapPackageIdentity.bucketName,
-      objectKey: input.bootstrapPackageIdentity.objectKey
-    },
+    bootstrapPackageDigest: input.bootstrapPackageDigest,
     services
   };
+}
+
+export function buildAppRuntimeFingerprint(input: AppRuntimeReplacementPayloadInput): string {
+  return crypto.createHash('sha256').update(JSON.stringify(buildAppRuntimeReplacementPayload(input))).digest('hex');
 }
 
 export class EvDashboardPlatformStack extends cdk.Stack {
@@ -2538,22 +2532,11 @@ export class EvDashboardPlatformStack extends cdk.Stack {
         )
       )
     });
-    const appRuntimeFingerprint = crypto
-      .createHash('sha256')
-      .update(
-        JSON.stringify(
-          buildAppRuntimeReplacementPayload({
-            runProfile: config.runProfile,
-            runtimeImageMap,
-            appServices,
-            bootstrapPackageIdentity: {
-              bucketName: bootstrapPackageAsset.s3BucketName,
-              objectKey: bootstrapPackageAsset.s3ObjectKey
-            }
-          })
-        )
-      )
-      .digest('hex');
+    const appRuntimeFingerprint = buildAppRuntimeFingerprint({
+      runtimeImageMap,
+      appServices,
+      bootstrapPackageDigest: buildBootstrapPackageDigest()
+    });
 
     const appServiceSecretMap = new secretsmanager.Secret(this, 'AppServiceSecretMap', {
       description: 'Resolved secret ARN map for ev-dashboard EC2 app host services',
