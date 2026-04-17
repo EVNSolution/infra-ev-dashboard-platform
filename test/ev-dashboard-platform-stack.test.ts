@@ -178,6 +178,16 @@ function extractAppServiceManifestEnvironment(
   return manifest.find((service) => service.containerName === containerName)?.environment;
 }
 
+function extractRuntimeImageMap(template: Template): Record<string, string> {
+  const rendered = template.toJSON();
+  const parameters = Object.values(rendered.Resources).filter(
+    (resource: any) =>
+      resource.Type === 'AWS::SSM::Parameter' && resource.Properties?.Name === '/TestStack/runtime/images'
+  ) as Array<{ Properties: { Value: string } }>;
+
+  return JSON.parse(parameters[0].Properties.Value) as Record<string, string>;
+}
+
 describe('EvDashboardPlatformStack', () => {
   test('sources core backend app-host runtime base metadata from the service catalog', () => {
     const source = readFileSync(join(__dirname, '..', 'lib', 'ev-dashboard-platform-stack.ts'), 'utf8');
@@ -189,6 +199,14 @@ describe('EvDashboardPlatformStack', () => {
     expect(source).toContain("buildCatalogBackedAppHostRuntimeService('service-dispatch-operations-view'");
     expect(source).not.toContain("buildCatalogBackedAppHostRuntimeService('front-web-console'");
     expect(source).not.toContain("buildCatalogBackedAppHostRuntimeService('edge-api-gateway'");
+  });
+
+  test('sources runtime image-map entries for catalog-backed services from the service catalog', () => {
+    const source = readFileSync(join(__dirname, '..', 'lib', 'ev-dashboard-platform-stack.ts'), 'utf8');
+
+    expect(source).toContain('buildCatalogBackedRuntimeImageMapEntries');
+    expect(source).not.toContain("'service-driver-profile': config.driverProfileImageUri");
+    expect(source).not.toContain("'service-dispatch-operations-view': config.dispatchOpsImageUri");
   });
 
   test('synthesizes the ev-dashboard canonical runtime as EC2 app and data hosts', () => {
@@ -377,5 +395,29 @@ describe('EvDashboardPlatformStack', () => {
         GUNICORN_WORKERS: '1'
       })
     );
+  });
+
+  test('omits optional terminal and telemetry images from the runtime image map when undefined', () => {
+    const app = new App();
+    const config = buildPlatformConfig({
+      ...baseEc2RuntimeInput(),
+      deployEnvironment: 'prod',
+      terminalRegistryImageUri: undefined,
+      telemetryHubImageUri: undefined,
+      telemetryDeadLetterImageUri: undefined,
+      telemetryListenerImageUri: undefined,
+      terminalRegistryDesiredCount: 0,
+      telemetryHubDesiredCount: 0,
+      telemetryDeadLetterDesiredCount: 0,
+      telemetryListenerDesiredCount: 0
+    });
+    const stack = new EvDashboardPlatformStack(app, 'TestStack', { config });
+    const template = Template.fromStack(stack);
+    const runtimeImageMap = extractRuntimeImageMap(template);
+
+    expect(runtimeImageMap['service-terminal-registry']).toBeUndefined();
+    expect(runtimeImageMap['service-telemetry-hub']).toBeUndefined();
+    expect(runtimeImageMap['service-telemetry-dead-letter']).toBeUndefined();
+    expect(runtimeImageMap['service-telemetry-listener']).toBeUndefined();
   });
 });

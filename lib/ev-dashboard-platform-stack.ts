@@ -25,7 +25,7 @@ import type { AppHostRuntimeService } from './ec2-bootstrap';
 import { Ec2DataHost } from './ec2-data-host';
 import { buildGatewayRouteProfile } from './gatewayRouteProfile';
 import type { ReleaseManifestServiceName } from './releaseManifest';
-import { getCatalogAppHostRuntimeMetadata } from './serviceCatalog';
+import { buildCatalogBackedRuntimeImageMapEntries, getCatalogAppHostRuntimeMetadata } from './serviceCatalog';
 
 type EvDashboardPlatformStackProps = cdk.StackProps & {
   config: PlatformConfig;
@@ -2834,18 +2834,10 @@ export class EvDashboardPlatformStack extends cdk.Stack {
     return {
       'front-web-console': config.frontImageUri,
       'edge-api-gateway': config.gatewayImageUri,
-      'service-account-access': config.accountAccessImageUri,
-      'service-organization-registry': config.organizationImageUri,
-      'service-driver-profile': config.driverProfileImageUri,
-      'service-personnel-document-registry': config.personnelDocumentImageUri,
-      'service-vehicle-registry': config.vehicleAssetImageUri,
-      'service-vehicle-assignment': config.driverVehicleAssignmentImageUri,
+      ...Object.fromEntries(buildCatalogBackedRuntimeImageMapEntries(config)),
       'service-dispatch-registry': config.dispatchRegistryImageUri,
       'service-delivery-record': config.deliveryRecordImageUri,
       'service-attendance-registry': config.attendanceRegistryImageUri,
-      'service-dispatch-operations-view': config.dispatchOpsImageUri,
-      'service-driver-operations-view': config.driverOpsImageUri,
-      'service-vehicle-operations-view': config.vehicleOpsImageUri,
       'service-settlement-registry': config.settlementRegistryImageUri,
       'service-settlement-payroll': config.settlementPayrollImageUri,
       'service-settlement-operations-view': config.settlementOpsImageUri,

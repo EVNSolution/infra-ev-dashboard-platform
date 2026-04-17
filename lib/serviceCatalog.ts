@@ -712,6 +712,19 @@ export function getCatalogAppHostRuntimeMetadata(service: ReleaseManifestService
   return entry.appHostRuntime;
 }
 
+export function buildCatalogBackedRuntimeImageMapEntries(
+  config: PlatformConfig
+): Array<[ReleaseManifestServiceName, string]> {
+  return serviceCatalogEntries.flatMap((entry) => {
+    if (!entry.appHostRuntime) {
+      return [];
+    }
+
+    const imageUri = config[entry.imageConfigKey as keyof PlatformConfig];
+    return typeof imageUri === 'string' && imageUri.trim() ? [[entry.service, imageUri]] : [];
+  });
+}
+
 export function getServiceDesiredCount(config: PlatformConfig, service: ReleaseManifestServiceName): number {
   const entry = getServiceCatalogEntry(service);
   return Number(config[entry.desiredCountConfigKey] ?? 0);
